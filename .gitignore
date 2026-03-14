@@ -1,0 +1,5 @@
+subnet/tuning/__pycache__/
+subnet/insignia/__pycache__/
+subnet/neurons/__pycache__/
+subnet/results/
+__pycache__/
