@@ -1,0 +1,197 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "title": "L1 Miner Composite Scores",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "insignia_l1_composite_score",
+          "legendFormat": "{{miner}} ({{agent_type}})",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "max": 1
+        }
+      }
+    },
+    {
+      "title": "L2 Strategy Composite Scores",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "expr": "insignia_l2_composite_score",
+          "legendFormat": "{{miner}} ({{agent_type}})",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "max": 1
+        }
+      }
+    },
+    {
+      "title": "Attack Vector Status",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "insignia_attack_breach",
+          "legendFormat": "{{attack}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 0.5 }
+            ]
+          },
+          "mappings": [
+            { "type": "value", "options": { "0": { "text": "DEFENDED", "color": "green" } } },
+            { "type": "value", "options": { "1": { "text": "BREACHED", "color": "red" } } }
+          ]
+        }
+      }
+    },
+    {
+      "title": "Attack Severity",
+      "type": "bargauge",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
+      "targets": [
+        {
+          "expr": "insignia_attack_severity",
+          "legendFormat": "{{attack}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.3 },
+              { "color": "red", "value": 0.6 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Total Breaches Over Time",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 14 },
+      "targets": [
+        {
+          "expr": "insignia_total_breaches",
+          "legendFormat": "Total Breaches",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Optimizer Progress",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 8, "x": 0, "y": 22 },
+      "targets": [
+        {
+          "expr": "insignia_optimizer_generation",
+          "legendFormat": "Generation",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Pareto Front Size",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 8, "x": 8, "y": 22 },
+      "targets": [
+        {
+          "expr": "insignia_pareto_front_size",
+          "legendFormat": "Pareto Solutions",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Population Diversity",
+      "type": "gauge",
+      "gridPos": { "h": 4, "w": 8, "x": 16, "y": 22 },
+      "targets": [
+        {
+          "expr": "insignia_population_diversity",
+          "legendFormat": "Diversity",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Best Fitness per Objective",
+      "type": "bargauge",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 26 },
+      "targets": [
+        {
+          "expr": "insignia_best_fitness",
+          "legendFormat": "{{objective}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Promotion Pool Size",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 26 },
+      "targets": [
+        {
+          "expr": "insignia_promotion_active_count",
+          "legendFormat": "Active Models in L2 Pool",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Cross-Layer Feedback Adjustments",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 34 },
+      "targets": [
+        {
+          "expr": "insignia_feedback_adjustment",
+          "legendFormat": "{{model}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 2
+          }
+        }
+      }
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["insignia", "subnet", "tuning"],
+  "templating": { "list": [] },
+  "time": { "from": "now-1h", "to": "now" },
+  "title": "Insignia Subnet Tuning",
+  "uid": "insignia-tuning-v1"
+}
