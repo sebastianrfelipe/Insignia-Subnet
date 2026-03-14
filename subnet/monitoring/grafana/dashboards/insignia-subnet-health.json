@@ -1,0 +1,249 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "title": "Subnet Overview",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "collapsed": false
+    },
+    {
+      "title": "Total Neurons",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 1 },
+      "targets": [{ "expr": "bt_subnet_neuron_count", "refId": "A" }],
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "blue", "value": null }] } } }
+    },
+    {
+      "title": "Validators",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 1 },
+      "targets": [{ "expr": "bt_subnet_validator_count", "refId": "A" }],
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "green", "value": null }] } } }
+    },
+    {
+      "title": "Miners",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 1 },
+      "targets": [{ "expr": "bt_subnet_miner_count", "refId": "A" }],
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "orange", "value": null }] } } }
+    },
+    {
+      "title": "Total Stake (TAO)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 1 },
+      "targets": [{ "expr": "bt_subnet_total_stake_tao", "refId": "A" }],
+      "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "purple", "value": null }] } } }
+    },
+    {
+      "title": "Emission Rate",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 1 },
+      "targets": [{ "expr": "bt_subnet_emission_rate", "refId": "A" }],
+      "fieldConfig": { "defaults": { "unit": "short", "decimals": 6 } }
+    },
+    {
+      "title": "Mechanisms",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 1 },
+      "targets": [{ "expr": "bt_mechanism_count", "refId": "A" }],
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "blue", "value": null }, { "color": "green", "value": 2 }] } } }
+    },
+
+    {
+      "title": "Neuron Metagraph",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+      "collapsed": false
+    },
+    {
+      "title": "Incentive by Neuron (Miners)",
+      "type": "bargauge",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "targets": [{ "expr": "bt_neuron_incentive{role=\"miner\"}", "legendFormat": "UID {{uid}}", "refId": "A" }],
+      "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1, "thresholds": { "steps": [{ "color": "red", "value": null }, { "color": "yellow", "value": 0.02 }, { "color": "green", "value": 0.05 }] } } }
+    },
+    {
+      "title": "Emission by Neuron",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "targets": [{ "expr": "bt_neuron_emission_rho", "legendFormat": "UID {{uid}} ({{role}})", "refId": "A" }],
+      "fieldConfig": { "defaults": { "unit": "short" } }
+    },
+    {
+      "title": "Trust Scores",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
+      "targets": [
+        { "expr": "bt_neuron_trust", "legendFormat": "Trust UID {{uid}}", "refId": "A" },
+        { "expr": "bt_neuron_consensus", "legendFormat": "Consensus UID {{uid}}", "refId": "B" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0, "max": 1 } }
+    },
+    {
+      "title": "Rank by Neuron",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 14 },
+      "targets": [{ "expr": "bt_neuron_rank", "legendFormat": "UID {{uid}} ({{role}})", "refId": "A" }],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0, "max": 1 } }
+    },
+
+    {
+      "title": "Validator Health",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 22 },
+      "collapsed": false
+    },
+    {
+      "title": "Validator Trust (VTrust)",
+      "type": "gauge",
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 23 },
+      "targets": [{ "expr": "bt_neuron_vtrust{role=\"validator\"}", "legendFormat": "UID {{uid}}", "refId": "A" }],
+      "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1, "thresholds": { "steps": [{ "color": "red", "value": null }, { "color": "yellow", "value": 0.5 }, { "color": "green", "value": 0.8 }] } } }
+    },
+    {
+      "title": "Weight Setting Lag (blocks)",
+      "type": "bargauge",
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 23 },
+      "targets": [{ "expr": "bt_validator_weight_setting_lag_blocks", "legendFormat": "UID {{uid}}", "refId": "A" }],
+      "fieldConfig": { "defaults": { "unit": "short", "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 500 }, { "color": "red", "value": 1500 }] } } },
+      "description": "Blocks since validator last set weights. <500 is healthy, >1500 triggers VTrust decay."
+    },
+    {
+      "title": "Weight Setting Health",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 23 },
+      "targets": [{ "expr": "bt_validator_weight_setting_healthy", "legendFormat": "UID {{uid}}", "refId": "A" }],
+      "fieldConfig": { "defaults": { "mappings": [{ "type": "value", "options": { "0": { "text": "STALE", "color": "red" }, "1": { "text": "HEALTHY", "color": "green" } } }] } }
+    },
+    {
+      "title": "Validator Dividends",
+      "type": "timeseries",
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 29 },
+      "targets": [{ "expr": "bt_neuron_dividends{role=\"validator\"}", "legendFormat": "UID {{uid}}", "refId": "A" }]
+    },
+    {
+      "title": "Stake Distribution",
+      "type": "piechart",
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 29 },
+      "targets": [{ "expr": "bt_neuron_stake_tao{role=\"validator\"}", "legendFormat": "UID {{uid}}", "refId": "A" }]
+    },
+
+    {
+      "title": "Multi-Mechanism (L1 + L2)",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 35 },
+      "collapsed": false
+    },
+    {
+      "title": "Mechanism Emission Split",
+      "type": "piechart",
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 36 },
+      "targets": [{ "expr": "bt_mechanism_emission_split", "legendFormat": "Mechanism {{mechid}}", "refId": "A" }]
+    },
+    {
+      "title": "Per-Mechanism Incentive",
+      "type": "bargauge",
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 36 },
+      "targets": [{ "expr": "bt_mechanism_neuron_incentive", "legendFormat": "UID {{uid}} Mech {{mechid}}", "refId": "A" }],
+      "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1 } }
+    },
+    {
+      "title": "Per-Mechanism Rank",
+      "type": "bargauge",
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 36 },
+      "targets": [{ "expr": "bt_mechanism_neuron_rank", "legendFormat": "UID {{uid}} Mech {{mechid}}", "refId": "A" }],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0, "max": 1 } }
+    },
+
+    {
+      "title": "Subnet Hyperparameters",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 42 },
+      "collapsed": false
+    },
+    {
+      "title": "Tempo",
+      "type": "stat",
+      "gridPos": { "h": 3, "w": 4, "x": 0, "y": 43 },
+      "targets": [{ "expr": "bt_hyperparameter_tempo", "refId": "A" }],
+      "fieldConfig": { "defaults": { "unit": "short" } }
+    },
+    {
+      "title": "Immunity Period",
+      "type": "stat",
+      "gridPos": { "h": 3, "w": 4, "x": 4, "y": 43 },
+      "targets": [{ "expr": "bt_hyperparameter_immunity_period", "refId": "A" }],
+      "fieldConfig": { "defaults": { "unit": "short" } }
+    },
+    {
+      "title": "Min Weights",
+      "type": "stat",
+      "gridPos": { "h": 3, "w": 4, "x": 8, "y": 43 },
+      "targets": [{ "expr": "bt_hyperparameter_min_allowed_weights", "refId": "A" }]
+    },
+    {
+      "title": "Max Weight",
+      "type": "stat",
+      "gridPos": { "h": 3, "w": 4, "x": 12, "y": 43 },
+      "targets": [{ "expr": "bt_hyperparameter_max_weight_limit", "refId": "A" }]
+    },
+    {
+      "title": "Bonds MA",
+      "type": "stat",
+      "gridPos": { "h": 3, "w": 4, "x": 16, "y": 43 },
+      "targets": [{ "expr": "bt_hyperparameter_bonds_moving_avg", "refId": "A" }]
+    },
+    {
+      "title": "Commit-Reveal",
+      "type": "stat",
+      "gridPos": { "h": 3, "w": 4, "x": 20, "y": 43 },
+      "targets": [{ "expr": "bt_hyperparameter_commit_reveal_enabled", "refId": "A" }],
+      "fieldConfig": { "defaults": { "mappings": [{ "type": "value", "options": { "0": { "text": "OFF" }, "1": { "text": "ON", "color": "green" } } }] } }
+    },
+    {
+      "title": "Liquid Alpha",
+      "type": "stat",
+      "gridPos": { "h": 3, "w": 4, "x": 0, "y": 46 },
+      "targets": [{ "expr": "bt_hyperparameter_liquid_alpha_enabled", "refId": "A" }],
+      "fieldConfig": { "defaults": { "mappings": [{ "type": "value", "options": { "0": { "text": "OFF" }, "1": { "text": "ON", "color": "green" } } }] } }
+    },
+    {
+      "title": "Alpha High",
+      "type": "stat",
+      "gridPos": { "h": 3, "w": 4, "x": 4, "y": 46 },
+      "targets": [{ "expr": "bt_hyperparameter_alpha_high", "refId": "A" }],
+      "fieldConfig": { "defaults": { "decimals": 4 } }
+    },
+    {
+      "title": "Alpha Low",
+      "type": "stat",
+      "gridPos": { "h": 3, "w": 4, "x": 8, "y": 46 },
+      "targets": [{ "expr": "bt_hyperparameter_alpha_low", "refId": "A" }],
+      "fieldConfig": { "defaults": { "decimals": 4 } }
+    },
+    {
+      "title": "Kappa",
+      "type": "stat",
+      "gridPos": { "h": 3, "w": 4, "x": 12, "y": 46 },
+      "targets": [{ "expr": "bt_hyperparameter_kappa", "refId": "A" }]
+    },
+    {
+      "title": "Registration Cost (TAO)",
+      "type": "timeseries",
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 46 },
+      "targets": [{ "expr": "bt_subnet_registration_cost_tao", "legendFormat": "Registration Cost", "refId": "A" }],
+      "fieldConfig": { "defaults": { "unit": "short" } }
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["insignia", "subnet", "bittensor", "health"],
+  "templating": { "list": [] },
+  "time": { "from": "now-6h", "to": "now" },
+  "title": "Insignia Subnet Health",
+  "uid": "insignia-subnet-health-v1"
+}

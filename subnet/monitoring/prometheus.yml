@@ -1,18 +1,42 @@
 global:
-  scrape_interval: 5s
-  evaluation_interval: 5s
+  scrape_interval: 15s
+  evaluation_interval: 15s
 
 scrape_configs:
+  # Insignia tuning/simulation metrics exporter
   - job_name: "insignia-tuning"
+    scrape_interval: 5s
     static_configs:
       - targets: ["host.docker.internal:8000"]
         labels:
           app: "insignia"
           component: "tuning"
 
-  - job_name: "insignia-validator"
+  # L1 validator metrics (subnet health + scoring)
+  - job_name: "insignia-l1-validator"
+    scrape_interval: 30s
     static_configs:
       - targets: ["host.docker.internal:8001"]
         labels:
           app: "insignia"
-          component: "validator"
+          component: "l1_validator"
+          mechid: "0"
+
+  # L2 validator metrics (strategy scoring)
+  - job_name: "insignia-l2-validator"
+    scrape_interval: 30s
+    static_configs:
+      - targets: ["host.docker.internal:8002"]
+        labels:
+          app: "insignia"
+          component: "l2_validator"
+          mechid: "1"
+
+  # Bittensor subtensor node metrics (if running local node)
+  - job_name: "subtensor-node"
+    scrape_interval: 60s
+    static_configs:
+      - targets: ["host.docker.internal:9615"]
+        labels:
+          app: "bittensor"
+          component: "subtensor"

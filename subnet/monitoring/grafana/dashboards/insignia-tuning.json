@@ -1,197 +1,163 @@
 {
   "annotations": { "list": [] },
   "editable": true,
-  "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
   "id": null,
   "links": [],
   "panels": [
     {
-      "title": "L1 Miner Composite Scores",
+      "title": "L1 Incentive Mechanism",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "collapsed": false
+    },
+    {
+      "title": "L1 Composite Scores by Agent Type",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 1 },
+      "targets": [{ "expr": "insignia_l1_composite_score", "legendFormat": "{{miner}} ({{agent_type}})", "refId": "A" }],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0, "max": 1 } }
+    },
+    {
+      "title": "L1 Penalized F1 (mean - λ·std)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 1 },
       "targets": [
-        {
-          "expr": "insignia_l1_composite_score",
-          "legendFormat": "{{miner}} ({{agent_type}})",
-          "refId": "A"
-        }
+        { "expr": "insignia_l1_penalized_f1", "legendFormat": "F1 {{miner}}", "refId": "A" },
+        { "expr": "insignia_l1_mean_f1", "legendFormat": "mean_f1 {{miner}}", "refId": "B" }
       ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "min": 0,
-          "max": 1
-        }
-      }
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0, "max": 1 } }
+    },
+    {
+      "title": "L1 Penalized Sharpe (mean - λ·std)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 9 },
+      "targets": [
+        { "expr": "insignia_l1_penalized_sharpe", "legendFormat": "Sharpe {{miner}}", "refId": "A" },
+        { "expr": "insignia_l1_mean_sharpe", "legendFormat": "mean_sharpe {{miner}}", "refId": "B" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short" } }
+    },
+    {
+      "title": "L1 Generalization Gap |train_f1 - val_f1|",
+      "type": "bargauge",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 9 },
+      "targets": [{ "expr": "insignia_l1_generalization_gap", "legendFormat": "{{miner}} ({{agent_type}})", "refId": "A" }],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0, "max": 1, "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 0.1 }, { "color": "red", "value": 0.25 }] } } },
+      "description": "Lower is better. High gap = overfitting."
+    },
+    {
+      "title": "L1 F1 Variance (std_f1)",
+      "type": "bargauge",
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 17 },
+      "targets": [{ "expr": "insignia_l1_std_f1", "legendFormat": "{{miner}}", "refId": "A" }],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0, "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 0.05 }, { "color": "red", "value": 0.15 }] } } },
+      "description": "Lower is better. High std = inconsistent across regimes."
+    },
+    {
+      "title": "L1 Sharpe Variance (std_sharpe)",
+      "type": "bargauge",
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 17 },
+      "targets": [{ "expr": "insignia_l1_std_sharpe", "legendFormat": "{{miner}}", "refId": "A" }],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0, "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 0.5 }, { "color": "red", "value": 2.0 }] } } }
+    },
+    {
+      "title": "L1 Max Drawdown",
+      "type": "bargauge",
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 17 },
+      "targets": [{ "expr": "insignia_l1_max_drawdown", "legendFormat": "{{miner}}", "refId": "A" }],
+      "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1, "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 0.1 }, { "color": "red", "value": 0.3 }] } } }
+    },
+
+    {
+      "title": "L2 Incentive Mechanism",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 23 },
+      "collapsed": false
     },
     {
       "title": "L2 Strategy Composite Scores",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
-      "targets": [
-        {
-          "expr": "insignia_l2_composite_score",
-          "legendFormat": "{{miner}} ({{agent_type}})",
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "min": 0,
-          "max": 1
-        }
-      }
-    },
-    {
-      "title": "Attack Vector Status",
-      "type": "stat",
-      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 8 },
-      "targets": [
-        {
-          "expr": "insignia_attack_breach",
-          "legendFormat": "{{attack}}",
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "thresholds": {
-            "steps": [
-              { "color": "green", "value": null },
-              { "color": "red", "value": 0.5 }
-            ]
-          },
-          "mappings": [
-            { "type": "value", "options": { "0": { "text": "DEFENDED", "color": "green" } } },
-            { "type": "value", "options": { "1": { "text": "BREACHED", "color": "red" } } }
-          ]
-        }
-      }
-    },
-    {
-      "title": "Attack Severity",
-      "type": "bargauge",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
-      "targets": [
-        {
-          "expr": "insignia_attack_severity",
-          "legendFormat": "{{attack}}",
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percentunit",
-          "min": 0,
-          "max": 1,
-          "thresholds": {
-            "steps": [
-              { "color": "green", "value": null },
-              { "color": "yellow", "value": 0.3 },
-              { "color": "red", "value": 0.6 }
-            ]
-          }
-        }
-      }
-    },
-    {
-      "title": "Total Breaches Over Time",
-      "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 14 },
-      "targets": [
-        {
-          "expr": "insignia_total_breaches",
-          "legendFormat": "Total Breaches",
-          "refId": "A"
-        }
-      ]
-    },
-    {
-      "title": "Optimizer Progress",
-      "type": "stat",
-      "gridPos": { "h": 4, "w": 8, "x": 0, "y": 22 },
-      "targets": [
-        {
-          "expr": "insignia_optimizer_generation",
-          "legendFormat": "Generation",
-          "refId": "A"
-        }
-      ]
-    },
-    {
-      "title": "Pareto Front Size",
-      "type": "stat",
-      "gridPos": { "h": 4, "w": 8, "x": 8, "y": 22 },
-      "targets": [
-        {
-          "expr": "insignia_pareto_front_size",
-          "legendFormat": "Pareto Solutions",
-          "refId": "A"
-        }
-      ]
-    },
-    {
-      "title": "Population Diversity",
-      "type": "gauge",
-      "gridPos": { "h": 4, "w": 8, "x": 16, "y": 22 },
-      "targets": [
-        {
-          "expr": "insignia_population_diversity",
-          "legendFormat": "Diversity",
-          "refId": "A"
-        }
-      ]
-    },
-    {
-      "title": "Best Fitness per Objective",
-      "type": "bargauge",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 26 },
-      "targets": [
-        {
-          "expr": "insignia_best_fitness",
-          "legendFormat": "{{objective}}",
-          "refId": "A"
-        }
-      ]
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "targets": [{ "expr": "insignia_l2_composite_score", "legendFormat": "{{miner}} ({{agent_type}})", "refId": "A" }],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0, "max": 1 } }
     },
     {
       "title": "Promotion Pool Size",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 26 },
-      "targets": [
-        {
-          "expr": "insignia_promotion_active_count",
-          "legendFormat": "Active Models in L2 Pool",
-          "refId": "A"
-        }
-      ]
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+      "targets": [{ "expr": "insignia_promotion_active_count", "legendFormat": "Active Models in L2 Pool", "refId": "A" }]
     },
     {
       "title": "Cross-Layer Feedback Adjustments",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 34 },
-      "targets": [
-        {
-          "expr": "insignia_feedback_adjustment",
-          "legendFormat": "{{model}}",
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "lineWidth": 2
-          }
-        }
-      }
+      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 32 },
+      "targets": [{ "expr": "insignia_feedback_adjustment", "legendFormat": "{{model}}", "refId": "A" }],
+      "fieldConfig": { "defaults": { "custom": { "lineWidth": 2 } } }
+    },
+
+    {
+      "title": "Attack Detection",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 38 },
+      "collapsed": false
+    },
+    {
+      "title": "Attack Vector Status",
+      "type": "stat",
+      "gridPos": { "h": 5, "w": 24, "x": 0, "y": 39 },
+      "targets": [{ "expr": "insignia_attack_breach", "legendFormat": "{{attack}}", "refId": "A" }],
+      "fieldConfig": { "defaults": { "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 0.5 }] }, "mappings": [{ "type": "value", "options": { "0": { "text": "DEFENDED", "color": "green" }, "1": { "text": "BREACHED", "color": "red" } } }] } }
+    },
+    {
+      "title": "Attack Severity",
+      "type": "bargauge",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 44 },
+      "targets": [{ "expr": "insignia_attack_severity", "legendFormat": "{{attack}}", "refId": "A" }],
+      "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1, "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 0.3 }, { "color": "red", "value": 0.6 }] } } }
+    },
+    {
+      "title": "Total Breaches Over Time",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 44 },
+      "targets": [{ "expr": "insignia_total_breaches", "legendFormat": "Total Breaches", "refId": "A" }]
+    },
+
+    {
+      "title": "Optimizer Progress",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 52 },
+      "collapsed": false
+    },
+    {
+      "title": "Generation",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 8, "x": 0, "y": 53 },
+      "targets": [{ "expr": "insignia_optimizer_generation", "legendFormat": "Generation", "refId": "A" }]
+    },
+    {
+      "title": "Pareto Front Size",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 8, "x": 8, "y": 53 },
+      "targets": [{ "expr": "insignia_pareto_front_size", "legendFormat": "Pareto Solutions", "refId": "A" }]
+    },
+    {
+      "title": "Population Diversity",
+      "type": "gauge",
+      "gridPos": { "h": 4, "w": 8, "x": 16, "y": 53 },
+      "targets": [{ "expr": "insignia_population_diversity", "legendFormat": "Diversity", "refId": "A" }]
+    },
+    {
+      "title": "Best Fitness per Objective",
+      "type": "bargauge",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 57 },
+      "targets": [{ "expr": "insignia_best_fitness", "legendFormat": "{{objective}}", "refId": "A" }]
     }
   ],
   "schemaVersion": 39,
-  "tags": ["insignia", "subnet", "tuning"],
+  "tags": ["insignia", "subnet", "tuning", "incentive"],
   "templating": { "list": [] },
   "time": { "from": "now-1h", "to": "now" },
-  "title": "Insignia Subnet Tuning",
-  "uid": "insignia-tuning-v1"
+  "title": "Insignia Incentive Tuning",
+  "uid": "insignia-tuning-v2"
 }
