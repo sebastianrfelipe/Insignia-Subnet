@@ -41,14 +41,14 @@ class ParameterBounds:
 
 # All tunable parameters with bounds
 PARAMETER_DEFINITIONS: List[ParameterBounds] = [
-    # L1 Scoring Weights (7 params, must sum to 1.0)
-    ParameterBounds("l1_directional_accuracy", 0.05, 0.40, "l1_weights", "Weight for directional accuracy"),
-    ParameterBounds("l1_sharpe",               0.05, 0.40, "l1_weights", "Weight for Sharpe ratio"),
-    ParameterBounds("l1_max_drawdown",         0.05, 0.30, "l1_weights", "Weight for max drawdown penalty"),
-    ParameterBounds("l1_stability",            0.05, 0.30, "l1_weights", "Weight for stability score"),
-    ParameterBounds("l1_overfitting_penalty",  0.05, 0.35, "l1_weights", "Weight for overfitting penalty"),
-    ParameterBounds("l1_feature_efficiency",   0.01, 0.15, "l1_weights", "Weight for feature efficiency"),
-    ParameterBounds("l1_latency",              0.01, 0.20, "l1_weights", "Weight for latency score"),
+    # L1 Scoring Weights (6 params, must sum to 1.0)
+    # Uses variance-penalized mean - λ·std formulation from GBDT HPO
+    ParameterBounds("l1_penalized_f1",       0.05, 0.45, "l1_weights", "Weight for penalized F1 (mean_f1 - λ·std_f1)"),
+    ParameterBounds("l1_penalized_sharpe",   0.05, 0.45, "l1_weights", "Weight for penalized Sharpe (mean_sharpe - λ·std_sharpe)"),
+    ParameterBounds("l1_max_drawdown",       0.05, 0.30, "l1_weights", "Weight for max drawdown penalty"),
+    ParameterBounds("l1_generalization_gap", 0.05, 0.40, "l1_weights", "Weight for |train_f1 - val_f1| overfitting"),
+    ParameterBounds("l1_feature_efficiency", 0.01, 0.15, "l1_weights", "Weight for feature efficiency"),
+    ParameterBounds("l1_latency",            0.01, 0.20, "l1_weights", "Weight for latency score"),
 
     # L2 Scoring Weights (6 params, must sum to 1.0)
     ParameterBounds("l2_realized_pnl",     0.05, 0.45, "l2_weights", "Weight for realized P&L"),
@@ -58,9 +58,9 @@ PARAMETER_DEFINITIONS: List[ParameterBounds] = [
     ParameterBounds("l2_consistency",      0.05, 0.35, "l2_weights", "Weight for consistency"),
     ParameterBounds("l2_model_attribution",0.01, 0.25, "l2_weights", "Weight for model attribution"),
 
-    # Overfitting Detector
-    ParameterBounds("overfit_gap_threshold", 0.05, 0.40, "overfitting", "IS/OOS gap before penalty kicks in"),
-    ParameterBounds("overfit_decay_rate",    1.0,  15.0, "overfitting", "Exponential decay rate for penalty"),
+    # Variance Penalty (λ in mean - λ·std formulation)
+    ParameterBounds("variance_penalty",  0.1, 1.5,  "variance_penalty", "λ coefficient: higher = stricter variance punishment"),
+    ParameterBounds("n_eval_windows",    3,   10,   "variance_penalty", "K rolling windows for mean/std computation"),
 
     # Cross-Layer Promotion
     ParameterBounds("promotion_top_n",                 3,   20,   "promotion", "Number of models promoted to L2"),
@@ -140,11 +140,10 @@ def decode(x: np.ndarray) -> Dict[str, Any]:
     p = {name: float(val) for name, val in zip(PARAM_NAMES, x)}
 
     weight_config = WeightConfig(
-        l1_directional_accuracy=p["l1_directional_accuracy"],
-        l1_sharpe=p["l1_sharpe"],
+        l1_penalized_f1=p["l1_penalized_f1"],
+        l1_penalized_sharpe=p["l1_penalized_sharpe"],
         l1_max_drawdown=p["l1_max_drawdown"],
-        l1_stability=p["l1_stability"],
-        l1_overfitting_penalty=p["l1_overfitting_penalty"],
+        l1_generalization_gap=p["l1_generalization_gap"],
         l1_feature_efficiency=p["l1_feature_efficiency"],
         l1_latency=p["l1_latency"],
         l2_realized_pnl=p["l2_realized_pnl"],
@@ -153,6 +152,8 @@ def decode(x: np.ndarray) -> Dict[str, Any]:
         l2_win_rate=p["l2_win_rate"],
         l2_consistency=p["l2_consistency"],
         l2_model_attribution=p["l2_model_attribution"],
+        variance_penalty=p["variance_penalty"],
+        n_eval_windows=int(round(p["n_eval_windows"])),
     )
 
     promotion_config = PromotionConfig(
@@ -167,9 +168,9 @@ def decode(x: np.ndarray) -> Dict[str, Any]:
         "weight_config": weight_config,
         "promotion_config": promotion_config,
         "raw_params": p,
-        "overfitting": {
-            "gap_threshold": p["overfit_gap_threshold"],
-            "decay_rate": p["overfit_decay_rate"],
+        "variance_penalty_config": {
+            "variance_penalty": p["variance_penalty"],
+            "n_eval_windows": int(round(p["n_eval_windows"])),
         },
         "feedback": {
             "bonus_weight": p["feedback_bonus_weight"],
@@ -199,12 +200,12 @@ def decode(x: np.ndarray) -> Dict[str, Any]:
 def encode_defaults() -> np.ndarray:
     """Encode the default parameter configuration as a flat vector."""
     defaults = {
-        "l1_directional_accuracy": 0.20, "l1_sharpe": 0.20, "l1_max_drawdown": 0.15,
-        "l1_stability": 0.15, "l1_overfitting_penalty": 0.15, "l1_feature_efficiency": 0.05,
+        "l1_penalized_f1": 0.25, "l1_penalized_sharpe": 0.25, "l1_max_drawdown": 0.15,
+        "l1_generalization_gap": 0.20, "l1_feature_efficiency": 0.05,
         "l1_latency": 0.10,
         "l2_realized_pnl": 0.25, "l2_omega": 0.20, "l2_max_drawdown": 0.15,
         "l2_win_rate": 0.10, "l2_consistency": 0.20, "l2_model_attribution": 0.10,
-        "overfit_gap_threshold": 0.15, "overfit_decay_rate": 5.0,
+        "variance_penalty": 0.5, "n_eval_windows": 5,
         "promotion_top_n": 10, "promotion_min_consecutive_epochs": 2,
         "promotion_max_overfitting_score": 0.40, "promotion_max_score_decay_pct": 0.20,
         "promotion_expiry_epochs": 5,
@@ -224,9 +225,9 @@ def summarize_config(config: Dict[str, Any]) -> str:
     lines = []
     p = config["raw_params"]
 
-    lines.append("=== L1 Scoring Weights ===")
-    for k in ["l1_directional_accuracy", "l1_sharpe", "l1_max_drawdown",
-              "l1_stability", "l1_overfitting_penalty", "l1_feature_efficiency", "l1_latency"]:
+    lines.append("=== L1 Scoring Weights (mean - λ·std formulation) ===")
+    for k in ["l1_penalized_f1", "l1_penalized_sharpe", "l1_max_drawdown",
+              "l1_generalization_gap", "l1_feature_efficiency", "l1_latency"]:
         lines.append(f"  {k}: {p[k]:.4f}")
 
     lines.append("=== L2 Scoring Weights ===")
@@ -234,9 +235,9 @@ def summarize_config(config: Dict[str, Any]) -> str:
               "l2_win_rate", "l2_consistency", "l2_model_attribution"]:
         lines.append(f"  {k}: {p[k]:.4f}")
 
-    lines.append("=== Overfitting Detector ===")
-    lines.append(f"  gap_threshold: {p['overfit_gap_threshold']:.4f}")
-    lines.append(f"  decay_rate: {p['overfit_decay_rate']:.2f}")
+    lines.append("=== Variance Penalty (mean - λ·std) ===")
+    lines.append(f"  variance_penalty (λ): {p['variance_penalty']:.4f}")
+    lines.append(f"  n_eval_windows (K): {int(p['n_eval_windows'])}")
 
     lines.append("=== Promotion ===")
     lines.append(f"  top_n: {int(p['promotion_top_n'])}")
@@ -262,8 +263,8 @@ if __name__ == "__main__":
 
     print("\nL1 weights sum:", sum(
         config["raw_params"][k] for k in
-        ["l1_directional_accuracy", "l1_sharpe", "l1_max_drawdown",
-         "l1_stability", "l1_overfitting_penalty", "l1_feature_efficiency", "l1_latency"]
+        ["l1_penalized_f1", "l1_penalized_sharpe", "l1_max_drawdown",
+         "l1_generalization_gap", "l1_feature_efficiency", "l1_latency"]
     ))
     print("L2 weights sum:", sum(
         config["raw_params"][k] for k in

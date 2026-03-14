@@ -37,7 +37,7 @@ import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from insignia.scoring import (
-    CompositeScorer, WeightConfig, ReferenceOverfittingDetector,
+    CompositeScorer, WeightConfig,
 )
 from insignia.incentive import (
     SubmissionRateLimit, ModelFingerprinter, CopyTradeDetector,
@@ -389,16 +389,11 @@ class SimulationHarness:
 
         weight_config = config["weight_config"]
         promotion_config = config["promotion_config"]
-        ovf_params = config["overfitting"]
         feedback_params = config["feedback"]
         anti_gaming = config["anti_gaming"]
         trading_config = config["trading"]
 
-        ovf_detector = ReferenceOverfittingDetector(
-            gap_threshold=ovf_params["gap_threshold"],
-            decay_rate=ovf_params["decay_rate"],
-        )
-        scorer = CompositeScorer(weights=weight_config, overfitting_detector=ovf_detector)
+        scorer = CompositeScorer(weights=weight_config)
         benchmark = DemoBenchmarkProvider()
         evaluator = ModelEvaluator(scorer=scorer, benchmark=benchmark)
 
@@ -440,7 +435,7 @@ class SimulationHarness:
             epoch_scores = {
                 uid: {
                     "composite_score": r.get("composite_score", 0.0),
-                    "overfitting_score": r.get("raw_metrics", {}).get("overfitting_penalty", 0.0),
+                    "overfitting_score": r.get("raw_metrics", {}).get("generalization_gap", 0.0),
                     "artifact_hash": submissions[uid].get("preprocessing_hash", ""),
                 }
                 for uid, r in epoch_result["results"].items()

@@ -119,7 +119,7 @@ def run_full_demo(
         epoch_scores = {
             uid: {
                 "composite_score": r.get("composite_score", 0.0),
-                "overfitting_score": r.get("raw_metrics", {}).get("overfitting_penalty", 0.0),
+                "overfitting_score": r.get("raw_metrics", {}).get("generalization_gap", 0.0),
                 "artifact_hash": l1_submissions[uid].get(
                     "preprocessing_hash", ""
                 ),

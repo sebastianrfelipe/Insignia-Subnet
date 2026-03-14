@@ -177,6 +177,11 @@ class ModelEvaluator:
         """
         Full evaluation pipeline for one miner's model.
 
+        Computes predictions on the holdout window, splits into in-sample
+        and out-of-sample halves to measure the generalization gap (F1),
+        and passes everything to the CompositeScorer which computes
+        variance-penalized metrics across rolling windows.
+
         Returns (score_vector, diagnostics_dict).
         """
         model = self._deserialize(model_artifact)
@@ -205,10 +210,16 @@ class ModelEvaluator:
         position_returns = predictions * actuals_clean
         equity_curve = np.cumsum(position_returns) + 1.0
 
-        in_sample_acc = float(np.mean(np.sign(predictions[:len(predictions)//2]) ==
-                                      np.sign(actuals_clean[:len(actuals_clean)//2])))
-        out_sample_acc = float(np.mean(np.sign(predictions[len(predictions)//2:]) ==
-                                       np.sign(actuals_clean[len(actuals_clean)//2:])))
+        # Generalization gap: F1 on in-sample half vs out-of-sample half
+        mid = len(predictions) // 2
+        is_pred_cls = (np.sign(predictions[:mid]) > 0).astype(int)
+        is_actual_cls = (np.sign(actuals_clean[:mid]) > 0).astype(int)
+        oos_pred_cls = (np.sign(predictions[mid:]) > 0).astype(int)
+        oos_actual_cls = (np.sign(actuals_clean[mid:]) > 0).astype(int)
+
+        from sklearn.metrics import f1_score as _f1
+        in_sample_f1 = float(_f1(is_actual_cls, is_pred_cls, zero_division=0.0))
+        out_of_sample_f1 = float(_f1(oos_actual_cls, oos_pred_cls, zero_division=0.0))
 
         model_complexity = self._extract_complexity(model)
 
@@ -218,8 +229,8 @@ class ModelEvaluator:
             equity_curve=equity_curve,
             n_features=len(available_features),
             inference_ms=inference_ms,
-            in_sample_accuracy=in_sample_acc,
-            out_of_sample_accuracy=out_sample_acc,
+            in_sample_f1=in_sample_f1,
+            out_of_sample_f1=out_of_sample_f1,
             model_complexity=model_complexity,
         )
 
@@ -227,8 +238,9 @@ class ModelEvaluator:
             "regime": self.benchmark.get_regime_label(epoch_id),
             "n_samples_evaluated": int(len(X_clean)),
             "inference_ms": round(inference_ms, 2),
-            "in_sample_accuracy": round(in_sample_acc, 4),
-            "out_of_sample_accuracy": round(out_sample_acc, 4),
+            "in_sample_f1": round(in_sample_f1, 4),
+            "out_of_sample_f1": round(out_of_sample_f1, 4),
+            "generalization_gap": round(abs(in_sample_f1 - out_of_sample_f1), 4),
             "model_complexity": model_complexity,
         }
 
