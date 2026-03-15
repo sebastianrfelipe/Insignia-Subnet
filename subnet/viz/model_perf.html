@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Insignia — Model Performance</title>
+<link rel="stylesheet" href="styles.css">
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+</head>
+<body>
+
+<div class="header">
+  <h1>Example Model — Performance Analysis</h1>
+  <p>HistGradientBoostingClassifier · 2-hour prediction horizon · 70/30 chronological split</p>
+</div>
+
+<div class="stat-row" id="stats"></div>
+
+<div class="divider"></div>
+<div class="section-label">Price + Predictions</div>
+<div class="grid">
+  <div class="card full">
+    <h2>BTC/USDT — Test Period with Model Signals</h2>
+    <div class="desc">Green/red background = correct/wrong 2-hour prediction blocks. Triangles = buy/sell transition points where the model changes direction.</div>
+    <div id="signals" class="plot tall"></div>
+  </div>
+</div>
+
+<div class="divider"></div>
+<div class="section-label">Prediction Confidence</div>
+<div class="grid">
+  <div class="card full">
+    <h2>Prediction Confidence Distribution</h2>
+    <div class="desc">How often the model predicted with low, medium, or high confidence.</div>
+    <div id="confidence" class="plot"></div>
+  </div>
+</div>
+
+<div style="height: 32px;"></div>
+
+<script>
+const L = {
+  paper_bgcolor: '#18181b', plot_bgcolor: '#18181b',
+  font: { color: '#a1a1aa', size: 11 },
+  margin: { l: 55, r: 20, t: 10, b: 40 },
+  xaxis: { gridcolor: '#27272a', zerolinecolor: '#3f3f46' },
+  yaxis: { gridcolor: '#27272a', zerolinecolor: '#3f3f46' },
+  showlegend: true,
+  legend: { bgcolor: 'rgba(0,0,0,0)', font: { size: 10 } },
+};
+const C = { cyan: '#06b6d4', teal: '#14b8a6', amber: '#f59e0b', red: '#ef4444', green: '#34d399', purple: '#a78bfa', zinc: '#52525b' };
+const CFG = { responsive: true };
+const D = __DATA_JSON__;
+
+// Stats
+document.getElementById('stats').innerHTML = [
+  { label: 'Test Accuracy', value: (D.test_acc * 100).toFixed(1) + '%', sub: 'on unseen data', cls: 'highlight' },
+  { label: 'Edge', value: '+' + (D.edge * 100).toFixed(2) + '%', sub: 'above 50% random', cls: 'highlight' },
+  { label: 'Total Return', value: D.total_return.toFixed(1) + '%', sub: 'model strategy', cls: D.total_return >= 0 ? 'green' : 'red' },
+  { label: 'Sharpe Ratio', value: D.sharpe.toFixed(2), sub: 'annualized' },
+  { label: 'Max Drawdown', value: D.max_dd.toFixed(1) + '%', sub: 'peak to trough', cls: 'red' },
+  { label: 'Win Rate', value: D.win_rate.toFixed(1) + '%', sub: 'of all trades' },
+].map(s => `<div class="stat ${s.cls||''}">\
+<div class="label">${s.label}</div>\
+<div class="value">${s.value}</div>\
+<div class="sub">${s.sub}</div></div>`).join('');
+
+// Price + Predictions (2-hour highlight blocks)
+const blockShapes = D.blocks.map(b => ({
+  type: 'rect', xref: 'x', yref: 'paper',
+  x0: b.x0, x1: b.x1, y0: 0, y1: 1,
+  fillcolor: b.correct ? 'rgba(52, 211, 153, 0.15)' : 'rgba(248, 113, 113, 0.15)',
+  line: { width: 0 },
+}));
+
+const totalCorrect = D.blocks.filter(b => b.correct).length;
+const totalWrong = D.blocks.length - totalCorrect;
+
+// Buy & Sell transition points
+const buyTs = [], buyPrice = [], sellTs = [], sellPrice = [];
+for (let i = 1; i < D.blocks.length; i++) {
+  if (D.blocks[i].pred !== D.blocks[i - 1].pred) {
+    const t = D.blocks[i].x0;
+    const pi = D.ts.findIndex(ts => ts >= t);
+    const p = pi >= 0 ? D.close[pi] : D.close[D.close.length - 1];
+    if (D.blocks[i].pred === 1) {
+      buyTs.push(t); buyPrice.push(p);
+    } else {
+      sellTs.push(t); sellPrice.push(p);
+    }
+  }
+}
+
+Plotly.newPlot('signals', [
+  { x: D.ts, y: D.close, type: 'scatter', mode: 'lines', line: { color: C.cyan, width: 1 }, name: 'Price', showlegend: false },
+  { x: buyTs, y: buyPrice, type: 'scatter', mode: 'markers', marker: { color: C.green, size: 10, symbol: 'triangle-up' }, name: 'Buy (' + buyTs.length + ')' },
+  { x: sellTs, y: sellPrice, type: 'scatter', mode: 'markers', marker: { color: C.red, size: 10, symbol: 'triangle-down' }, name: 'Sell (' + sellTs.length + ')' },
+  { x: [null], y: [null], type: 'scatter', mode: 'markers', marker: { color: 'rgba(52, 211, 153, 0.4)', size: 12, symbol: 'square' }, name: 'Correct — ' + totalCorrect + ' (' + Math.round(totalCorrect / D.blocks.length * 100) + '%)' },
+  { x: [null], y: [null], type: 'scatter', mode: 'markers', marker: { color: 'rgba(248, 113, 113, 0.4)', size: 12, symbol: 'square' }, name: 'Wrong — ' + totalWrong + ' (' + Math.round(totalWrong / D.blocks.length * 100) + '%)' },
+], {
+  ...L,
+  yaxis: { ...L.yaxis, title: 'USD' },
+  legend: { ...L.legend, x: 0, y: 1.12, orientation: 'h' },
+  shapes: blockShapes,
+}, CFG);
+
+// Confidence distribution (simple buckets)
+const buckets = ['Very Low\n(0-20%)', 'Low\n(20-40%)', 'Medium\n(40-60%)', 'High\n(60-80%)', 'Very High\n(80-100%)'];
+const ranges = [[0, 0.2], [0.2, 0.4], [0.4, 0.6], [0.6, 0.8], [0.8, 1.01]];
+const counts = ranges.map(([lo, hi]) => D.block_probs.filter(p => p >= lo && p < hi).length);
+
+Plotly.newPlot('confidence', [{
+  x: buckets, y: counts,
+  type: 'bar',
+  marker: { color: C.cyan },
+}], {
+  ...L,
+  showlegend: false,
+  xaxis: { ...L.xaxis, type: 'category' },
+  yaxis: { ...L.yaxis, title: 'Number of Predictions' },
+}, CFG);
+</script>
+</body>
+</html>

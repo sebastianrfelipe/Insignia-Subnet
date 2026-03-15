@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Insignia — Model Training Features</title>
+<link rel="stylesheet" href="styles.css">
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+</head>
+<body>
+
+<div class="header">
+  <h1>Example Model — Training Data</h1>
+  <p>BTC/USDT Perpetual Futures · 5-minute intervals · 117 input features · Aggregated derivatives market data</p>
+</div>
+
+<div class="stat-row" id="stats"></div>
+
+<!-- PRICE -->
+<div class="divider"></div>
+<div class="section-label">Price Action</div>
+<div class="grid">
+  <div class="card full">
+    <h2>BTC/USDT Perpetual — Close Price</h2>
+    <div class="desc">5-minute close prices. Train/test split shown at 70% mark.</div>
+    <div id="price" class="plot tall"></div>
+  </div>
+</div>
+
+<!-- FEATURE IMPORTANCE — right after price so the viewer sees what matters -->
+<div class="divider"></div>
+<div class="section-label">Feature Importance — What the model relies on most</div>
+<div class="grid">
+  <div class="card full">
+    <h2>Top 20 Features by Permutation Importance</h2>
+    <div class="desc">Measured by accuracy drop when each feature is shuffled. The sections below are ordered by this ranking.</div>
+    <div id="importance" class="plot tall"></div>
+  </div>
+</div>
+
+<!-- #1: SPOT FLOW / CVD — spot_cvd_agg is the top feature -->
+<div class="divider"></div>
+<div class="section-label"><span class="rank">#1</span> Spot Flow / CVD (23 features) — Top feature: spot_cvd_agg</div>
+<div class="grid">
+  <div class="card">
+    <h2>Spot CVD (Cumulative Volume Delta)</h2>
+    <div class="desc">Running total of (buy volume - sell volume) on spot. Rising = net buying. Divergence from price = potential reversal.</div>
+    <div id="spot_cvd" class="plot"></div>
+  </div>
+  <div class="card">
+    <h2>Spot CVD Z-Scores</h2>
+    <div class="desc">How extreme the current CVD is relative to recent history. Values beyond ±2 = unusual flow.</div>
+    <div id="spot_cvd_z" class="plot"></div>
+  </div>
+</div>
+
+<!-- #2: OPEN INTEREST — oi_low, oi_coin_high, oi_high are top features -->
+<div class="divider"></div>
+<div class="section-label"><span class="rank">#2</span> Open Interest (31 features) — Top features: oi_low, oi_coin_high, oi_high</div>
+<div class="grid">
+  <div class="card">
+    <h2>Open Interest (USD)</h2>
+    <div class="desc">Total value of outstanding futures contracts. Rising OI + rising price = strong trend. Rising OI + falling price = bearish pressure.</div>
+    <div id="oi" class="plot"></div>
+  </div>
+  <div class="card">
+    <h2>OI Change (multi-timeframe)</h2>
+    <div class="desc">Rate of change in open interest over 30min, 1h, 4h windows.</div>
+    <div id="oi_change" class="plot"></div>
+  </div>
+</div>
+
+<!-- #3: ORDER BOOK — fut_ob_imbalance_ma24 is #3 overall -->
+<div class="divider"></div>
+<div class="section-label"><span class="rank">#3</span> Order Book (21 features) — Top feature: fut_ob_imbalance_ma24</div>
+<div class="grid">
+  <div class="card">
+    <h2>Futures Order Book Imbalance</h2>
+    <div class="desc">Bid vs ask depth imbalance. Positive = more bids (buy pressure). Negative = more asks (sell pressure).</div>
+    <div id="ob_imbalance" class="plot"></div>
+  </div>
+  <div class="card">
+    <h2>CoinGlass Depth Ratio</h2>
+    <div class="desc">Aggregated bid/ask depth ratio across exchanges. Above 1.0 = more buy-side liquidity.</div>
+    <div id="cg_depth" class="plot"></div>
+  </div>
+</div>
+
+<!-- #4: FUNDING — funding_change_4h is #5 overall -->
+<div class="divider"></div>
+<div class="section-label"><span class="rank">#4</span> Funding Rate (18 features) — Top feature: funding_change_4h</div>
+<div class="grid">
+  <div class="card full">
+    <h2>Funding Rate</h2>
+    <div class="desc">Cost of holding leveraged long positions. Positive = longs pay shorts (bullish crowding). Negative = shorts pay longs.</div>
+    <div id="funding" class="plot"></div>
+  </div>
+</div>
+
+<!-- #5: TAKER FLOW -->
+<div class="divider"></div>
+<div class="section-label"><span class="rank">#5</span> Taker Flow (12 features)</div>
+<div class="grid">
+  <div class="card full">
+    <h2>Taker Buy vs Sell (Futures)</h2>
+    <div class="desc">Aggressive market orders. Taker buys = someone paying the ask (bullish urgency). Taker sells = hitting the bid.</div>
+    <div id="taker" class="plot"></div>
+  </div>
+</div>
+
+<!-- #6: LIQUIDATIONS -->
+<div class="divider"></div>
+<div class="section-label"><span class="rank">#6</span> Liquidations (6 features)</div>
+<div class="grid">
+  <div class="card full">
+    <h2>Liquidation Volume (Long vs Short)</h2>
+    <div class="desc">Forced position closures. Long liquidations = longs getting stopped out (bearish cascade). Short liquidations = short squeeze.</div>
+    <div id="liq" class="plot"></div>
+  </div>
+</div>
+
+<div style="height: 32px;"></div>
+
+<script>
+const L = {
+  paper_bgcolor: '#18181b', plot_bgcolor: '#18181b',
+  font: { color: '#a1a1aa', size: 11 },
+  margin: { l: 55, r: 20, t: 10, b: 40 },
+  xaxis: { gridcolor: '#27272a', zerolinecolor: '#3f3f46' },
+  yaxis: { gridcolor: '#27272a', zerolinecolor: '#3f3f46' },
+  showlegend: true,
+  legend: { bgcolor: 'rgba(0,0,0,0)', font: { size: 10 } },
+};
+const C = { cyan: '#06b6d4', teal: '#14b8a6', amber: '#f59e0b', red: '#ef4444', purple: '#a78bfa', zinc: '#52525b' };
+const CFG = { responsive: true };
+const D = __DATA_JSON__;
+
+// Stats
+document.getElementById('stats').innerHTML = [
+  { label: 'Rows', value: D.n_rows.toLocaleString(), sub: '5-min bars' },
+  { label: 'Date Range', value: D.date_start.slice(0,10) + ' → ' + D.date_end.slice(0,10), sub: '~' + D.n_months + ' months' },
+  { label: 'Features', value: '117', sub: '6 categories' },
+  { label: 'Horizon', value: '2 hours', sub: 'prediction target' },
+  { label: 'Test Accuracy', value: D.test_acc + '%', sub: '+' + D.edge + '% edge', cls: 'highlight' },
+  { label: 'Target Split', value: D.pct_up + '% up', sub: (100 - D.pct_up) + '% down' },
+].map(s => `<div class="stat ${s.cls||''}"><div class="label">${s.label}</div><div class="value">${s.value}</div><div class="sub">${s.sub}</div></div>`).join('');
+
+// Train/test split line helper
+function splitLine(ts, splitIdx) {
+  const splitTs = ts[splitIdx];
+  return { type: 'line', x0: splitTs, x1: splitTs, y0: 0, y1: 1, yref: 'paper', line: { color: '#3f3f46', width: 1, dash: 'dot' } };
+}
+
+// Price
+Plotly.newPlot('price', [{
+  x: D.ts, y: D.close, type: 'scatter', mode: 'lines', line: { color: C.cyan, width: 1.2 }, name: 'Close',
+}], { ...L, yaxis: { ...L.yaxis, title: 'USD' }, shapes: [splitLine(D.ts, D.split_idx)],
+  annotations: [{ x: D.ts[D.split_idx], y: 1.02, yref: 'paper', text: 'Train / Test split', showarrow: false, font: { color: '#71717a', size: 10 } }]
+}, CFG);
+
+// Feature importance (horizontal bar)
+const imp = D.importance;
+Plotly.newPlot('importance', [{
+  y: imp.names, x: imp.values,
+  type: 'bar', orientation: 'h',
+  marker: { color: C.cyan },
+}], {
+  paper_bgcolor: '#18181b', plot_bgcolor: '#18181b',
+  font: { color: '#a1a1aa', size: 11 },
+  margin: { l: 220, r: 20, t: 10, b: 50 },
+  showlegend: false,
+  xaxis: { gridcolor: '#27272a', zerolinecolor: '#3f3f46', title: 'Permutation Importance', type: 'linear' },
+  yaxis: { gridcolor: '#27272a', zerolinecolor: '#3f3f46', type: 'category', autorange: 'reversed' },
+}, CFG);
+
+// #1 Spot CVD
+Plotly.newPlot('spot_cvd', [{
+  x: D.ts, y: D.spot_cvd, type: 'scatter', mode: 'lines', line: { color: C.cyan, width: 1 }, name: 'Spot CVD',
+}], { ...L, shapes: [splitLine(D.ts, D.split_idx)] }, CFG);
+
+Plotly.newPlot('spot_cvd_z', [
+  { x: D.ts, y: D.spot_cvd_z_30m, type: 'scatter', mode: 'lines', line: { color: C.cyan, width: 0.8 }, name: '30m Z' },
+  { x: D.ts, y: D.spot_cvd_z_1h, type: 'scatter', mode: 'lines', line: { color: C.teal, width: 0.8 }, name: '1h Z' },
+  { x: D.ts, y: D.spot_cvd_z_4h, type: 'scatter', mode: 'lines', line: { color: C.amber, width: 0.8 }, name: '4h Z' },
+], { ...L, shapes: [splitLine(D.ts, D.split_idx)] }, CFG);
+
+// #2 Open Interest
+Plotly.newPlot('oi', [{
+  x: D.ts, y: D.oi_close, type: 'scatter', mode: 'lines', line: { color: C.teal, width: 1 }, name: 'OI Close',
+}], { ...L, shapes: [splitLine(D.ts, D.split_idx)] }, CFG);
+
+Plotly.newPlot('oi_change', [
+  { x: D.ts, y: D.oi_change_30min, type: 'scatter', mode: 'lines', line: { color: C.cyan, width: 0.8 }, name: '30min' },
+  { x: D.ts, y: D.oi_change_1h, type: 'scatter', mode: 'lines', line: { color: C.teal, width: 0.8 }, name: '1h' },
+  { x: D.ts, y: D.oi_change_4h, type: 'scatter', mode: 'lines', line: { color: C.amber, width: 0.8 }, name: '4h' },
+], { ...L, shapes: [splitLine(D.ts, D.split_idx)] }, CFG);
+
+// #3 Order Book
+Plotly.newPlot('ob_imbalance', [{
+  x: D.ts, y: D.fut_ob_imbalance, type: 'scatter', mode: 'lines', line: { color: C.purple, width: 0.8 }, name: 'Imbalance',
+}], { ...L, shapes: [splitLine(D.ts, D.split_idx)] }, CFG);
+
+Plotly.newPlot('cg_depth', [{
+  x: D.ts, y: D.cg_depth_ratio, type: 'scatter', mode: 'lines', line: { color: C.teal, width: 0.8 }, name: 'Bid/Ask Depth',
+}], { ...L, shapes: [splitLine(D.ts, D.split_idx)] }, CFG);
+
+// #4 Funding
+Plotly.newPlot('funding', [{
+  x: D.ts, y: D.funding_rate, type: 'scatter', mode: 'lines', line: { color: C.amber, width: 1 }, name: 'Funding Rate',
+}], { ...L, shapes: [splitLine(D.ts, D.split_idx)] }, CFG);
+
+// #5 Taker Flow
+Plotly.newPlot('taker', [
+  { x: D.ts, y: D.taker_buy_usd, type: 'scatter', mode: 'lines', line: { color: C.teal, width: 0.8 }, name: 'Taker Buy' },
+  { x: D.ts, y: D.taker_sell_usd, type: 'scatter', mode: 'lines', line: { color: C.red, width: 0.8 }, name: 'Taker Sell' },
+], { ...L, shapes: [splitLine(D.ts, D.split_idx)] }, CFG);
+
+// #6 Liquidations
+Plotly.newPlot('liq', [
+  { x: D.ts, y: D.liq_long_usd, type: 'scatter', mode: 'lines', line: { color: C.red, width: 0.8 }, name: 'Long Liqs' },
+  { x: D.ts, y: D.liq_short_usd, type: 'scatter', mode: 'lines', line: { color: C.teal, width: 0.8 }, name: 'Short Liqs' },
+], { ...L, shapes: [splitLine(D.ts, D.split_idx)] }, CFG);
+</script>
+</body>
+</html>

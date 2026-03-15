@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+
+# UV
+.python-version
+
+# Data & model artifacts
+subnet/data/
+
+# Build artifacts
+subnet/viz/*_built.html
+subnet/viz/screenshot_*.png
+
+# OS
+.DS_Store
