@@ -1,0 +1,15 @@
+[project]
+name = "insignia-subnet"
+version = "0.1.0"
+description = "Two-layer Bittensor subnet for decentralized predictive modeling on crypto markets"
+requires-python = ">=3.14"
+dependencies = [
+    "numpy",
+    "pandas",
+    "scikit-learn",
+    "joblib",
+    "ccxt",
+    "fastapi>=0.135.1",
+    "uvicorn>=0.41.0",
+    "httpx>=0.28.1",
+]

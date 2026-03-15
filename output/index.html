@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Insignia — Demo Artifacts</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bai+Jamjuree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #09090b;
+    --surface: #111114;
+    --surface-2: #18181b;
+    --border: #27272a;
+    --border-active: #3f3f46;
+    --text: #fafafa;
+    --text-muted: #71717a;
+    --text-dim: #52525b;
+    --accent: #22d3ee;
+    --accent-glow: rgba(34, 211, 238, 0.15);
+    --green: #34d399;
+    --green-glow: rgba(52, 211, 153, 0.15);
+    --purple: #a78bfa;
+  }
+
+  body {
+    font-family: 'Bai Jamjuree', -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .page {
+    width: 100%;
+    max-width: 920px;
+    padding: 60px 32px 48px;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+
+  .logo-icon {
+    width: 36px;
+    height: 36px;
+    background: linear-gradient(135deg, var(--accent), var(--purple));
+    border-radius: 10px;
+  }
+
+  .logo span {
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: -0.5px;
+  }
+
+  .subtitle {
+    font-size: 14px;
+    color: var(--text-muted);
+    margin-bottom: 48px;
+    line-height: 1.5;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 48px;
+  }
+
+  .card {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px;
+    text-decoration: none;
+    color: inherit;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    position: relative;
+  }
+
+  .card.live:hover {
+    border-color: var(--border-active);
+    box-shadow: 0 0 24px var(--accent-glow);
+  }
+
+  .card.soon {
+    opacity: 0.45;
+    pointer-events: none;
+  }
+
+  .badge {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 6px;
+  }
+
+  .badge.live {
+    background: var(--green-glow);
+    color: var(--green);
+    border: 1px solid rgba(52, 211, 153, 0.25);
+  }
+
+  .badge.soon {
+    background: rgba(82, 82, 91, 0.15);
+    color: var(--text-dim);
+    border: 1px solid rgba(82, 82, 91, 0.25);
+  }
+
+  .card-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  .card h2 {
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: -0.3px;
+  }
+
+  .card p {
+    font-size: 13px;
+    color: var(--text-muted);
+    line-height: 1.5;
+  }
+
+  .footer {
+    font-size: 12px;
+    color: var(--text-dim);
+    text-align: center;
+    padding-bottom: 32px;
+  }
+
+  @media (max-width: 640px) {
+    .grid { grid-template-columns: 1fr; }
+    .page { padding: 40px 20px 32px; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="logo">
+    <div class="logo-icon"></div>
+    <span>Insignia Subnet</span>
+  </div>
+  <p class="subtitle">Hackathon demo — decentralized predictive modeling for crypto markets.<br>Interactive visualizations of the subnet's data, models, scoring, and incentive design.</p>
+
+  <div class="grid">
+
+    <a class="card live" href="input_data_built.html">
+      <span class="badge live">Live</span>
+      <span class="card-num">01</span>
+      <h2>Training Data Explorer</h2>
+      <p>117 features across 6 categories. Permutation importance, price action, derivatives flow.</p>
+    </a>
+
+    <a class="card live" href="model_perf_built.html">
+      <span class="badge live">Live</span>
+      <span class="card-num">02</span>
+      <h2>Model Performance</h2>
+      <p>Buy/sell signals on price, correct/wrong prediction blocks, confidence distribution.</p>
+    </a>
+
+    <a class="card live" href="scoring_built.html">
+      <span class="badge live">Live</span>
+      <span class="card-num">03</span>
+      <h2>Scoring System</h2>
+      <p>6-dimension L1 scoring vector with variance-penalized formulation. How models are scored and ranked.</p>
+    </a>
+
+    <a class="card live" href="network.html">
+      <span class="badge live">Live</span>
+      <span class="card-num">04</span>
+      <h2>Network Flow</h2>
+      <p>Miner submission, validator scoring, weight setting, emission distribution.</p>
+    </a>
+
+    <a class="card live" href="dashboard.html">
+      <span class="badge live">Live</span>
+      <span class="card-num">05</span>
+      <h2>Live Network Demo</h2>
+      <p>Simulated miner-validator communication. Click "Run Epoch" to see the evaluation flow.</p>
+    </a>
+
+  </div>
+
+</div>
+<div class="footer">Built for the Bittensor Sovereign Infrastructure Hackathon</div>
+</body>
+</html>
