@@ -1,5 +1,22 @@
-subnet/tuning/__pycache__/
-subnet/insignia/__pycache__/
-subnet/neurons/__pycache__/
-subnet/results/
+# Python
 __pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+
+# UV
+.python-version
+
+# Data & model artifacts
+subnet/data/
+subnet/results/
+
+# Build artifacts
+subnet/viz/*_built.html
+subnet/viz/screenshot_*.png
+
+# Vercel
+.vercel/
+
+# OS
+.DS_Store

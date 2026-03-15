@@ -89,17 +89,17 @@ class L1ModelTrainer:
         target_instrument: str = "BTC-USDT-PERP",
         target_horizon_minutes: int = 60,
         features: List[str] | None = None,
-        n_estimators: int = 10,
+        n_estimators: int = 2000,
         max_depth: int = 3,
-        learning_rate: float = 0.1,
-        min_samples_leaf: int = 50,
-        l2_regularization: float = 0.1,
+        learning_rate: float = 0.003,
+        min_samples_leaf: int = 60,
+        l2_regularization: float = 0.5,
         max_bins: int = 64,
         random_state: int = 42,
     ):
         self.target_instrument = target_instrument
         self.target_horizon_minutes = target_horizon_minutes
-        self.features = features or PUBLIC_FEATURE_REGISTRY[:10]
+        self.features = features or PUBLIC_FEATURE_REGISTRY
         self.random_state = random_state
         self.hyperparams = {
             "n_estimators": n_estimators,

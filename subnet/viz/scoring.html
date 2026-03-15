@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Insignia — Network Scoring</title>
+<link rel="stylesheet" href="styles.css">
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+</head>
+<body>
+
+<div class="header">
+  <h1>Example Model — Network Scoring</h1>
+  <p>How the Insignia subnet evaluates submitted models across 6 dimensions · Variance-penalized formulation · <span style="color:#34d399;">Green ≥70%</span> · <span style="color:#f59e0b;">Amber 40–70%</span> · <span style="color:#ef4444;">Red &lt;40%</span></p>
+</div>
+
+<div class="stat-row" id="stats"></div>
+
+<!-- #1 Penalized F1 -->
+<div class="divider"></div>
+<div class="section-label"><span class="rank">#1</span> Penalized F1 (25% weight)</div>
+<div class="metric-score" id="score-0"></div>
+<p class="blurb" id="desc-0"></p>
+<p class="attack" id="attack-0"></p>
+<div class="grid">
+  <div class="card full">
+    <h2>F1 Score by Time Window</h2>
+    <div class="desc">F1 computed in 5 rolling windows. The penalized score = mean − λ·std rewards consistency across market regimes.</div>
+    <div id="f1_windows" class="plot"></div>
+  </div>
+</div>
+
+<!-- #2 Penalized Sharpe -->
+<div class="divider"></div>
+<div class="section-label"><span class="rank">#2</span> Penalized Sharpe (25% weight)</div>
+<div class="metric-score" id="score-1"></div>
+<p class="blurb" id="desc-1"></p>
+<p class="attack" id="attack-1"></p>
+<div class="grid">
+  <div class="card full">
+    <h2>Sharpe Ratio by Time Window</h2>
+    <div class="desc">Annualized Sharpe in 5 rolling windows. Penalized score = mean − λ·std.</div>
+    <div id="sharpe_windows" class="plot"></div>
+  </div>
+</div>
+
+<!-- #3 Max Drawdown -->
+<div class="divider"></div>
+<div class="section-label"><span class="rank">#3</span> Max Drawdown (15% weight)</div>
+<div class="metric-score" id="score-2"></div>
+<p class="blurb" id="desc-2"></p>
+<p class="attack" id="attack-2"></p>
+<div class="grid">
+  <div class="card full">
+    <h2>Equity Curve with Drawdown Periods</h2>
+    <div class="desc">Red shading shows periods where the strategy is below its peak. The deepest dip is the max drawdown.</div>
+    <div id="drawdown" class="plot"></div>
+  </div>
+</div>
+
+<!-- #4 Generalization Gap -->
+<div class="divider"></div>
+<div class="section-label"><span class="rank">#4</span> Generalization Gap (20% weight)</div>
+<div class="metric-score" id="score-3"></div>
+<p class="blurb" id="desc-3"></p>
+<p class="attack" id="attack-3"></p>
+<div class="grid">
+  <div class="card full">
+    <h2>Train F1 vs Test F1</h2>
+    <div class="desc">A large gap means the model memorized noise. The penalty increases with the gap size.</div>
+    <div id="gen_gap" class="plot"></div>
+  </div>
+</div>
+
+<!-- #5 & #6 -->
+<div class="divider"></div>
+<div class="section-label">Minor Metrics</div>
+<div class="grid" id="minor-cards"></div>
+
+<div style="height: 32px;"></div>
+
+<script>
+const L = {
+  paper_bgcolor: '#18181b', plot_bgcolor: '#18181b',
+  font: { color: '#a1a1aa', size: 11 },
+  margin: { l: 55, r: 20, t: 10, b: 40 },
+  xaxis: { gridcolor: '#27272a', zerolinecolor: '#3f3f46' },
+  yaxis: { gridcolor: '#27272a', zerolinecolor: '#3f3f46' },
+  showlegend: false,
+};
+const C = { cyan: '#06b6d4', teal: '#14b8a6', amber: '#f59e0b', red: '#ef4444', green: '#34d399', zinc: '#52525b' };
+const CFG = { responsive: true };
+const D = __DATA_JSON__;
+
+// Stats row
+const statItems = [
+  { label: 'Composite Score', value: (D.composite * 100).toFixed(1) + '%', sub: 'weighted average', cls: 'highlight' },
+];
+D.metrics.forEach(m => {
+  statItems.push({ label: m.name, value: m.raw_display, sub: (m.weight * 100) + '% weight' });
+});
+document.getElementById('stats').innerHTML = statItems.map(s =>
+  `<div class="stat ${s.cls||''}"><div class="label">${s.label}</div><div class="value">${s.value}</div><div class="sub">${s.sub}</div></div>`
+).join('');
+
+// Populate scores, descriptions, attack context
+for (let i = 0; i < 4; i++) {
+  const m = D.metrics[i];
+  const pct = (m.normalized * 100).toFixed(0);
+  const color = m.normalized >= 0.7 ? C.green : m.normalized >= 0.4 ? C.amber : C.red;
+  document.getElementById('score-' + i).innerHTML = `<span style="color:${color}">${pct}%</span> <span style="font-size:16px;font-weight:400;color:#71717a;">normalized · raw: ${m.raw_display}</span>`;
+  document.getElementById('desc-' + i).textContent = m.desc;
+  document.getElementById('attack-' + i).textContent = 'Why it matters: ' + m.attack;
+}
+
+// #1 F1 windows
+const f1Colors = D.window_f1s.map(f => f >= 0.55 ? C.green : f >= 0.50 ? C.amber : C.red);
+Plotly.newPlot('f1_windows', [{
+  x: D.window_labels, y: D.window_f1s.map(f => f * 100),
+  type: 'bar', marker: { color: f1Colors },
+  text: D.window_f1s.map(f => (f * 100).toFixed(1) + '%'),
+  textposition: 'outside', textfont: { color: '#a1a1aa', size: 11 },
+}], {
+  ...L,
+  xaxis: { ...L.xaxis, type: 'category' },
+  yaxis: { ...L.yaxis, title: 'F1 Score %', range: [0, 75] },
+  shapes: [{ type: 'line', x0: -0.5, x1: 4.5, y0: 50, y1: 50, line: { color: C.zinc, width: 1, dash: 'dot' } }],
+}, CFG);
+
+// #2 Sharpe windows
+const sharpeColors = D.window_sharpes.map(s => s >= 3 ? C.green : s >= 1 ? C.amber : C.red);
+Plotly.newPlot('sharpe_windows', [{
+  x: D.window_labels, y: D.window_sharpes,
+  type: 'bar', marker: { color: sharpeColors },
+  text: D.window_sharpes.map(s => s.toFixed(1)),
+  textposition: 'outside', textfont: { color: '#a1a1aa', size: 11 },
+}], {
+  ...L,
+  xaxis: { ...L.xaxis, type: 'category' },
+  yaxis: { ...L.yaxis, title: 'Annualized Sharpe' },
+  shapes: [{ type: 'line', x0: -0.5, x1: 4.5, y0: 1, y1: 1, line: { color: C.zinc, width: 1, dash: 'dot' } }],
+}, CFG);
+
+// #3 Drawdown
+Plotly.newPlot('drawdown', [
+  { x: D.equity_ts, y: D.equity_peak, type: 'scatter', mode: 'lines', line: { color: C.zinc, width: 0.8, dash: 'dot' } },
+  { x: D.equity_ts, y: D.equity, type: 'scatter', mode: 'lines', line: { color: C.cyan, width: 1 }, fill: 'tonexty', fillcolor: 'rgba(239, 68, 68, 0.15)' },
+], {
+  ...L,
+  yaxis: { ...L.yaxis, title: 'Cumulative Return' },
+}, CFG);
+
+// #4 Generalization Gap
+Plotly.newPlot('gen_gap', [{
+  x: ['Train F1', 'Test F1'],
+  y: [D.train_f1, D.test_f1],
+  type: 'bar',
+  marker: { color: [C.amber, C.cyan] },
+  text: [D.train_f1 + '%', D.test_f1 + '%'],
+  textposition: 'outside', textfont: { color: '#a1a1aa', size: 14 },
+}], {
+  ...L,
+  xaxis: { ...L.xaxis, type: 'category' },
+  yaxis: { ...L.yaxis, title: 'F1 Score %', range: [0, 110] },
+  annotations: [{
+    x: 0.5, y: (D.train_f1 + D.test_f1) / 2, xref: 'paper',
+    text: 'Gap: ' + (D.train_f1 - D.test_f1).toFixed(1) + '%',
+    showarrow: false, font: { color: C.red, size: 13 },
+  }],
+}, CFG);
+
+// #5 & #6 Minor cards
+const fe = D.metrics[4];
+const lat = D.metrics[5];
+document.getElementById('minor-cards').innerHTML = `
+  <div class="card">
+    <h2>Feature Efficiency <span style="color:${fe.normalized >= 0.4 ? '#f59e0b' : '#ef4444'};float:right;font-size:16px;font-weight:600;">${(fe.normalized * 100).toFixed(0)}%</span></h2>
+    <div class="desc">${fe.desc}</div>
+    <div style="font-size:12px;color:#a1a1aa;">Raw: <strong>${fe.raw_display}</strong> · Weight: ${(fe.weight * 100)}%</div>
+    <div style="font-size:11px;color:#71717a;margin-top:8px;font-style:italic;">Why it matters: ${fe.attack}</div>
+  </div>
+  <div class="card">
+    <h2>Latency <span style="color:${lat.normalized >= 0.7 ? '#34d399' : lat.normalized >= 0.4 ? '#f59e0b' : '#ef4444'};float:right;font-size:16px;font-weight:600;">${(lat.normalized * 100).toFixed(0)}%</span></h2>
+    <div class="desc">${lat.desc}</div>
+    <div style="font-size:12px;color:#a1a1aa;">Raw: <strong>${lat.raw_display}</strong> · Target: &lt;50ms · Weight: ${(lat.weight * 100)}%</div>
+    <div style="font-size:11px;color:#71717a;margin-top:8px;font-style:italic;">Why it matters: ${lat.attack}</div>
+  </div>
+`;
+</script>
+</body>
+</html>

@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Insignia — Live Network Demo</title>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #09090b; color: #e4e4e7; font-family: 'Inter', system-ui, sans-serif; }
+
+  .header { padding: 24px 32px; border-bottom: 1px solid #27272a; display: flex; justify-content: space-between; align-items: center; }
+  .header h1 { font-size: 20px; font-weight: 600; color: #06b6d4; }
+  .header p { font-size: 13px; color: #71717a; margin-top: 4px; }
+
+  .run-btn {
+    background: #06b6d4; color: #09090b; border: none; border-radius: 8px;
+    padding: 10px 24px; font-size: 14px; font-weight: 600; cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  .run-btn:hover { opacity: 0.85; }
+  .run-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .content { max-width: 1000px; margin: 0 auto; padding: 24px 32px; }
+
+  .status-row { display: flex; gap: 12px; margin-bottom: 24px; }
+  .status-card {
+    background: #18181b; border: 1px solid #27272a; border-radius: 10px;
+    padding: 14px 18px; flex: 1;
+  }
+  .status-card .label { font-size: 10px; color: #71717a; text-transform: uppercase; letter-spacing: 0.5px; }
+  .status-card .value { font-size: 20px; font-weight: 600; color: #f4f4f5; margin-top: 4px; }
+  .status-card .value.cyan { color: #06b6d4; }
+  .status-card .value.green { color: #34d399; }
+  .status-card .value.red { color: #ef4444; }
+
+  .section-label {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 1px;
+    color: #52525b; font-weight: 600; margin: 20px 0 8px;
+  }
+
+  .card {
+    background: #18181b; border: 1px solid #27272a; border-radius: 12px;
+    padding: 20px; margin-bottom: 16px;
+  }
+
+  .log-area {
+    background: #111114; border: 1px solid #27272a; border-radius: 8px;
+    padding: 16px; font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    color: #a1a1aa; max-height: 300px; overflow-y: auto; line-height: 1.8;
+  }
+  .log-entry .time { color: #52525b; }
+  .log-entry .event { color: #e4e4e7; }
+  .log-entry .score { color: #06b6d4; font-weight: 600; }
+
+  #chart { width: 100%; height: 300px; }
+  .empty-state { color: #52525b; font-size: 13px; font-style: italic; padding: 40px 0; text-align: center; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>Insignia — Live Network Demo</h1>
+    <p>Two FastAPI servers: Miner (:8001) serves models, Validator (:8000) scores them</p>
+  </div>
+  <button class="run-btn" id="run-btn" onclick="runEpoch()">Run Epoch</button>
+</div>
+
+<div class="content">
+  <div class="status-row">
+    <div class="status-card">
+      <div class="label">Miner Status</div>
+      <div class="value" id="miner-status">Checking...</div>
+    </div>
+    <div class="status-card">
+      <div class="label">Epochs Completed</div>
+      <div class="value cyan" id="epoch-count">0</div>
+    </div>
+    <div class="status-card">
+      <div class="label">Latest Composite Score</div>
+      <div class="value green" id="latest-score">—</div>
+    </div>
+    <div class="status-card">
+      <div class="label">Current Regime</div>
+      <div class="value" id="current-regime">—</div>
+    </div>
+  </div>
+
+  <div class="section-label">Score Breakdown</div>
+  <div class="card">
+    <div id="chart-container">
+      <div class="empty-state" id="empty-chart">Click "Run Epoch" to evaluate the miner's model.<br>Each epoch tests on a different market regime (trending, ranging, volatile, etc.) — scores will vary.</div>
+      <div id="chart" style="display:none;"></div>
+    </div>
+  </div>
+
+  <div class="section-label" id="history-label" style="display:none;">Epoch History — Score by Regime</div>
+  <div class="card" id="history-card" style="display:none;">
+    <div id="history-chart" style="width:100%;height:200px;"></div>
+  </div>
+
+  <div class="section-label">Communication Log</div>
+  <div class="log-area" id="log">
+    <div class="log-entry"><span class="time">—</span> <span class="event">Waiting for first epoch...</span></div>
+  </div>
+</div>
+
+<script>
+const C = { cyan: '#06b6d4', teal: '#14b8a6', amber: '#f59e0b', red: '#ef4444', green: '#34d399', zinc: '#52525b' };
+
+async function checkMiner() {
+  try {
+    const resp = await fetch('http://localhost:8001/status');
+    const data = await resp.json();
+    const el = document.getElementById('miner-status');
+    if (data.model_loaded) {
+      el.textContent = `Connected (${(data.artifact_size_bytes / 1024).toFixed(0)} KB model)`;
+      el.className = 'value green';
+    } else {
+      el.textContent = 'No model loaded';
+      el.className = 'value red';
+    }
+  } catch {
+    const el = document.getElementById('miner-status');
+    el.textContent = 'Offline';
+    el.className = 'value red';
+  }
+}
+
+async function runEpoch() {
+  const btn = document.getElementById('run-btn');
+  btn.disabled = true;
+  btn.textContent = 'Evaluating...';
+
+  try {
+    const resp = await fetch('/run-epoch', { method: 'POST' });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+
+    document.getElementById('epoch-count').textContent = data.epoch_id;
+    document.getElementById('latest-score').textContent = (data.composite_score * 100).toFixed(1) + '%';
+
+    updateChart(data.metric_breakdown);
+    await updateHistory();
+  } catch (e) {
+    addLog('ERROR: ' + e.message);
+  }
+
+  refreshLog();
+  btn.disabled = false;
+  btn.textContent = 'Run Epoch';
+}
+
+function updateChart(breakdown) {
+  document.getElementById('empty-chart').style.display = 'none';
+  const chartEl = document.getElementById('chart');
+  chartEl.style.display = 'block';
+
+  const names = Object.keys(breakdown).reverse();
+  const values = Object.values(breakdown).reverse();
+  const colors = values.map(v => v >= 0.7 ? C.green : v >= 0.4 ? C.amber : C.red);
+
+  Plotly.newPlot('chart', [{
+    y: names, x: values,
+    type: 'bar', orientation: 'h',
+    marker: { color: colors },
+    text: values.map(v => (v * 100).toFixed(0) + '%'),
+    textposition: 'outside',
+    textfont: { color: '#a1a1aa', size: 11 },
+  }], {
+    paper_bgcolor: '#18181b', plot_bgcolor: '#18181b',
+    font: { color: '#a1a1aa', size: 11 },
+    margin: { l: 160, r: 50, t: 10, b: 30 },
+    xaxis: { gridcolor: '#27272a', zerolinecolor: '#3f3f46', range: [0, 1.15], type: 'linear' },
+    yaxis: { gridcolor: '#27272a', zerolinecolor: '#3f3f46', type: 'category' },
+    showlegend: false,
+  }, { responsive: true });
+}
+
+async function refreshLog() {
+  try {
+    const resp = await fetch('/log');
+    const entries = await resp.json();
+    const el = document.getElementById('log');
+    el.innerHTML = entries.map(e => {
+      const isScore = e.event.includes('scored');
+      return `<div class="log-entry"><span class="time">${e.time.split('T')[1].split('.')[0]}</span> <span class="${isScore ? 'score' : 'event'}">${e.event}</span></div>`;
+    }).join('');
+    el.scrollTop = el.scrollHeight;
+  } catch {}
+}
+
+function addLog(msg) {
+  const el = document.getElementById('log');
+  const now = new Date().toISOString().split('T')[1].split('.')[0];
+  el.innerHTML += `<div class="log-entry"><span class="time">${now}</span> <span class="event">${msg}</span></div>`;
+}
+
+async function updateHistory() {
+  try {
+    const resp = await fetch('/scores');
+    const epochs = await resp.json();
+    if (epochs.length < 1) return;
+
+    const last = epochs[epochs.length - 1];
+    document.getElementById('current-regime').textContent = last.regime || '—';
+
+    if (epochs.length >= 2) {
+      document.getElementById('history-label').style.display = '';
+      document.getElementById('history-card').style.display = '';
+
+      const labels = epochs.map(e => `E${e.epoch_id}: ${e.regime || ''}`);
+      const scores = epochs.map(e => e.composite * 100);
+      const colors = scores.map(s => s >= 70 ? C.green : s >= 40 ? C.amber : C.red);
+
+      Plotly.newPlot('history-chart', [{
+        x: labels, y: scores, type: 'bar',
+        marker: { color: colors },
+        text: scores.map(s => s.toFixed(1) + '%'),
+        textposition: 'outside', textfont: { color: '#a1a1aa', size: 11 },
+      }], {
+        paper_bgcolor: '#18181b', plot_bgcolor: '#18181b',
+        font: { color: '#a1a1aa', size: 11 },
+        margin: { l: 40, r: 20, t: 10, b: 60 },
+        xaxis: { gridcolor: '#27272a', type: 'category' },
+        yaxis: { gridcolor: '#27272a', title: 'Composite %', range: [0, 85] },
+        showlegend: false,
+      }, { responsive: true });
+    }
+  } catch {}
+}
+
+checkMiner();
+setInterval(checkMiner, 5000);
+</script>
+</body>
+</html>
