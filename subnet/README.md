@@ -1,8 +1,8 @@
 # Insignia Subnet
 
-**Decentralized Predictive Modeling for On-Chain Markets**
+**A decentralized network where independent participants compete to build the best predictive models — and prove they work in the real world.**
 
-A two-layer Bittensor subnet for the Sovereign Infrastructure Hackathon (March 2026).
+Built on [Bittensor](https://bittensor.com) for the Sovereign Infrastructure Hackathon (March 2026).
 
 **Live Demo:** [output-sooty-ten.vercel.app](https://output-sooty-ten.vercel.app)
 
@@ -10,13 +10,13 @@ A two-layer Bittensor subnet for the Sovereign Infrastructure Hackathon (March 2
 
 ## What Is This?
 
-Insignia is a two-layer Bittensor subnet that produces **battle-tested ML model + trading strategy pairs** for short-horizon crypto markets.
+Insignia is a two-layer competitive network for producing high-quality ML models and validating that they actually work when deployed.
 
-**Layer 1 (Model Generation):** Miners compete to train the best predictive ML models. Validators score submissions against proprietary benchmark data using a 6-metric variance-penalized scoring system.
+**Layer 1 (Model Competition):** Participants ("miners") independently train ML models that predict future outcomes. Validators score every submission using a multi-metric system designed to be ungameable — accuracy alone isn't enough; consistency, risk, and generalization all matter.
 
-**Layer 2 (Strategy Deployment):** Top L1 models are promoted to L2, where miners build live trading strategies. Validators score real trading outcomes — P&L, drawdown, risk metrics.
+**Layer 2 (Real-World Validation):** The best models from Layer 1 are promoted to Layer 2, where a second group of participants builds automated strategies around them. These strategies are scored on real outcomes — not simulations.
 
-**Cross-Layer Feedback:** L2 performance retroactively adjusts L1 scores, closing the simulation-to-reality gap.
+**Cross-Layer Feedback:** Layer 2 performance feeds back into Layer 1 scores. A model is only considered "good" if it actually works when deployed. This closes the gap between theory and practice.
 
 ---
 
