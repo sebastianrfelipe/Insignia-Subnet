@@ -53,8 +53,6 @@ from insignia.scoring import (
     CompositeScorer,
     ScoreVector,
     WeightConfig,
-    OverfittingDetector,
-    ReferenceOverfittingDetector,
 )
 from insignia.incentive import (
     SubmissionRateLimit,
@@ -487,9 +485,10 @@ def demo():
         miner = L1Miner(trainer=trainer)
         submission = miner.train_and_submit(data)
         miners[f"miner_{i}"] = submission
-        logger.info("Miner %d trained: IS=%.4f OOS=%.4f",
-                     i, miner.trainer.training_metrics["in_sample_accuracy"],
-                     miner.trainer.training_metrics["out_of_sample_accuracy"])
+        logger.info("Miner %d trained: IS_F1=%.4f OOS_F1=%.4f GenGap=%.4f",
+                     i, miner.trainer.training_metrics["in_sample_f1"],
+                     miner.trainer.training_metrics["out_of_sample_f1"],
+                     miner.trainer.training_metrics["generalization_gap"])
 
     validator = L1Validator(top_n_promote=3)
 

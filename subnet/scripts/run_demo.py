@@ -89,12 +89,12 @@ def run_full_demo(
         l1_miners[uid] = miner
         l1_submissions[uid] = submission
         logger.info(
-            "  %s: %d features, IS=%.3f, OOS=%.3f, gap=%.3f",
+            "  %s: %d features, IS_F1=%.3f, OOS_F1=%.3f, gen_gap=%.3f",
             uid,
             len(trainer.features),
-            miner.trainer.training_metrics["in_sample_accuracy"],
-            miner.trainer.training_metrics["out_of_sample_accuracy"],
-            miner.trainer.training_metrics["overfitting_gap"],
+            miner.trainer.training_metrics["in_sample_f1"],
+            miner.trainer.training_metrics["out_of_sample_f1"],
+            miner.trainer.training_metrics["generalization_gap"],
         )
 
     # ----- Phase 2: Layer 1 Validation -----

@@ -257,8 +257,8 @@ ATTACK_DEFENSE_MATRIX: List[AttackDefense] = [
     AttackDefense(
         attack="Overfitting to public data patterns",
         description="Miner memorizes patterns in publicly available data that happen to correlate with the validation window.",
-        defense="Validators use proprietary tick-by-tick data that miners cannot access. Rolling holdout windows change each epoch. The overfitting detector specifically penalizes in-sample/out-of-sample gaps.",
-        mechanism="Data asymmetry + OverfittingDetector + rolling windows",
+        defense="Validators use proprietary tick-by-tick data that miners cannot access. Rolling holdout windows change each epoch. The generalization_gap metric (|train_f1 - val_f1|) directly penalizes models with in-sample/out-of-sample divergence.",
+        mechanism="Data asymmetry + generalization_gap + rolling windows",
     ),
     AttackDefense(
         attack="Submission spam / brute-force",
@@ -280,9 +280,9 @@ ATTACK_DEFENSE_MATRIX: List[AttackDefense] = [
     ),
     AttackDefense(
         attack="Single-metric gaming",
-        description="Miner optimizes for one dominant metric (e.g., accuracy) while ignoring others.",
-        defense="Composite scoring across 7 L1 metrics and 6 L2 metrics. No single metric dominates. Weight configuration is published but balanced.",
-        mechanism="CompositeScorer + WeightConfig",
+        description="Miner optimizes for one dominant metric (e.g., F1) while ignoring others.",
+        defense="Composite scoring across 6 L1 metrics and 6 L2 metrics. No single metric dominates. The variance-penalized mean - lambda*std formulation means gaming F1 alone fails if Sharpe or drawdown is poor.",
+        mechanism="CompositeScorer + WeightConfig + mean-std formulation",
     ),
     AttackDefense(
         attack="Validator data leakage",
@@ -305,7 +305,7 @@ ATTACK_DEFENSE_MATRIX: List[AttackDefense] = [
     AttackDefense(
         attack="Regime-specific exploitation",
         description="Model only works in specific market regimes (e.g., bull market) and fails in others.",
-        defense="Stability Score metric explicitly measures cross-regime consistency. Validation windows deliberately cover trending, ranging, high-vol, low-vol, and crisis periods.",
-        mechanism="stability_score + regime-diverse validation windows",
+        defense="The variance-penalized scoring (mean_f1 - lambda*std_f1) directly penalizes models with high cross-regime variance. Validation windows deliberately cover trending, ranging, high-vol, low-vol, and crisis periods. A model that spikes in one regime but collapses in others receives a severe std penalty.",
+        mechanism="penalized_f1/penalized_sharpe (mean - lambda*std) + regime-diverse validation windows",
     ),
 ]

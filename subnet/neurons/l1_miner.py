@@ -41,7 +41,7 @@ except ImportError:
 
 from sklearn.ensemble import HistGradientBoostingClassifier, GradientBoostingRegressor
 from sklearn.model_selection import TimeSeriesSplit
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, f1_score
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
@@ -146,10 +146,9 @@ class L1ModelTrainer:
             random_state=self.random_state,
         )
         eval_model.fit(X_train, y_train)
-        in_sample_acc = float(accuracy_score(y_train, eval_model.predict(X_train)))
-        oos_acc = float(accuracy_score(y_test, eval_model.predict(X_test)))
+        in_sample_f1 = float(f1_score(y_train, eval_model.predict(X_train), zero_division=0.0))
+        oos_f1 = float(f1_score(y_test, eval_model.predict(X_test), zero_division=0.0))
 
-        # Final model: fit on all data with preprocessing pipeline
         pipeline = Pipeline([
             ("scaler", StandardScaler()),
             ("model", HistGradientBoostingClassifier(
@@ -166,17 +165,17 @@ class L1ModelTrainer:
 
         self.model = pipeline
         self.training_metrics = {
-            "in_sample_accuracy": in_sample_acc,
-            "out_of_sample_accuracy": oos_acc,
-            "overfitting_gap": in_sample_acc - oos_acc,
+            "in_sample_f1": in_sample_f1,
+            "out_of_sample_f1": oos_f1,
+            "generalization_gap": abs(in_sample_f1 - oos_f1),
             "n_samples": int(len(X)),
             "n_features": len(available),
         }
         logger.info(
-            "Training complete: IS=%.4f OOS=%.4f Gap=%.4f",
-            self.training_metrics["in_sample_accuracy"],
-            self.training_metrics["out_of_sample_accuracy"],
-            self.training_metrics["overfitting_gap"],
+            "Training complete: IS_F1=%.4f OOS_F1=%.4f GenGap=%.4f",
+            self.training_metrics["in_sample_f1"],
+            self.training_metrics["out_of_sample_f1"],
+            self.training_metrics["generalization_gap"],
         )
         return pipeline
 
@@ -287,8 +286,8 @@ class L1Miner:
             "preprocessing_hash": hashlib.sha256(artifact).hexdigest()[:16],
             "target_instrument": metadata["target_instrument"],
             "target_horizon_minutes": metadata["target_horizon_minutes"],
-            "self_reported_overfitting_score": metadata["training_metrics"].get(
-                "overfitting_gap", 0.0
+            "self_reported_generalization_gap": metadata["training_metrics"].get(
+                "generalization_gap", 0.0
             ),
             "artifact_size_bytes": len(artifact),
             "artifact_hash": hashlib.sha256(artifact).hexdigest(),

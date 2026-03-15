@@ -24,7 +24,7 @@
 ### Benchmark
 **Target output quality metric miners are scored on.**
 
-- **Layer 1**: Multi-metric evaluation vector (7 dimensions) scored against proprietary tick-by-tick benchmark dataset
+- **Layer 1**: Multi-metric evaluation vector (6 dimensions) using variance-penalized mean - lambda*std formulation, scored against proprietary tick-by-tick benchmark dataset
 - **Layer 2**: Real trading outcomes (6 dimensions) measured against actual market performance
 - Published metric definitions with configurable weights (see `scoring.py`)
 
@@ -166,8 +166,8 @@ The following components are proprietary and NOT included in the open-source cod
 | Component | Why Proprietary | What's Public Instead |
 |-----------|----------------|----------------------|
 | Validator benchmark dataset | Enterprise tick-by-tick data is the core competitive moat | Demo uses synthetic data with matching statistical properties |
-| Overfitting detection metric | Proprietary evaluation tuned for GBDTs on financial time-series | Reference implementation using IS/OOS gap (see `scoring.py`) |
-| Exact scoring weights | Subject to ongoing tuning | Published weight ranges and default values |
+| Overfitting detection calibration | Proprietary generalization gap thresholds tuned for GBDTs on financial time-series | generalization_gap = \|train_f1 - val_f1\| with tunable composite weight (see `scoring.py`) |
+| Exact scoring weights + variance penalty (lambda) | Subject to ongoing tuning via evolutionary optimizer | Published weight ranges, default values, and automated tuning framework (see `tuning/`) |
 | Firm's deployment strategy | Prop trading operations | Architecture for buyback mechanism is documented |
 
 Everything else — the scoring framework, synapse definitions, incentive design, anti-gaming mechanisms, cross-layer logic — is fully transparent and open-source.
@@ -201,7 +201,7 @@ subnet/
 ├── insignia/
 │   ├── __init__.py           # Package definition
 │   ├── protocol.py           # Bittensor Synapse definitions (L1 + L2)
-│   ├── scoring.py            # Composite scoring engine (7 L1 + 6 L2 metrics)
+│   ├── scoring.py            # Composite scoring engine (6 L1 + 6 L2 metrics, mean - λ·std formulation)
 │   ├── incentive.py          # Anti-gaming mechanisms + attack/defense matrix
 │   └── cross_layer.py        # Model promotion + feedback loop engine
 ├── neurons/

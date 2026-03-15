@@ -24,7 +24,7 @@ Insignia is a two-layer Bittensor subnet that produces **battle-tested ML model 
 
 ```bash
 cd subnet
-pip install numpy pandas scikit-learn joblib
+pip install -r requirements.txt
 python3 scripts/run_demo.py
 ```
 
@@ -73,7 +73,7 @@ python3 neurons/l2_validator.py   # L2 validator demo (score strategies)
 
 | Requirement | Our Answer |
 |---|---|
-| **Benchmark** | L1: 7-metric evaluation vector (directional accuracy, Sharpe, drawdown, stability, overfitting, feature efficiency, latency). L2: 6-metric vector (P&L, Omega, drawdown, win rate, consistency, model attribution). |
+| **Benchmark** | L1: 6-metric evaluation vector using variance-penalized mean-lambda*std formulation (penalized F1, penalized Sharpe, max drawdown, generalization gap, feature efficiency, latency). L2: 6-metric vector (P&L, Omega, drawdown, win rate, consistency, model attribution). |
 | **Evaluation Loop** | L1: vectorized batch backtesting on proprietary data. L2: incremental P&L tracking with continuous position streaming. Both cost-efficient and scalable. |
 | **Miner Task** | L1: Train and submit ML model artifacts via defined API. L2: Build and operate paper trading strategies using promoted models. Both with writable interfaces. |
 | **Incentive Design** | Composite multi-metric scoring prevents gaming. Data asymmetry prevents overfitting. Cross-layer feedback rewards real deployment success. 9 attack vectors documented with defenses. |
@@ -86,15 +86,16 @@ python3 neurons/l2_validator.py   # L2 validator demo (score strategies)
 
 | Open (in this repo) | Proprietary (not included) |
 |---|---|
-| Full scoring framework (7 L1 + 6 L2 metrics) | Validator benchmark dataset (enterprise tick data) |
-| All Synapse/protocol definitions | Production overfitting detector implementation |
-| Anti-gaming mechanisms (fingerprinting, copy detection) | Exact scoring weight tuning |
+| Full scoring framework (6 L1 + 6 L2 metrics, mean-std formulation) | Validator benchmark dataset (enterprise tick data) |
+| All Synapse/protocol definitions | Exact variance penalty (lambda) and weight calibration |
+| Anti-gaming mechanisms (fingerprinting, copy detection) | Proprietary generalization gap thresholds |
 | Cross-layer promotion + feedback logic | Firm deployment strategy |
 | Paper trading engine with slippage model | |
+| Automated parameter tuning framework (pymoo NSGA-II) | |
 | Complete end-to-end demo | |
 | Incentive design + attack/defense analysis | |
 
-The proprietary components are behind clean abstract interfaces (see `OverfittingDetector` in `scoring.py` and `BenchmarkDataProvider` in `l1_validator.py`). Judges can evaluate the architecture on design merit while understanding exactly where the competitive moat lies.
+The proprietary components are behind clean abstract interfaces (see `BenchmarkDataProvider` in `l1_validator.py`). The scoring framework including the variance-penalized mean-std formulation and generalization gap metric is fully transparent — only the benchmark data and exact calibration values are private. Judges can evaluate the architecture on design merit while understanding exactly where the competitive moat lies.
 
 ---
 
@@ -111,8 +112,15 @@ The proprietary components are behind clean abstract interfaces (see `Overfittin
 | [`neurons/l2_miner.py`](neurons/l2_miner.py) | L2 miner template: paper trading engine + strategy execution |
 | [`neurons/l2_validator.py`](neurons/l2_validator.py) | L2 validator: P&L tracking, scoring, cross-layer feedback |
 | [`scripts/run_demo.py`](scripts/run_demo.py) | Full end-to-end pipeline demonstration |
+| [`tuning/parameter_space.py`](tuning/parameter_space.py) | 33-parameter search space with encoding/decoding |
+| [`tuning/simulation.py`](tuning/simulation.py) | AI agent miners (honest + adversarial) simulation harness |
+| [`tuning/attack_detector.py`](tuning/attack_detector.py) | 9 attack vector breach detection with severity scoring |
+| [`tuning/optimizer.py`](tuning/optimizer.py) | NSGA-II multi-objective evolutionary optimizer |
+| [`tuning/orchestrator.py`](tuning/orchestrator.py) | Top-level entry point for automated tuning |
+| [`tuning/metrics_exporter.py`](tuning/metrics_exporter.py) | Prometheus metrics for subnet health + tuning |
 | [`docs/INCENTIVE_MECHANISM.md`](docs/INCENTIVE_MECHANISM.md) | Detailed incentive design document |
 | [`docs/SUBNET_SPEC.md`](docs/SUBNET_SPEC.md) | Complete subnet specification |
+| [`docs/PARAMETER_TUNING_PLAN.md`](docs/PARAMETER_TUNING_PLAN.md) | Automated parameter tuning strategy |
 
 ---
 
@@ -152,7 +160,9 @@ numpy>=1.21.0
 pandas>=1.3.0
 scikit-learn>=1.0.0
 joblib>=1.0.0
-bittensor  # For production deployment
+pymoo>=0.6.0        # Evolutionary optimizer for parameter tuning
+pyyaml>=6.0         # Config export
+bittensor            # For production deployment
 ```
 
 ---

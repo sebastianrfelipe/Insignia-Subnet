@@ -10,23 +10,24 @@ The design operates across two independent layers, each with its own Yuma consen
 
 ## Layer 1: Model Generation Incentives
 
-### Scoring Vector (7 Dimensions)
+### Scoring Vector (6 Dimensions)
 
-| Metric | Weight | Purpose |
-|--------|--------|---------|
-| Directional Accuracy | 20% | Core signal quality — correct prediction of price direction |
-| Simulated Sharpe Ratio | 20% | Risk-adjusted returns on paper portfolio during backtest |
-| Max Drawdown | 15% | Penalizes fragile models with large peak-to-trough losses |
-| Stability Score | 15% | Cross-regime consistency across rolling evaluation windows |
-| Overfitting Penalty | 15% | Gap between in-sample and out-of-sample performance (proprietary metric) |
-| Feature Efficiency | 5% | Penalizes models requiring exotic or excessive features |
-| Latency Score | 10% | Inference speed — critical for short-horizon deployment |
+Metrics are computed across K rolling out-of-sample windows. The core innovation is the **variance-penalized mean - lambda * std formulation**: each metric rewards both high absolute performance (mean) and low variance across market regimes (std penalty).
+
+| Metric | Default Weight | Formula | Purpose |
+|--------|---------------|---------|---------|
+| Penalized F1 | 25% | `mean_f1 - lambda * std_f1` | Directional quality + cross-regime consistency in one metric |
+| Penalized Sharpe | 25% | `mean_sharpe - lambda * std_sharpe` | Risk-adjusted returns + cross-regime consistency |
+| Max Drawdown | 15% | worst peak-to-trough | Penalizes fragile models with tail risk |
+| Generalization Gap | 20% | `\|train_f1 - val_f1\|` | Direct overfitting measure — lower is better |
+| Feature Efficiency | 5% | `1/(1+log(n/10))` | Penalizes models requiring excessive features |
+| Latency | 10% | `exp(-(ms-target)/target)` | Inference speed — critical for short-horizon deployment |
 
 ### Why This Drives Good Behavior
 
-- **Multi-dimensional scoring** prevents miners from gaming a single metric. A model with 95% accuracy but 40% max drawdown scores poorly.
-- **Overfitting detection** specifically targets the most common failure mode of GBDTs on financial data.
-- **Stability requirements** ensure models work across market regimes, not just the current one.
+- **Variance-penalized scoring** prevents models that spike in one regime and collapse in another. The mean - lambda * std formulation bakes consistency into every metric rather than measuring it as a separate dimension.
+- **Generalization gap** directly targets the most common failure mode of GBDTs on financial data: a model with 0.85 train F1 and 0.60 val F1 has a gap of 0.25, which is heavily penalized.
+- **F1 over accuracy** handles class imbalance in financial predictions — a model must perform well on both up and down predictions.
 - **Feature efficiency** discourages models that depend on data sources that won't be available in production.
 
 ### Emission Distribution
@@ -82,8 +83,8 @@ This closes the simulation-to-reality gap: models are ultimately judged by deplo
 | | |
 |---|---|
 | **Attack** | Miner memorizes patterns in publicly available data that correlate with the validation window. |
-| **Defense** | Validators score against proprietary tick-by-tick data miners cannot access. Rolling holdout windows change each epoch. The proprietary overfitting detector penalizes in-sample/out-of-sample gaps. |
-| **Why it fails** | The data asymmetry is the core moat. Models that only memorize public patterns will fail the proprietary benchmark. |
+| **Defense** | Validators score against proprietary tick-by-tick data miners cannot access. Rolling holdout windows change each epoch. The generalization_gap metric (\|train_f1 - val_f1\|) directly penalizes models with in-sample/out-of-sample divergence. |
+| **Why it fails** | The data asymmetry is the core moat. Models that only memorize public patterns will fail the proprietary benchmark. The generalization gap catches overfitting regardless of how sophisticated the memorization is. |
 
 ### 2. Submission Spam / Brute Force
 
@@ -114,8 +115,8 @@ This closes the simulation-to-reality gap: models are ultimately judged by deplo
 | | |
 |---|---|
 | **Attack** | Miner optimizes for one dominant metric while ignoring others. |
-| **Defense** | Composite scoring across 7 L1 / 6 L2 metrics. No single metric dominates (max weight 25%). |
-| **Why it fails** | High accuracy with high drawdown scores poorly. High Sharpe with overfitting scores poorly. |
+| **Defense** | Composite scoring across 6 L1 / 6 L2 metrics. No single metric dominates (max weight 25%). The variance-penalized mean - lambda*std formulation means gaming F1 alone fails if Sharpe or drawdown is poor. |
+| **Why it fails** | High F1 with high drawdown scores poorly. High Sharpe with large generalization gap scores poorly. The mean-std formulation further penalizes models that only perform well in specific regimes. |
 
 ### 6. Validator Data Leakage
 
@@ -146,8 +147,8 @@ This closes the simulation-to-reality gap: models are ultimately judged by deplo
 | | |
 |---|---|
 | **Attack** | Model only works in specific market conditions (e.g., bull market) and fails in others. |
-| **Defense** | Stability Score explicitly measures cross-regime consistency. Validation windows deliberately cover trending, ranging, high-vol, low-vol, and crisis periods. |
-| **Why it fails** | Low stability score directly penalizes regime-specific models. |
+| **Defense** | The variance-penalized scoring (mean_f1 - lambda*std_f1 and mean_sharpe - lambda*std_sharpe) directly penalizes models with high cross-regime variance. Validation windows deliberately cover trending, ranging, high-vol, low-vol, and crisis periods. |
+| **Why it fails** | A model that scores 0.85 F1 in bull markets but 0.45 in bear markets has a high std, which is subtracted from the mean. Consistent 0.70 across all regimes scores higher. |
 
 ---
 
