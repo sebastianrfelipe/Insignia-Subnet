@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Insignia — Network Flow</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+  .flow { max-width: 800px; margin: 0 auto; padding: 32px; }
+
+  .flow-step {
+    background: #18181b;
+    border: 1px solid #27272a;
+    border-left: 5px solid;
+    border-radius: 14px;
+    padding: 28px 28px 24px;
+  }
+  .flow-step .step-num {
+    font-size: 11px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 1px; margin-bottom: 6px;
+  }
+  .flow-step h3 {
+    font-size: 22px; font-weight: 700; color: #f4f4f5;
+    margin-bottom: 10px; letter-spacing: -0.3px;
+  }
+  .flow-step p {
+    font-size: 14px; color: #a1a1aa; line-height: 1.6;
+  }
+
+  .flow-arrow { display: flex; justify-content: center; padding: 10px 0; }
+  .flow-arrow svg { width: 20px; height: 28px; }
+
+  .flow-step.miner { border-left-color: #06b6d4; }
+  .flow-step.miner .step-num { color: #06b6d4; }
+  .flow-step.validator { border-left-color: #34d399; }
+  .flow-step.validator .step-num { color: #34d399; }
+  .flow-step.antigaming { border-left-color: #ef4444; }
+  .flow-step.antigaming .step-num { color: #ef4444; }
+  .flow-step.network { border-left-color: #f59e0b; }
+  .flow-step.network .step-num { color: #f59e0b; }
+  .flow-step.feedback { border-left-color: #a78bfa; }
+  .flow-step.feedback .step-num { color: #a78bfa; }
+
+  /* Visual elements inside steps */
+  .step-visual { margin-top: 16px; }
+
+  .mini-flow {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    margin-top: 16px;
+  }
+  .mini-flow .pill {
+    background: #27272a; border: 1px solid #3f3f46; border-radius: 8px;
+    padding: 8px 14px; font-size: 12px; color: #e4e4e7; font-weight: 500;
+    white-space: nowrap;
+  }
+  .mini-flow .arrow { color: #52525b; font-size: 16px; }
+
+  .check-list { margin-top: 16px; display: flex; flex-direction: column; gap: 8px; }
+  .check-item {
+    display: flex; align-items: flex-start; gap: 10px;
+    background: #111114; border-radius: 8px; padding: 10px 14px;
+  }
+  .check-icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+  .check-text { font-size: 12px; color: #a1a1aa; line-height: 1.4; }
+  .check-text strong { color: #e4e4e7; }
+
+  .metric-bars { margin-top: 16px; display: flex; flex-direction: column; gap: 6px; }
+  .metric-bar-row {
+    display: flex; align-items: center; gap: 10px;
+  }
+  .metric-bar-label {
+    font-size: 11px; color: #a1a1aa; width: 140px; text-align: right; flex-shrink: 0;
+  }
+  .metric-bar-track {
+    flex: 1; height: 8px; background: #27272a; border-radius: 4px; overflow: hidden;
+  }
+  .metric-bar-fill { height: 100%; border-radius: 4px; }
+  .metric-bar-weight {
+    font-size: 10px; color: #52525b; width: 32px; flex-shrink: 0;
+  }
+
+  .feedback-ranges { margin-top: 16px; display: flex; flex-direction: column; gap: 8px; }
+  .feedback-range {
+    display: flex; align-items: center; gap: 12px;
+    border-radius: 8px; padding: 10px 16px;
+    font-size: 13px; font-weight: 500;
+  }
+  .feedback-range.bonus { background: rgba(52, 211, 153, 0.1); color: #34d399; border: 1px solid rgba(52, 211, 153, 0.2); }
+  .feedback-range.penalty { background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2); }
+  .feedback-range .label { font-size: 11px; color: #71717a; font-weight: 400; }
+
+  .flywheel {
+    margin-top: 16px; display: flex; align-items: center; gap: 6px;
+    flex-wrap: wrap; justify-content: center;
+  }
+  .flywheel .node {
+    background: #27272a; border: 1px solid #3f3f46; border-radius: 8px;
+    padding: 8px 12px; font-size: 11px; color: #e4e4e7; font-weight: 500;
+    text-align: center;
+  }
+  .flywheel .arrow { color: #f59e0b; font-size: 14px; }
+
+  .code-block {
+    margin-top: 16px; background: #111114; border: 1px solid #27272a;
+    border-radius: 8px; padding: 14px 16px; font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: #a1a1aa; line-height: 1.6;
+  }
+  .code-block .key { color: #06b6d4; }
+  .code-block .val { color: #f59e0b; }
+
+  .flow-legend {
+    display: flex; gap: 20px; flex-wrap: wrap;
+    padding: 0 32px 24px; max-width: 800px; margin: 0 auto;
+  }
+  .flow-legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #71717a; }
+  .flow-legend-dot { width: 10px; height: 10px; border-radius: 3px; }
+
+  .flow-feedback-note {
+    max-width: 800px; margin: 0 auto; padding: 0 32px 32px;
+    font-size: 13px; color: #71717a; text-align: center; font-style: italic;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Insignia — Network Flow</h1>
+  <p>End-to-end flow from model training to emissions distribution across both layers</p>
+</div>
+
+<div style="height: 16px;"></div>
+
+<div class="flow-legend">
+  <div class="flow-legend-item"><div class="flow-legend-dot" style="background:#06b6d4;"></div> Miner action</div>
+  <div class="flow-legend-item"><div class="flow-legend-dot" style="background:#34d399;"></div> Validator action</div>
+  <div class="flow-legend-item"><div class="flow-legend-dot" style="background:#ef4444;"></div> Anti-gaming check</div>
+  <div class="flow-legend-item"><div class="flow-legend-dot" style="background:#f59e0b;"></div> Network / promotion</div>
+  <div class="flow-legend-item"><div class="flow-legend-dot" style="background:#a78bfa;"></div> Feedback loop</div>
+</div>
+
+<div class="flow">
+
+  <!-- Step 1 -->
+  <div class="flow-step miner">
+    <div class="step-num">Step 1 · Layer 1</div>
+    <h3>L1 Miner Trains Model</h3>
+    <p>Miners compete to build the best ML model for short-horizon crypto market prediction. Each miner trains independently using their own data, features, algorithms, and hyperparameters.</p>
+    <div class="mini-flow">
+      <div class="pill">Market Features</div>
+      <div class="arrow">&rarr;</div>
+      <div class="pill" style="border-color:#06b6d4;">ML Model (GBDT, Neural, Ensemble)</div>
+      <div class="arrow">&rarr;</div>
+      <div class="pill">Probability (0&ndash;1, direction + confidence)</div>
+    </div>
+  </div>
+
+  <div class="flow-arrow"><svg viewBox="0 0 20 28"><path d="M10 0 L10 22 M4 17 L10 24 L16 17" stroke="#3f3f46" stroke-width="2" fill="none"/></svg></div>
+
+  <!-- Step 2 -->
+  <div class="flow-step miner">
+    <div class="step-num">Step 2</div>
+    <h3>Model Submission</h3>
+    <p>The trained model is packaged into an L1ModelSubmission synapse and sent to validators over the Bittensor network. This is the only interface between miners and the scoring system.</p>
+    <div class="code-block">
+      <span class="key">model_artifact</span>: <span class="val">bytes</span> &nbsp;(serialized sklearn pipeline)<br>
+      <span class="key">features_used</span>: <span class="val">List[str]</span> &nbsp;(from public registry)<br>
+      <span class="key">target_instrument</span>: <span class="val">"BTC-USDT-PERP"</span> | <span class="val">"ETH-USDT-PERP"</span> | ...<br>
+      <span class="key">target_horizon</span>: <span class="val">int</span> &nbsp;(minutes)<br>
+      <span class="key">hyperparams</span>: <span class="val">{n_estimators, max_depth, ...}</span><br>
+      <span class="key">generalization_gap</span>: <span class="val">float</span> &nbsp;(self-reported)
+    </div>
+  </div>
+
+  <div class="flow-arrow"><svg viewBox="0 0 20 28"><path d="M10 0 L10 22 M4 17 L10 24 L16 17" stroke="#3f3f46" stroke-width="2" fill="none"/></svg></div>
+
+  <!-- Step 3 -->
+  <div class="flow-step antigaming">
+    <div class="step-num">Step 3 · Gate</div>
+    <h3>Anti-Gaming Checks</h3>
+    <p>Before any model is scored, it passes through three defensive gates. Each blocks a specific attack vector. Failure at any gate rejects the submission entirely.</p>
+    <div class="check-list">
+      <div class="check-item">
+        <span class="check-icon" style="color:#34d399;">&#10003;</span>
+        <div class="check-text"><strong>Rate Limiting</strong> — Max 1 submission per miner per epoch (24h). Blocks brute-force spam attacks.</div>
+      </div>
+      <div class="check-item">
+        <span class="check-icon" style="color:#34d399;">&#10003;</span>
+        <div class="check-text"><strong>Duplicate Detection</strong> — SHA-256 fingerprint of model artifact. Blocks exact copies of other miners' models.</div>
+      </div>
+      <div class="check-item">
+        <span class="check-icon" style="color:#34d399;">&#10003;</span>
+        <div class="check-text"><strong>Clone Detection</strong> — Prediction correlation analysis. If two models correlate &gt;95%, they split rewards. Removes free-riding incentive.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="flow-arrow"><svg viewBox="0 0 20 28"><path d="M10 0 L10 22 M4 17 L10 24 L16 17" stroke="#3f3f46" stroke-width="2" fill="none"/></svg></div>
+
+  <!-- Step 4 -->
+  <div class="flow-step validator">
+    <div class="step-num">Step 4</div>
+    <h3>6-Metric Scoring</h3>
+    <p>Validators evaluate the model on proprietary benchmark data that miners cannot access. Six metrics are computed using a variance-penalized formulation: <strong>mean &minus; &lambda;&middot;std</strong> across rolling windows.</p>
+    <div class="metric-bars">
+      <div class="metric-bar-row"><div class="metric-bar-label">Penalized F1</div><div class="metric-bar-track"><div class="metric-bar-fill" style="width:25%;background:#06b6d4;"></div></div><div class="metric-bar-weight">25%</div></div>
+      <div class="metric-bar-row"><div class="metric-bar-label">Penalized Sharpe</div><div class="metric-bar-track"><div class="metric-bar-fill" style="width:25%;background:#06b6d4;"></div></div><div class="metric-bar-weight">25%</div></div>
+      <div class="metric-bar-row"><div class="metric-bar-label">Max Drawdown</div><div class="metric-bar-track"><div class="metric-bar-fill" style="width:15%;background:#14b8a6;"></div></div><div class="metric-bar-weight">15%</div></div>
+      <div class="metric-bar-row"><div class="metric-bar-label">Generalization Gap</div><div class="metric-bar-track"><div class="metric-bar-fill" style="width:20%;background:#f59e0b;"></div></div><div class="metric-bar-weight">20%</div></div>
+      <div class="metric-bar-row"><div class="metric-bar-label">Feature Efficiency</div><div class="metric-bar-track"><div class="metric-bar-fill" style="width:5%;background:#52525b;"></div></div><div class="metric-bar-weight">5%</div></div>
+      <div class="metric-bar-row"><div class="metric-bar-label">Latency</div><div class="metric-bar-track"><div class="metric-bar-fill" style="width:10%;background:#52525b;"></div></div><div class="metric-bar-weight">10%</div></div>
+    </div>
+  </div>
+
+  <div class="flow-arrow"><svg viewBox="0 0 20 28"><path d="M10 0 L10 22 M4 17 L10 24 L16 17" stroke="#3f3f46" stroke-width="2" fill="none"/></svg></div>
+
+  <!-- Step 5 -->
+  <div class="flow-step network">
+    <div class="step-num">Step 5 · Bridge</div>
+    <h3>Model Promotion to L2</h3>
+    <p>The top-N scoring models are promoted to the Layer 2 pool, where L2 miners can use them to build real trading strategies. Not every model qualifies — three criteria must be met.</p>
+    <div class="check-list">
+      <div class="check-item">
+        <span class="check-icon" style="color:#f59e0b;">&#9670;</span>
+        <div class="check-text"><strong>Generalization gap &le; 40%</strong> — Model must not be severely overfit.</div>
+      </div>
+      <div class="check-item">
+        <span class="check-icon" style="color:#f59e0b;">&#9670;</span>
+        <div class="check-text"><strong>&ge; 2 consecutive positive epochs</strong> — One good epoch could be luck. Two shows persistence.</div>
+      </div>
+      <div class="check-item">
+        <span class="check-icon" style="color:#f59e0b;">&#9670;</span>
+        <div class="check-text"><strong>Score decay &le; 20%</strong> — Models deteriorating rapidly are not promoted. Stale models expire after 5 unused epochs.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="flow-arrow"><svg viewBox="0 0 20 28"><path d="M10 0 L10 22 M4 17 L10 24 L16 17" stroke="#3f3f46" stroke-width="2" fill="none"/></svg></div>
+
+  <!-- Step 6 -->
+  <div class="flow-step miner">
+    <div class="step-num">Step 6 · Layer 2</div>
+    <h3>L2 Strategy Building</h3>
+    <p>L2 miners use promoted models to design automated trading strategies — defining entry/exit logic, position sizing, and risk parameters.</p>
+    <div class="mini-flow">
+      <div class="pill">Promoted Model</div>
+      <div class="arrow">&rarr;</div>
+      <div class="pill">Signal: Long / Short / Flat</div>
+      <div class="arrow">&rarr;</div>
+      <div class="pill">Position Sizing</div>
+      <div class="arrow">&rarr;</div>
+      <div class="pill" style="border-color:#34d399;">Paper / Live Trade</div>
+    </div>
+  </div>
+
+  <div class="flow-arrow"><svg viewBox="0 0 20 28"><path d="M10 0 L10 22 M4 17 L10 24 L16 17" stroke="#3f3f46" stroke-width="2" fill="none"/></svg></div>
+
+  <!-- Step 7 -->
+  <div class="flow-step validator">
+    <div class="step-num">Step 7</div>
+    <h3>L2 Scoring</h3>
+    <p>Validators score <strong>real trading outcomes</strong> — not simulations. This is the empirical proof layer. Strategies that breach 20% drawdown are eliminated immediately.</p>
+    <div class="metric-bars">
+      <div class="metric-bar-row"><div class="metric-bar-label">Realized P&L</div><div class="metric-bar-track"><div class="metric-bar-fill" style="width:25%;background:#34d399;"></div></div><div class="metric-bar-weight">25%</div></div>
+      <div class="metric-bar-row"><div class="metric-bar-label">Omega Ratio</div><div class="metric-bar-track"><div class="metric-bar-fill" style="width:20%;background:#34d399;"></div></div><div class="metric-bar-weight">20%</div></div>
+      <div class="metric-bar-row"><div class="metric-bar-label">Max Drawdown</div><div class="metric-bar-track"><div class="metric-bar-fill" style="width:15%;background:#14b8a6;"></div></div><div class="metric-bar-weight">15%</div></div>
+      <div class="metric-bar-row"><div class="metric-bar-label">Win Rate</div><div class="metric-bar-track"><div class="metric-bar-fill" style="width:10%;background:#52525b;"></div></div><div class="metric-bar-weight">10%</div></div>
+      <div class="metric-bar-row"><div class="metric-bar-label">Consistency</div><div class="metric-bar-track"><div class="metric-bar-fill" style="width:20%;background:#34d399;"></div></div><div class="metric-bar-weight">20%</div></div>
+      <div class="metric-bar-row"><div class="metric-bar-label">Model Attribution</div><div class="metric-bar-track"><div class="metric-bar-fill" style="width:10%;background:#52525b;"></div></div><div class="metric-bar-weight">10%</div></div>
+    </div>
+  </div>
+
+  <div class="flow-arrow"><svg viewBox="0 0 20 28"><path d="M10 0 L10 22 M4 17 L10 24 L16 17" stroke="#3f3f46" stroke-width="2" fill="none"/></svg></div>
+
+  <!-- Step 8 -->
+  <div class="flow-step feedback">
+    <div class="step-num">Step 8 · Feedback Loop</div>
+    <h3>Cross-Layer Feedback</h3>
+    <p>L2 trading performance retroactively adjusts L1 model scores in the next epoch. This closes the simulation-to-reality gap — a model is only "good" if its deployed strategies actually make money.</p>
+    <div class="feedback-ranges">
+      <div class="feedback-range bonus">
+        <span style="font-size:20px;">+15%</span>
+        <div>
+          <div>Bonus multiplier on next L1 epoch</div>
+          <div class="label">When L2 strategy score &gt; 0.6 (after 3+ epochs of evidence)</div>
+        </div>
+      </div>
+      <div class="feedback-range penalty">
+        <span style="font-size:20px;">&minus;10%</span>
+        <div>
+          <div>Penalty on next L1 epoch</div>
+          <div class="label">When L2 strategy score &lt; 0.3 (despite good simulation scores)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+</div>
+
+<div class="flow-feedback-note">
+  Step 8 feeds back into Step 4 — L2 results adjust L1 scores in the next epoch, creating a continuous improvement loop.
+</div>
+
+</body>
+</html>

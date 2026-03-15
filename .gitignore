@@ -15,5 +15,8 @@ subnet/results/
 subnet/viz/*_built.html
 subnet/viz/screenshot_*.png
 
+# Vercel
+.vercel/
+
 # OS
 .DS_Store
