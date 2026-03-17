@@ -367,27 +367,16 @@ For EVM-compatible operations:
 | `max_validators` | `64` | Maximum validator count |
 | `min_allowed_weights` | `1` | Minimum weights per validator |
 
-### Insignia Application-Level Parameters (41 Tunable)
+### Insignia Scoring Parameters (41 Tunable)
 
-See `tuning/parameter_space.py` for the full list. These are the incentive-mechanism parameters tuned by the emulator, distinct from the 39 Bittensor on-chain subnet hyperparameters (set via `btcli`).
+See `tuning/parameter_space.py` for the full list. Key groups:
 
-| Group | Count | Parameters |
-|-------|-------|------------|
-| **L1 Scoring Weights** | 7 | Penalized F1, Penalized Sharpe, Max Drawdown, Variance Score, Overfitting Penalty, Feature Efficiency, Latency |
-| **L2 Scoring Weights** | 6 | Realized P&L, Omega Ratio, Max Drawdown, Win Rate, Consistency, Model Attribution |
-| **Overfitting Detector** | 2 | gap threshold, decay rate |
-| **Promotion Criteria** | 5 | top-N, min epochs, max overfitting, decay limit, expiry |
-| **Cross-Layer Feedback** | 2 | bonus weight, penalty weight |
-| **Anti-Gaming** | 4 | plagiarism threshold, copy-trade detection (3 params) |
-| **Trading Engine** | 6 | slippage model (4 params), position limit, drawdown kill switch |
-| **Buyback** | 2 | buyback percentage, minimum profit threshold |
-| **Emission Distribution** | 3 | reverse sigmoid midpoint, steepness, L1/L2 split ratio |
-| **Rate Limiting** | 1 | minimum epoch interval |
-| **Feedback Thresholds** | 3 | min L2 epochs, bonus threshold, penalty threshold |
-
-### Bittensor On-Chain Subnet Hyperparameters (39)
-
-These are network-level parameters set via `btcli subnets hyperparameters`. See `testnet/config.py` for the full enumeration. Key groups: core (tempo, immunity, kappa), difficulty/registration, weights/adjustments, alpha/staking, bonds, and commit-reveal.
+- **L1 Scoring Weights** (7 params): directional accuracy, Sharpe, drawdown, stability, overfitting, feature efficiency, latency
+- **L2 Scoring Weights** (6 params): P&L, Omega ratio, drawdown, win rate, consistency, model attribution
+- **Overfitting Detector** (2 params): gap threshold, decay rate
+- **Promotion Criteria** (5 params): top-N, min epochs, max overfitting, decay limit, expiry
+- **Anti-Gaming** (4 params): plagiarism threshold, copy-trade detection
+- **Trading Engine** (6 params): slippage model, position limits, drawdown kill switch
 
 ### Environment Variables
 

@@ -84,63 +84,26 @@ class SubnetHyperparameters:
     """
     On-chain hyperparameters registered when creating/configuring the subnet.
 
-    These are the 39 Bittensor network-level parameters (per the SDK's
-    SubnetHyperparameters dataclass), separate from the 41 Insignia
-    application-level tunable parameters in tuning/parameter_space.py.
-
-    Together they form the full 80-parameter tuning landscape.
-
-    Reference: https://docs.learnbittensor.org/subnets/subnet-hyperparameters
+    These are the Bittensor network-level parameters, separate from the
+    Insignia scoring weights (which live in the parameter_space module).
     """
 
-    # --- Core ---
-    rho: int = 10
-    kappa: int = 32767
     tempo: int = 360
     immunity_period: int = 5000
+    max_validators: int = 64
     min_allowed_weights: int = 1
     max_weight_limit: int = 65535
-    max_validators: int = 64
-
-    # --- Difficulty & Registration ---
-    difficulty: int = 10_000_000
-    min_difficulty: int = 10_000_000
-    max_difficulty: int = 4_000_000_000
-    min_burn: int = 0
-    max_burn: int = 100_000_000_000
+    adjustment_alpha: int = 0
     registration_allowed: bool = True
     target_regs_per_interval: int = 1
-    max_regs_per_block: int = 1
-    adjustment_interval: int = 112
-
-    # --- Weights & Adjustments ---
-    weights_version: int = 0
-    weights_rate_limit: int = 100
-    adjustment_alpha: int = 0
-    activity_cutoff: int = 5000
-
-    # --- Commit-Reveal ---
+    min_burn: int = 0
+    max_burn: int = 100_000_000_000
+    bonds_moving_avg: int = 900000
     commit_reveal_weights_enabled: bool = False
-    commit_reveal_period: int = 1000
-
-    # --- Alpha & Staking ---
+    commit_reveal_weights_interval: int = 1000
     alpha_high: int = 58982
     alpha_low: int = 45875
-    alpha_sigmoid_steepness: int = 1
     liquid_alpha_enabled: bool = True
-
-    # --- Bonds ---
-    bonds_moving_avg: int = 900000
-    bonds_reset_enabled: bool = False
-
-    # --- Rate Limits ---
-    serving_rate_limit: int = 10
-
-    # --- Network State ---
-    yuma_version: int = 1
-    subnet_is_active: bool = True
-    transfers_enabled: bool = True
-    user_liquidity_enabled: bool = True
 
 
 @dataclass
