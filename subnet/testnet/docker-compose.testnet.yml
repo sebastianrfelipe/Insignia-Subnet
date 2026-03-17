@@ -1,0 +1,88 @@
+###############################################################################
+# Insignia Subnet — Local Testnet Stack
+#
+# Brings up a complete local development environment:
+#   - Local subtensor chain (fast 250ms blocks)
+#   - Prometheus for metrics collection
+#   - Grafana for real-time dashboard visualization
+#
+# Usage:
+#   docker compose -f testnet/docker-compose.testnet.yml up -d
+#
+# Verify:
+#   btcli subnet list --network ws://127.0.0.1:9945
+#
+# Ports:
+#   9944  – Subtensor WebSocket (primary)
+#   9945  – Subtensor WebSocket (alternative)
+#   9933  – Subtensor RPC / EVM
+#   9090  – Prometheus
+#   3000  – Grafana (admin/admin)
+#   8001  – Emulator metrics endpoint
+###############################################################################
+
+version: "3.8"
+
+services:
+  # ---------------------------------------------------------------------------
+  # Local Subtensor Node (fast blocks for rapid iteration)
+  # ---------------------------------------------------------------------------
+  subtensor:
+    image: ghcr.io/opentensor/subtensor-localnet:devnet-ready
+    container_name: insignia-subtensor
+    ports:
+      - "9944:9944"
+      - "9945:9945"
+      - "9933:9933"
+    environment:
+      - RUST_LOG=info
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9933/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  # ---------------------------------------------------------------------------
+  # Prometheus — Metrics Collection
+  # ---------------------------------------------------------------------------
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    container_name: insignia-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ../monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=30d"
+    depends_on:
+      subtensor:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Grafana — Real-time Dashboards
+  # ---------------------------------------------------------------------------
+  grafana:
+    image: grafana/grafana:10.4.0
+    container_name: insignia-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - ../monitoring/grafana/provisioning:/etc/grafana/provisioning
+      - ../monitoring/grafana/dashboards:/var/lib/grafana/dashboards
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+volumes:
+  prometheus_data:
+  grafana_data:
