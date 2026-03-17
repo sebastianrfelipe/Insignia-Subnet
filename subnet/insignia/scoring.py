@@ -57,30 +57,91 @@ class ScoreVector:
 # Metric Definitions (Layer 1)
 # ---------------------------------------------------------------------------
 
-def directional_accuracy(predictions: np.ndarray, actuals: np.ndarray) -> float:
-    """Fraction of correct directional predictions."""
+def penalized_f1(predictions: np.ndarray, actuals: np.ndarray) -> float:
+    """
+    Penalized F1: directional prediction quality with penalty for
+    inconsistency across rolling sub-windows.
+
+    Computes F1 score for the binary up/down classification, then
+    applies a variance penalty (mean - lambda*std) across 5 rolling
+    windows to reward cross-regime consistency.
+    """
     if len(predictions) == 0:
         return 0.0
-    pred_dir = np.sign(predictions)
-    actual_dir = np.sign(actuals)
-    return float(np.mean(pred_dir == actual_dir))
+    pred_dir = (predictions > 0).astype(int)
+    actual_dir = (actuals > 0).astype(int)
+
+    tp = float(np.sum((pred_dir == 1) & (actual_dir == 1)))
+    fp = float(np.sum((pred_dir == 1) & (actual_dir == 0)))
+    fn = float(np.sum((pred_dir == 0) & (actual_dir == 1)))
+
+    precision = tp / max(tp + fp, 1e-12)
+    recall = tp / max(tp + fn, 1e-12)
+    if precision + recall < 1e-12:
+        return 0.0
+    f1 = 2.0 * precision * recall / (precision + recall)
+
+    n_windows = 5
+    if len(predictions) < n_windows * 2:
+        return f1
+
+    chunk = len(predictions) // n_windows
+    window_f1s = []
+    for i in range(n_windows):
+        s, e = i * chunk, (i + 1) * chunk
+        p_w = (predictions[s:e] > 0).astype(int)
+        a_w = (actuals[s:e] > 0).astype(int)
+        tp_w = float(np.sum((p_w == 1) & (a_w == 1)))
+        fp_w = float(np.sum((p_w == 1) & (a_w == 0)))
+        fn_w = float(np.sum((p_w == 0) & (a_w == 1)))
+        prec_w = tp_w / max(tp_w + fp_w, 1e-12)
+        rec_w = tp_w / max(tp_w + fn_w, 1e-12)
+        f1_w = 2.0 * prec_w * rec_w / max(prec_w + rec_w, 1e-12)
+        window_f1s.append(f1_w)
+
+    lam = 0.5
+    penalty = lam * float(np.std(window_f1s))
+    return float(max(0.0, f1 - penalty))
 
 
-def simulated_sharpe(
+def penalized_sharpe(
     predictions: np.ndarray,
     actuals: np.ndarray,
     risk_free_rate: float = 0.0,
     annualization: float = np.sqrt(365 * 24),
 ) -> float:
     """
-    Sharpe ratio on a simulated portfolio that takes positions proportional
-    to prediction magnitude and earns actual returns.
+    Penalized Sharpe Ratio: risk-adjusted returns with a consistency
+    penalty across rolling sub-windows.
+
+    Computes the annualized Sharpe ratio on a simulated portfolio, then
+    penalizes for high variance of sub-window Sharpe ratios. This prevents
+    models that achieve a high aggregate Sharpe through a single lucky
+    window while being inconsistent elsewhere.
     """
     position_returns = predictions * actuals
     if len(position_returns) < 2 or np.std(position_returns) < 1e-12:
         return 0.0
     excess = position_returns - risk_free_rate
-    return float(annualization * np.mean(excess) / np.std(excess))
+    sharpe = float(annualization * np.mean(excess) / np.std(excess))
+
+    n_windows = 5
+    if len(position_returns) < n_windows * 2:
+        return sharpe
+
+    chunk = len(position_returns) // n_windows
+    window_sharpes = []
+    for i in range(n_windows):
+        s, e = i * chunk, (i + 1) * chunk
+        w = position_returns[s:e]
+        if np.std(w) < 1e-12:
+            window_sharpes.append(0.0)
+        else:
+            window_sharpes.append(float(np.mean(w) / np.std(w)))
+
+    lam = 0.3
+    penalty = lam * float(np.std(window_sharpes))
+    return float(sharpe - penalty)
 
 
 def max_drawdown_score(equity_curve: np.ndarray) -> float:
@@ -95,16 +156,17 @@ def max_drawdown_score(equity_curve: np.ndarray) -> float:
     return float(np.max(drawdown))
 
 
-def stability_score(
+def variance_score(
     predictions: np.ndarray,
     actuals: np.ndarray,
     n_windows: int = 5,
 ) -> float:
     """
-    Consistency of performance across rolling sub-windows.
+    Variance Score: measures cross-regime consistency of model performance.
 
-    Computes directional accuracy in each sub-window and returns
-    1 - coefficient_of_variation. Higher = more stable.
+    Computes directional accuracy in each rolling sub-window and returns
+    1 - coefficient_of_variation. Higher = more stable across market regimes.
+    Models that only work in one regime (e.g., trending markets) score poorly.
     """
     if len(predictions) < n_windows * 2:
         return 0.0
@@ -267,10 +329,10 @@ class WeightConfig:
     """
 
     # Layer 1 weights (must sum to 1.0)
-    l1_directional_accuracy: float = 0.20
-    l1_sharpe: float = 0.20
+    l1_penalized_f1: float = 0.20
+    l1_penalized_sharpe: float = 0.20
     l1_max_drawdown: float = 0.15
-    l1_stability: float = 0.15
+    l1_variance_score: float = 0.15
     l1_overfitting_penalty: float = 0.15
     l1_feature_efficiency: float = 0.05
     l1_latency: float = 0.10
@@ -321,10 +383,10 @@ class CompositeScorer:
         is the OverfittingDetector implementation, which is pluggable.
         """
         raw = {
-            "directional_accuracy": directional_accuracy(predictions, actuals),
-            "sharpe": simulated_sharpe(predictions, actuals),
+            "penalized_f1": penalized_f1(predictions, actuals),
+            "penalized_sharpe": penalized_sharpe(predictions, actuals),
             "max_drawdown": max_drawdown_score(equity_curve),
-            "stability": stability_score(predictions, actuals),
+            "variance_score": variance_score(predictions, actuals),
             "overfitting_penalty": self.overfitting_detector.evaluate(
                 in_sample_accuracy, out_of_sample_accuracy, model_complexity
             ),
@@ -336,10 +398,10 @@ class CompositeScorer:
 
         w = self.weights
         composite = (
-            w.l1_directional_accuracy * normalized["directional_accuracy"]
-            + w.l1_sharpe * normalized["sharpe"]
+            w.l1_penalized_f1 * normalized["penalized_f1"]
+            + w.l1_penalized_sharpe * normalized["penalized_sharpe"]
             + w.l1_max_drawdown * normalized["max_drawdown"]
-            + w.l1_stability * normalized["stability"]
+            + w.l1_variance_score * normalized["variance_score"]
             + w.l1_overfitting_penalty * normalized["overfitting_penalty"]
             + w.l1_feature_efficiency * normalized["feature_efficiency"]
             + w.l1_latency * normalized["latency"]
@@ -395,22 +457,22 @@ class CompositeScorer:
         """
         Map raw L1 metrics to [0, 1] where 1 is best.
 
-        Directional accuracy: already in [0, 1]
-        Sharpe: sigmoid transform centered at 1.0
+        Penalized F1: already in [0, 1]
+        Penalized Sharpe: sigmoid transform centered at 1.0
         Max drawdown: inverted (lower drawdown = higher score)
-        Stability: already in [0, 1]
+        Variance score: already in [0, 1]
         Overfitting penalty: inverted (lower penalty = higher score)
         Feature efficiency: already in (0, 1]
         Latency: already in (0, 1]
         """
-        sharpe_raw = raw["sharpe"]
+        sharpe_raw = raw["penalized_sharpe"]
         sharpe_norm = 1.0 / (1.0 + math.exp(-0.5 * (sharpe_raw - 1.0)))
 
         return {
-            "directional_accuracy": min(1.0, max(0.0, raw["directional_accuracy"])),
-            "sharpe": sharpe_norm,
+            "penalized_f1": min(1.0, max(0.0, raw["penalized_f1"])),
+            "penalized_sharpe": sharpe_norm,
             "max_drawdown": max(0.0, 1.0 - raw["max_drawdown"]),
-            "stability": min(1.0, max(0.0, raw["stability"])),
+            "variance_score": min(1.0, max(0.0, raw["variance_score"])),
             "overfitting_penalty": max(0.0, 1.0 - raw["overfitting_penalty"]),
             "feature_efficiency": min(1.0, max(0.0, raw["feature_efficiency"])),
             "latency": min(1.0, max(0.0, raw["latency"])),
