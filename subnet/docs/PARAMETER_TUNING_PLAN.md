@@ -2,10 +2,15 @@
 
 ## Executive Summary
 
-The Insignia subnet's incentive mechanism involves **two composite scoring vectors** (L1: 7 metrics, L2: 6 metrics), **cross-layer feedback parameters**, **anti-gaming thresholds**, and **subnet hyperparameters**. Tuning these parameters by hand is infeasible because:
+The Insignia subnet's incentive mechanism involves **two composite scoring vectors** (L1: 7 metrics, L2: 6 metrics), **cross-layer feedback parameters**, **anti-gaming thresholds**, **emission distribution parameters**, and **subnet hyperparameters**. The full tuning landscape spans two distinct levels:
 
-1. The parameter space is high-dimensional (~40+ tunable parameters)
-2. Interactions between parameters are non-linear (e.g., changing L1 overfitting weight affects which models reach L2)
+- **41 Insignia application-level parameters** — scoring weights, thresholds, emission distribution, and mechanism knobs (tuned by the emulator)
+- **39 Bittensor on-chain subnet hyperparameters** — network-level parameters controlling registration, consensus, staking, and bonds (set via `btcli subnets hyperparameters`)
+
+Together these form an **80-parameter optimization surface**. Tuning by hand is infeasible because:
+
+1. The parameter space is high-dimensional (80 total parameters across two levels)
+2. Interactions between parameters are non-linear (e.g., changing L1 overfitting weight affects which models reach L2; changing `tempo` affects how frequently weights are set)
 3. Attack vectors exploit specific parameter configurations
 4. You cannot iterate quickly on mainnet — miners are real actors with real stakes
 
@@ -60,24 +65,53 @@ The Insignia subnet's incentive mechanism involves **two composite scoring vecto
 
 **Goal:** Enumerate every tunable parameter, define its bounds, and categorize by layer.
 
+#### Insignia Application-Level Parameters (41 total, tuned by emulator)
+
 | Category | Parameters | Count |
 |----------|-----------|-------|
-| L1 Scoring Weights | directional_accuracy, sharpe, max_drawdown, stability, overfitting_penalty, feature_efficiency, latency | 7 |
+| L1 Scoring Weights | penalized_f1, penalized_sharpe, max_drawdown, variance_score, overfitting_penalty, feature_efficiency, latency | 7 |
 | L2 Scoring Weights | realized_pnl, omega, max_drawdown, win_rate, consistency, model_attribution | 6 |
 | Overfitting Detector | gap_threshold, decay_rate | 2 |
-| Cross-Layer Promotion | top_n, min_consecutive_epochs, max_overfitting_score, max_score_decay_pct, expiry_epochs_without_usage | 5 |
+| Cross-Layer Promotion | top_n, min_consecutive_epochs, max_overfitting_score, max_score_decay_pct, expiry_epochs | 5 |
 | Cross-Layer Feedback | feedback_bonus_weight, feedback_penalty_weight | 2 |
-| Anti-Gaming | rate_limit_seconds, correlation_threshold (fingerprint), copy_trade_time_tolerance, copy_trade_size_tolerance, copy_trade_correlation_threshold | 5 |
-| Buyback | buyback_pct, min_profit_threshold | 2 |
+| Anti-Gaming | fingerprint_correlation_threshold, copy_trade_time_tolerance, copy_trade_size_tolerance, copy_trade_correlation_threshold | 4 |
 | L2 Trading | base_spread_bps, volatility_impact_factor, size_impact_factor, fee_bps, max_position_pct, max_drawdown_pct | 6 |
-| Subnet Hyperparameters | tempo, immunity_period, min_allowed_weights, max_weight_limit, adjustment_alpha, bonds_moving_avg | 6 |
-| **Total** | | **~41** |
+| Buyback | buyback_pct, min_profit_threshold | 2 |
+| Emission Distribution | sigmoid_midpoint, sigmoid_steepness, l1_l2_emission_split | 3 |
+| Rate Limiting | rate_limit_epoch_seconds | 1 |
+| Feedback Thresholds | feedback_min_l2_epochs, feedback_bonus_threshold, feedback_penalty_threshold | 3 |
+| **Subtotal** | | **41** |
+
+#### Bittensor On-Chain Subnet Hyperparameters (39 total, set via btcli)
+
+| Category | Parameters | Count |
+|----------|-----------|-------|
+| Core | rho, kappa, tempo, immunity_period, min_allowed_weights, max_weight_limit, max_validators | 7 |
+| Difficulty & Registration | difficulty, min_difficulty, max_difficulty, min_burn, max_burn, registration_allowed, target_regs_per_interval, max_regs_per_block, adjustment_interval | 9 |
+| Weights & Adjustments | weights_version, weights_rate_limit, adjustment_alpha, activity_cutoff | 4 |
+| Commit-Reveal | commit_reveal_weights_enabled, commit_reveal_period | 2 |
+| Alpha & Staking | alpha_high, alpha_low, alpha_sigmoid_steepness, liquid_alpha_enabled | 4 |
+| Bonds | bonds_moving_avg, bonds_reset_enabled | 2 |
+| Rate Limits | serving_rate_limit | 1 |
+| Network State | yuma_version, subnet_is_active, transfers_enabled, user_liquidity_enabled | 4 |
+| **Subtotal** | | **33** |
+
+> **Note:** The Bittensor SDK `SubnetHyperparameters` dataclass enumerates these fields. The exact count may vary by SDK version as the protocol evolves. The 6 most operationally relevant subnet hyperparameters (tempo, immunity_period, min_allowed_weights, max_weight_limit, adjustment_alpha, bonds_moving_avg) are the primary targets for subnet-owner tuning.
+
+#### Full Tuning Landscape
+
+| Level | Parameters | Tuned By |
+|-------|-----------|----------|
+| Insignia application-level | 41 | Emulator (NSGA-II evolutionary optimization) |
+| Bittensor on-chain | 33+ | btcli / subnet owner configuration |
+| **Total** | **74+** | |
 
 **Constraints:**
 - L1 weights must sum to 1.0
 - L2 weights must sum to 1.0
 - All weights ∈ [0.01, 0.50]
 - Thresholds must be positive
+- `feedback_penalty_threshold` < `feedback_bonus_threshold`
 
 **Implementation:** `tuning/parameter_space.py` — defines the search space, encoding/decoding, and constraint handling.
 

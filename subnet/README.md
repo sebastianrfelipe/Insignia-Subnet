@@ -28,7 +28,7 @@ Interactive visualizations showing every layer of the system:
 |---|----------|--------------|
 | 1 | **Training Data Explorer** | 117 derivatives features, permutation importance, price action |
 | 2 | **Model Performance** | Buy/sell signals on price, correct/wrong prediction blocks |
-| 3 | **Scoring System** | 6-metric evaluation with per-metric breakdowns and attack context |
+| 3 | **Scoring System** | 7-metric evaluation with per-metric breakdowns and attack context |
 | 4 | **Network Flow** | 8-step flowchart from model training to emissions distribution |
 | 5 | **Live Network Demo** | Two FastAPI servers (miner + validator) communicating over HTTP |
 
@@ -68,7 +68,7 @@ uv run python demo/run.py
 │  validators      │    │  promoted models │    │  pairs    │
 │                  │    │                  │    │           │
 │  Validators:     │    │  Validators:     │    │  Buyback  │
-│  6-metric score  │    │  Score real P&L  │    │  → token  │
+│  7-metric score  │    │  Score real P&L  │    │  → token  │
 │  (mean−λ·std)    │    │  6 metrics       │    │  value    │
 └────────┬─────────┘    └────────┬─────────┘    └───────────┘
          │                       │
@@ -78,16 +78,17 @@ uv run python demo/run.py
 
 ---
 
-## L1 Scoring (6 Metrics)
+## L1 Scoring (7 Metrics)
 
 | Metric | Weight | Purpose |
 |--------|--------|---------|
-| Penalized F1 | 25% | Directional quality + cross-regime consistency |
-| Penalized Sharpe | 25% | Risk-adjusted returns + consistency |
-| Max Drawdown | 15% | Penalizes fragile models with tail risk |
-| Generalization Gap | 20% | Direct overfitting measure (train−test gap) |
-| Feature Efficiency | 5% | Penalizes excessive feature dependencies |
-| Latency | 10% | Inference speed for short-horizon trading |
+| Penalized F1 | 20% | Directional prediction quality with cross-regime consistency penalty |
+| Penalized Sharpe Ratio | 20% | Risk-adjusted returns with variance penalty across sub-windows |
+| Max Drawdown | 15% | Penalizes fragile models with large peak-to-trough losses |
+| Variance Score | 15% | Cross-regime consistency — coefficient of variation across market regimes |
+| Overfitting Penalty | 15% | Gap between in-sample and out-of-sample performance (proprietary metric) |
+| Feature Efficiency | 5% | Penalizes models requiring excessive features |
+| Latency | 10% | Inference speed — critical for short-horizon deployment |
 
 All metrics use a **variance-penalized formulation** (`mean − λ·std`) across rolling windows, rewarding both performance and consistency.
 
@@ -99,7 +100,7 @@ All metrics use a **variance-penalized formulation** (`mean − λ·std`) across
 subnet/
 ├── insignia/               # Core protocol
 │   ├── protocol.py         # Synapse definitions (L1 + L2)
-│   ├── scoring.py          # 6-metric composite scorer
+│   ├── scoring.py          # 7-metric composite scorer
 │   ├── incentive.py        # Anti-gaming mechanisms (9 attack defenses)
 │   └── cross_layer.py      # Model promotion + feedback loop
 ├── neurons/                # Neuron implementations
