@@ -24,7 +24,7 @@
 ### Benchmark
 **Target output quality metric miners are scored on.**
 
-- **Layer 1**: Multi-metric evaluation vector (7 dimensions) scored against proprietary tick-by-tick benchmark dataset
+- **Layer 1**: Multi-metric evaluation vector (7 dimensions: Penalized F1, Penalized Sharpe, Max Drawdown, Variance Score, Overfitting Penalty, Feature Efficiency, Latency) scored against proprietary tick-by-tick benchmark dataset
 - **Layer 2**: Real trading outcomes (6 dimensions) measured against actual market performance
 - Published metric definitions with configurable weights (see `scoring.py`)
 
@@ -201,7 +201,7 @@ subnet/
 ├── insignia/
 │   ├── __init__.py           # Package definition
 │   ├── protocol.py           # Bittensor Synapse definitions (L1 + L2)
-│   ├── scoring.py            # Composite scoring engine (7 L1 + 6 L2 metrics)
+│   ├── scoring.py            # Composite scoring engine (L1: 7 metrics, L2: 6 metrics)
 │   ├── incentive.py          # Anti-gaming mechanisms + attack/defense matrix
 │   └── cross_layer.py        # Model promotion + feedback loop engine
 ├── neurons/
