@@ -14,19 +14,22 @@ The design operates across two independent layers, each with its own Yuma consen
 
 | Metric | Weight | Purpose |
 |--------|--------|---------|
-| Directional Accuracy | 20% | Core signal quality — correct prediction of price direction |
-| Simulated Sharpe Ratio | 20% | Risk-adjusted returns on paper portfolio during backtest |
+| Penalized F1 | 20% | Directional prediction quality with cross-regime consistency penalty (mean − λ·std across windows) |
+| Penalized Sharpe Ratio | 20% | Risk-adjusted returns with variance penalty across rolling sub-windows |
 | Max Drawdown | 15% | Penalizes fragile models with large peak-to-trough losses |
-| Stability Score | 15% | Cross-regime consistency across rolling evaluation windows |
+| Variance Score | 15% | Cross-regime consistency — measures coefficient of variation across market regimes |
 | Overfitting Penalty | 15% | Gap between in-sample and out-of-sample performance (proprietary metric) |
 | Feature Efficiency | 5% | Penalizes models requiring exotic or excessive features |
 | Latency Score | 10% | Inference speed — critical for short-horizon deployment |
 
+All metrics use a **variance-penalized formulation** (`mean − λ·std`) across rolling windows, rewarding both peak performance and consistency.
+
 ### Why This Drives Good Behavior
 
-- **Multi-dimensional scoring** prevents miners from gaming a single metric. A model with 95% accuracy but 40% max drawdown scores poorly.
+- **Multi-dimensional scoring** prevents miners from gaming a single metric. A model with high F1 but 40% max drawdown scores poorly.
+- **Variance-penalized metrics** ensure that high aggregate scores cannot be achieved through a single lucky window while being inconsistent elsewhere.
 - **Overfitting detection** specifically targets the most common failure mode of GBDTs on financial data.
-- **Stability requirements** ensure models work across market regimes, not just the current one.
+- **Variance Score** ensures models work across market regimes, not just the current one.
 - **Feature efficiency** discourages models that depend on data sources that won't be available in production.
 
 ### Emission Distribution
@@ -146,8 +149,8 @@ This closes the simulation-to-reality gap: models are ultimately judged by deplo
 | | |
 |---|---|
 | **Attack** | Model only works in specific market conditions (e.g., bull market) and fails in others. |
-| **Defense** | Stability Score explicitly measures cross-regime consistency. Validation windows deliberately cover trending, ranging, high-vol, low-vol, and crisis periods. |
-| **Why it fails** | Low stability score directly penalizes regime-specific models. |
+| **Defense** | Variance Score explicitly measures cross-regime consistency. Validation windows deliberately cover trending, ranging, high-vol, low-vol, and crisis periods. Penalized F1 and Penalized Sharpe also apply rolling-window variance penalties. |
+| **Why it fails** | Low Variance Score directly penalizes regime-specific models. The variance penalty in F1 and Sharpe provides a second layer of defense. |
 
 ---
 

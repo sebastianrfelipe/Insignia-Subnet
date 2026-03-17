@@ -42,10 +42,10 @@ class ParameterBounds:
 # All tunable parameters with bounds
 PARAMETER_DEFINITIONS: List[ParameterBounds] = [
     # L1 Scoring Weights (7 params, must sum to 1.0)
-    ParameterBounds("l1_directional_accuracy", 0.05, 0.40, "l1_weights", "Weight for directional accuracy"),
-    ParameterBounds("l1_sharpe",               0.05, 0.40, "l1_weights", "Weight for Sharpe ratio"),
+    ParameterBounds("l1_penalized_f1",         0.05, 0.40, "l1_weights", "Weight for Penalized F1"),
+    ParameterBounds("l1_penalized_sharpe",     0.05, 0.40, "l1_weights", "Weight for Penalized Sharpe Ratio"),
     ParameterBounds("l1_max_drawdown",         0.05, 0.30, "l1_weights", "Weight for max drawdown penalty"),
-    ParameterBounds("l1_stability",            0.05, 0.30, "l1_weights", "Weight for stability score"),
+    ParameterBounds("l1_variance_score",       0.05, 0.30, "l1_weights", "Weight for Variance Score (cross-regime consistency)"),
     ParameterBounds("l1_overfitting_penalty",  0.05, 0.35, "l1_weights", "Weight for overfitting penalty"),
     ParameterBounds("l1_feature_efficiency",   0.01, 0.15, "l1_weights", "Weight for feature efficiency"),
     ParameterBounds("l1_latency",              0.01, 0.20, "l1_weights", "Weight for latency score"),
@@ -90,6 +90,19 @@ PARAMETER_DEFINITIONS: List[ParameterBounds] = [
     # Buyback
     ParameterBounds("buyback_pct",             0.05, 0.50, "buyback", "% of firm P&L used for buybacks"),
     ParameterBounds("buyback_min_profit",      100,  5000, "buyback", "Min P&L before buyback triggers"),
+
+    # Emission Distribution (reverse sigmoid)
+    ParameterBounds("emission_sigmoid_midpoint",   0.2,  0.8,  "emissions", "Reverse sigmoid midpoint — controls how many miners get high emissions"),
+    ParameterBounds("emission_sigmoid_steepness",  1.0,  20.0, "emissions", "Reverse sigmoid steepness — controls drop-off gradient"),
+    ParameterBounds("l1_l2_emission_split",        0.40, 0.80, "emissions", "Fraction of emissions to L1 (remainder to L2)"),
+
+    # Rate Limiting
+    ParameterBounds("rate_limit_epoch_seconds",    3600, 172800, "rate_limit", "Minimum seconds between miner submissions"),
+
+    # Cross-Layer Feedback Thresholds
+    ParameterBounds("feedback_min_l2_epochs",      1,    10,  "feedback_thresholds", "Min L2 epochs of data before feedback applies"),
+    ParameterBounds("feedback_bonus_threshold",    0.4,  0.8, "feedback_thresholds", "L2 score above which L1 bonus kicks in"),
+    ParameterBounds("feedback_penalty_threshold",  0.1,  0.5, "feedback_thresholds", "L2 score below which L1 penalty kicks in"),
 ]
 
 N_PARAMS = len(PARAMETER_DEFINITIONS)
@@ -140,10 +153,10 @@ def decode(x: np.ndarray) -> Dict[str, Any]:
     p = {name: float(val) for name, val in zip(PARAM_NAMES, x)}
 
     weight_config = WeightConfig(
-        l1_directional_accuracy=p["l1_directional_accuracy"],
-        l1_sharpe=p["l1_sharpe"],
+        l1_penalized_f1=p["l1_penalized_f1"],
+        l1_penalized_sharpe=p["l1_penalized_sharpe"],
         l1_max_drawdown=p["l1_max_drawdown"],
-        l1_stability=p["l1_stability"],
+        l1_variance_score=p["l1_variance_score"],
         l1_overfitting_penalty=p["l1_overfitting_penalty"],
         l1_feature_efficiency=p["l1_feature_efficiency"],
         l1_latency=p["l1_latency"],
@@ -193,14 +206,27 @@ def decode(x: np.ndarray) -> Dict[str, Any]:
             "buyback_pct": p["buyback_pct"],
             "min_profit_threshold": p["buyback_min_profit"],
         },
+        "emissions": {
+            "sigmoid_midpoint": p["emission_sigmoid_midpoint"],
+            "sigmoid_steepness": p["emission_sigmoid_steepness"],
+            "l1_l2_split": p["l1_l2_emission_split"],
+        },
+        "rate_limit": {
+            "epoch_seconds": p["rate_limit_epoch_seconds"],
+        },
+        "feedback_thresholds": {
+            "min_l2_epochs": int(round(p["feedback_min_l2_epochs"])),
+            "bonus_threshold": p["feedback_bonus_threshold"],
+            "penalty_threshold": p["feedback_penalty_threshold"],
+        },
     }
 
 
 def encode_defaults() -> np.ndarray:
     """Encode the default parameter configuration as a flat vector."""
     defaults = {
-        "l1_directional_accuracy": 0.20, "l1_sharpe": 0.20, "l1_max_drawdown": 0.15,
-        "l1_stability": 0.15, "l1_overfitting_penalty": 0.15, "l1_feature_efficiency": 0.05,
+        "l1_penalized_f1": 0.20, "l1_penalized_sharpe": 0.20, "l1_max_drawdown": 0.15,
+        "l1_variance_score": 0.15, "l1_overfitting_penalty": 0.15, "l1_feature_efficiency": 0.05,
         "l1_latency": 0.10,
         "l2_realized_pnl": 0.25, "l2_omega": 0.20, "l2_max_drawdown": 0.15,
         "l2_win_rate": 0.10, "l2_consistency": 0.20, "l2_model_attribution": 0.10,
@@ -215,6 +241,11 @@ def encode_defaults() -> np.ndarray:
         "slippage_size_impact_factor": 0.1, "slippage_fee_bps": 5.0,
         "trading_max_position_pct": 0.10, "trading_max_drawdown_pct": 0.20,
         "buyback_pct": 0.20, "buyback_min_profit": 1000.0,
+        "emission_sigmoid_midpoint": 0.50, "emission_sigmoid_steepness": 8.0,
+        "l1_l2_emission_split": 0.60,
+        "rate_limit_epoch_seconds": 86400,
+        "feedback_min_l2_epochs": 3, "feedback_bonus_threshold": 0.60,
+        "feedback_penalty_threshold": 0.30,
     }
     return np.array([defaults[name] for name in PARAM_NAMES])
 
@@ -225,8 +256,8 @@ def summarize_config(config: Dict[str, Any]) -> str:
     p = config["raw_params"]
 
     lines.append("=== L1 Scoring Weights ===")
-    for k in ["l1_directional_accuracy", "l1_sharpe", "l1_max_drawdown",
-              "l1_stability", "l1_overfitting_penalty", "l1_feature_efficiency", "l1_latency"]:
+    for k in ["l1_penalized_f1", "l1_penalized_sharpe", "l1_max_drawdown",
+              "l1_variance_score", "l1_overfitting_penalty", "l1_feature_efficiency", "l1_latency"]:
         lines.append(f"  {k}: {p[k]:.4f}")
 
     lines.append("=== L2 Scoring Weights ===")
@@ -262,8 +293,8 @@ if __name__ == "__main__":
 
     print("\nL1 weights sum:", sum(
         config["raw_params"][k] for k in
-        ["l1_directional_accuracy", "l1_sharpe", "l1_max_drawdown",
-         "l1_stability", "l1_overfitting_penalty", "l1_feature_efficiency", "l1_latency"]
+        ["l1_penalized_f1", "l1_penalized_sharpe", "l1_max_drawdown",
+         "l1_variance_score", "l1_overfitting_penalty", "l1_feature_efficiency", "l1_latency"]
     ))
     print("L2 weights sum:", sum(
         config["raw_params"][k] for k in
