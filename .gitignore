@@ -10,6 +10,7 @@ __pycache__/
 # Data & model artifacts
 subnet/data/
 subnet/results/
+subnet/testnet_results/
 
 # Build artifacts
 subnet/viz/*_built.html

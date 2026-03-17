@@ -270,14 +270,16 @@ Modes:
   attack       Run attack detection analysis across multiple trials
   optimize     Run full evolutionary optimization (NSGA-II)
   random       Run random search optimization (no pymoo required)
+  testnet      Run testnet emulator (delegates to testnet.run_emulator)
 
 Examples:
   python -m tuning.orchestrator --mode single
   python -m tuning.orchestrator --mode attack --trials 10
   python -m tuning.orchestrator --mode optimize --generations 50 --population 30
+  python -m tuning.orchestrator --mode testnet --network local
         """,
     )
-    parser.add_argument("--mode", choices=["single", "attack", "optimize", "random"],
+    parser.add_argument("--mode", choices=["single", "attack", "optimize", "random", "testnet"],
                         default="single")
     parser.add_argument("--output", type=str, default="results")
     parser.add_argument("--generations", type=int, default=20)
@@ -291,6 +293,10 @@ Examples:
     parser.add_argument("--metrics-port", type=int, default=8000)
     parser.add_argument("--no-metrics", action="store_true",
                         help="Disable Prometheus metrics server")
+    parser.add_argument("--network", choices=["local", "testnet", "devnet"],
+                        default="local", help="Target network (testnet mode only)")
+    parser.add_argument("--netuid", type=int, default=None,
+                        help="Existing subnet netuid (testnet mode only)")
     args = parser.parse_args()
 
     if not args.no_metrics:
@@ -351,6 +357,29 @@ Examples:
             if result["best_config"]:
                 logger.info("\nBest configuration found:")
                 logger.info(summarize_config(result["best_config"]))
+
+        elif args.mode == "testnet":
+            logger.info("Launching testnet emulator...")
+            from testnet.config import EmulatorConfig, NetworkTarget
+            from testnet.emulator import InsigniaEmulator
+
+            emu_config = EmulatorConfig(
+                network=NetworkTarget(args.network),
+                netuid=args.netuid,
+                n_l1_epochs=args.n_epochs,
+                n_l2_trading_steps=args.n_steps,
+                n_honest_l1=args.n_honest,
+                n_adversarial_l1=args.n_adversarial,
+                output_dir=args.output,
+            )
+            emulator = InsigniaEmulator(emu_config)
+            emulator.initialize()
+            run_result = emulator.run_evolutionary_tuning(
+                n_generations=args.generations,
+                population_size=args.population,
+            )
+            emulator.save_results()
+            logger.info("Testnet emulator complete")
 
     finally:
         if not args.no_metrics:
