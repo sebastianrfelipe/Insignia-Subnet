@@ -281,7 +281,7 @@ ATTACK_DEFENSE_MATRIX: List[AttackDefense] = [
     AttackDefense(
         attack="Single-metric gaming",
         description="Miner optimizes for one dominant metric (e.g., accuracy) while ignoring others.",
-        defense="Composite scoring across 7 L1 metrics and 6 L2 metrics. No single metric dominates. Weight configuration is published but balanced.",
+        defense="Composite scoring across 7 L1 metrics and 7 L2 metrics. No single metric dominates (max weight 20%). Weight configuration is published but balanced.",
         mechanism="CompositeScorer + WeightConfig",
     ),
     AttackDefense(

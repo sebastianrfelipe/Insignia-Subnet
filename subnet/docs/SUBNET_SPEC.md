@@ -44,7 +44,7 @@
   - Measurable via composite score vector
 - **L2 Task**: Build and operate paper/live trading strategy using promoted L1 models
   - Interface: `POST /l2/submit_strategy` with position log
-  - Measurable via realized P&L, Omega, drawdown, consistency
+  - Measurable via realized P&L, Omega, drawdown, consistency, execution quality
 
 ### Incentive Design
 **Why scoring rewards genuine quality; why top attack vectors fail.**
@@ -201,7 +201,7 @@ subnet/
 ├── insignia/
 │   ├── __init__.py           # Package definition
 │   ├── protocol.py           # Bittensor Synapse definitions (L1 + L2)
-│   ├── scoring.py            # Composite scoring engine (L1: 7 metrics, L2: 6 metrics)
+│   ├── scoring.py            # Composite scoring engine (L1: 7 metrics, L2: 7 metrics)
 │   ├── incentive.py          # Anti-gaming mechanisms + attack/defense matrix
 │   └── cross_layer.py        # Model promotion + feedback loop engine
 ├── neurons/

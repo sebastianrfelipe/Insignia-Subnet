@@ -50,13 +50,14 @@ PARAMETER_DEFINITIONS: List[ParameterBounds] = [
     ParameterBounds("l1_feature_efficiency",   0.01, 0.15, "l1_weights", "Weight for feature efficiency"),
     ParameterBounds("l1_latency",              0.01, 0.20, "l1_weights", "Weight for latency score"),
 
-    # L2 Scoring Weights (6 params, must sum to 1.0)
-    ParameterBounds("l2_realized_pnl",     0.05, 0.45, "l2_weights", "Weight for realized P&L"),
-    ParameterBounds("l2_omega",            0.05, 0.35, "l2_weights", "Weight for Omega ratio"),
-    ParameterBounds("l2_max_drawdown",     0.05, 0.30, "l2_weights", "Weight for max drawdown"),
-    ParameterBounds("l2_win_rate",         0.05, 0.25, "l2_weights", "Weight for win rate"),
-    ParameterBounds("l2_consistency",      0.05, 0.35, "l2_weights", "Weight for consistency"),
-    ParameterBounds("l2_model_attribution",0.01, 0.25, "l2_weights", "Weight for model attribution"),
+    # L2 Scoring Weights (7 params, must sum to 1.0)
+    ParameterBounds("l2_realized_pnl",       0.05, 0.40, "l2_weights", "Weight for realized P&L"),
+    ParameterBounds("l2_omega",              0.05, 0.30, "l2_weights", "Weight for Omega ratio"),
+    ParameterBounds("l2_max_drawdown",       0.05, 0.30, "l2_weights", "Weight for max drawdown"),
+    ParameterBounds("l2_win_rate",           0.05, 0.25, "l2_weights", "Weight for win rate"),
+    ParameterBounds("l2_consistency",        0.05, 0.30, "l2_weights", "Weight for consistency"),
+    ParameterBounds("l2_model_attribution",  0.01, 0.25, "l2_weights", "Weight for model attribution"),
+    ParameterBounds("l2_execution_quality",  0.05, 0.30, "l2_weights", "Weight for execution quality (latency, reliability, slippage)"),
 
     # Overfitting Detector
     ParameterBounds("overfit_gap_threshold", 0.05, 0.40, "overfitting", "IS/OOS gap before penalty kicks in"),
@@ -166,6 +167,7 @@ def decode(x: np.ndarray) -> Dict[str, Any]:
         l2_win_rate=p["l2_win_rate"],
         l2_consistency=p["l2_consistency"],
         l2_model_attribution=p["l2_model_attribution"],
+        l2_execution_quality=p["l2_execution_quality"],
     )
 
     promotion_config = PromotionConfig(
@@ -228,8 +230,9 @@ def encode_defaults() -> np.ndarray:
         "l1_penalized_f1": 0.20, "l1_penalized_sharpe": 0.20, "l1_max_drawdown": 0.15,
         "l1_variance_score": 0.15, "l1_overfitting_penalty": 0.15, "l1_feature_efficiency": 0.05,
         "l1_latency": 0.10,
-        "l2_realized_pnl": 0.25, "l2_omega": 0.20, "l2_max_drawdown": 0.15,
-        "l2_win_rate": 0.10, "l2_consistency": 0.20, "l2_model_attribution": 0.10,
+        "l2_realized_pnl": 0.20, "l2_omega": 0.15, "l2_max_drawdown": 0.15,
+        "l2_win_rate": 0.10, "l2_consistency": 0.15, "l2_model_attribution": 0.10,
+        "l2_execution_quality": 0.15,
         "overfit_gap_threshold": 0.15, "overfit_decay_rate": 5.0,
         "promotion_top_n": 10, "promotion_min_consecutive_epochs": 2,
         "promotion_max_overfitting_score": 0.40, "promotion_max_score_decay_pct": 0.20,
@@ -262,7 +265,8 @@ def summarize_config(config: Dict[str, Any]) -> str:
 
     lines.append("=== L2 Scoring Weights ===")
     for k in ["l2_realized_pnl", "l2_omega", "l2_max_drawdown",
-              "l2_win_rate", "l2_consistency", "l2_model_attribution"]:
+              "l2_win_rate", "l2_consistency", "l2_model_attribution",
+              "l2_execution_quality"]:
         lines.append(f"  {k}: {p[k]:.4f}")
 
     lines.append("=== Overfitting Detector ===")
@@ -299,5 +303,6 @@ if __name__ == "__main__":
     print("L2 weights sum:", sum(
         config["raw_params"][k] for k in
         ["l2_realized_pnl", "l2_omega", "l2_max_drawdown",
-         "l2_win_rate", "l2_consistency", "l2_model_attribution"]
+         "l2_win_rate", "l2_consistency", "l2_model_attribution",
+         "l2_execution_quality"]
     ))
