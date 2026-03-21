@@ -263,15 +263,16 @@ class ReferenceOverfittingDetector(OverfittingDetector):
 # Layer 2 Metrics
 #
 # L2 scoring evaluates real/paper trading outcomes rather than model
-# predictions. The six metrics below capture complementary dimensions of
-# strategy quality:
+# predictions. The seven metrics below capture complementary dimensions
+# of strategy quality:
 #
-#   1. Realized P&L (25%)      — raw profitability vs. baseline
-#   2. Omega Ratio (20%)       — full-distribution risk (tail behavior)
-#   3. Max Drawdown (15%)      — peak-to-trough loss; hard elimination threshold
-#   4. Win Rate (10%)          — signal precision
-#   5. Consistency (20%)       — rolling sub-window steadiness
-#   6. Model Attribution (10%) — credit for using strong L1 models
+#   1. Realized P&L (20%)        — raw profitability vs. baseline
+#   2. Omega Ratio (15%)         — full-distribution risk (tail behavior)
+#   3. Max Drawdown (15%)        — peak-to-trough loss; hard elimination threshold
+#   4. Win Rate (10%)            — signal precision
+#   5. Consistency (15%)         — rolling sub-window steadiness
+#   6. Model Attribution (10%)   — credit for using strong L1 models
+#   7. Execution Quality (15%)   — latency, reliability, and slippage
 #
 # Max Drawdown reuses the L1 `max_drawdown_score` function applied to the
 # L2 equity curve. In L2 scoring it additionally serves as a hard ceiling:
@@ -283,6 +284,12 @@ class ReferenceOverfittingDetector(OverfittingDetector):
 # float in [0, 1]. It rewards L2 miners who select and combine L1 models
 # with strong deployment track records, creating incentive alignment
 # between the two layers.
+#
+# Execution Quality evaluates the strategy's infrastructure health —
+# how cleanly and efficiently it interacts with the exchange. Strategies
+# with high latency, frequent order rejects, or excessive slippage are
+# penalized even if their P&L looks good, because poor execution quality
+# signals fragility that will degrade under real market conditions.
 # ---------------------------------------------------------------------------
 
 def realized_pnl_score(pnl: float, baseline: float = 0.0) -> float:
@@ -312,7 +319,7 @@ def realized_pnl_score(pnl: float, baseline: float = 0.0) -> float:
         Float in [0, 1] where 0 = at or below baseline, 1 = strong
         outperformance.
 
-    Weight: 25% of L2 composite score (highest single weight).
+    Weight: 20% of L2 composite score (highest single weight).
     """
     if pnl <= baseline:
         return 0.0
@@ -351,7 +358,7 @@ def omega_ratio(returns: np.ndarray, threshold: float = 0.0) -> float:
         During normalization, this is scaled to [0, 1] by dividing by 3.0
         (so Omega >= 3.0 maps to a perfect normalized score).
 
-    Weight: 20% of L2 composite score.
+    Weight: 15% of L2 composite score.
     """
     gains = returns[returns > threshold] - threshold
     losses = threshold - returns[returns <= threshold]
@@ -388,7 +395,7 @@ def win_rate(trades: List[float]) -> float:
         Float in [0, 1] where 0 = no winning trades, 1 = all trades
         profitable.
 
-    Weight: 10% of L2 composite score (lowest weight, by design).
+    Weight: 10% of L2 composite score.
     """
     if not trades:
         return 0.0
@@ -433,7 +440,7 @@ def consistency_score(
         Float in [0, 1] where 0 = inconsistent/insufficient data,
         1 = perfectly consistent positive returns across all windows.
 
-    Weight: 20% of L2 composite score.
+    Weight: 15% of L2 composite score.
     """
     if len(daily_returns) < window_days * 2:
         return 0.0
@@ -452,6 +459,117 @@ def consistency_score(
         return 0.0
     cv = np.std(arr) / np.mean(np.abs(arr))
     return float(positive_frac * max(0.0, 1.0 - cv))
+
+
+@dataclass
+class ExecutionMetrics:
+    """
+    Aggregated execution telemetry for an L2 strategy over one epoch.
+
+    These fields mirror the operational metrics a production trading system
+    tracks: latency breakdowns across the order lifecycle, reliability
+    counters for infrastructure failures, and execution performance
+    measures that capture real-world slippage and cost.
+
+    Validators populate this from the continuous position-update stream
+    and exchange-level telemetry reported by L2 miners.
+    """
+
+    # Latency (milliseconds) — measured across the order lifecycle
+    ws_message_lag_ms: float = 0.0
+    decision_to_submit_ms: float = 0.0
+    submit_to_ack_ms: float = 0.0
+    ack_to_fill_ms: float = 0.0
+    end_to_end_intent_ms: float = 0.0
+
+    # Reliability — infrastructure failure counters
+    order_reject_count: int = 0
+    cancel_count: int = 0
+    partial_fill_count: int = 0
+    stuck_order_count: int = 0
+    reconnect_count: int = 0
+    total_orders: int = 0
+
+    # Performance — execution cost and quality
+    slippage_bps: float = 0.0
+    realized_fees_pct: float = 0.0
+    turnover: float = 0.0
+
+
+def execution_quality_score(metrics: ExecutionMetrics) -> float:
+    """
+    Execution Quality Score — composite measure of infrastructure health.
+
+    Evaluates three orthogonal dimensions of execution quality and combines
+    them into a single score:
+
+    1. **Latency sub-score (40%)**: Measures how quickly the strategy
+       completes the full order lifecycle (decision -> submit -> ack ->
+       fill). Uses the end-to-end intent latency as the primary signal,
+       with an exponential decay above a target threshold. Lower latency
+       is critical because stale signals degrade P&L in fast-moving
+       crypto markets.
+
+       Target: <= 200ms end-to-end. Decays exponentially above target.
+
+    2. **Reliability sub-score (30%)**: Measures infrastructure
+       stability via failure rates across the epoch. Penalizes order
+       rejects, stuck orders, partial fills, and WebSocket reconnects
+       relative to total order volume. A high reject or reconnect rate
+       signals fragile infrastructure that will break under load.
+
+       failure_rate = (rejects + stuck + partials + reconnects) / orders
+       reliability = max(0, 1 - failure_rate * 5)
+
+       The 5x multiplier means a 20% failure rate zeroes the sub-score.
+
+    3. **Slippage sub-score (30%)**: Measures realized execution cost
+       in basis points. Lower slippage means better execution routing,
+       smarter order sizing, and less market impact. Excessive slippage
+       erodes theoretical edge.
+
+       Target: <= 5 bps. Decays exponentially above target.
+
+    The three sub-scores are combined as a weighted average:
+        execution_quality = 0.40 * latency + 0.30 * reliability + 0.30 * slippage
+
+    Args:
+        metrics: ExecutionMetrics dataclass containing aggregated
+            telemetry for the scoring epoch.
+
+    Returns:
+        Float in [0, 1] where 0 = poor execution infrastructure,
+        1 = clean, fast, reliable execution.
+
+    Weight: 15% of L2 composite score.
+    """
+    e2e = metrics.end_to_end_intent_ms
+    target_latency_ms = 200.0
+    if e2e <= target_latency_ms:
+        latency_sub = 1.0
+    else:
+        latency_sub = math.exp(-(e2e - target_latency_ms) / target_latency_ms)
+
+    total = max(metrics.total_orders, 1)
+    failures = (
+        metrics.order_reject_count
+        + metrics.stuck_order_count
+        + metrics.partial_fill_count
+        + metrics.reconnect_count
+    )
+    failure_rate = failures / total
+    reliability_sub = max(0.0, 1.0 - failure_rate * 5.0)
+
+    target_slippage_bps = 5.0
+    slip = abs(metrics.slippage_bps)
+    if slip <= target_slippage_bps:
+        slippage_sub = 1.0
+    else:
+        slippage_sub = math.exp(-(slip - target_slippage_bps) / target_slippage_bps)
+
+    return float(
+        0.40 * latency_sub + 0.30 * reliability_sub + 0.30 * slippage_sub
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -476,12 +594,13 @@ class WeightConfig:
     l1_latency: float = 0.10
 
     # Layer 2 weights (must sum to 1.0)
-    l2_realized_pnl: float = 0.25
-    l2_omega: float = 0.20
+    l2_realized_pnl: float = 0.20
+    l2_omega: float = 0.15
     l2_max_drawdown: float = 0.15
     l2_win_rate: float = 0.10
-    l2_consistency: float = 0.20
+    l2_consistency: float = 0.15
     l2_model_attribution: float = 0.10
+    l2_execution_quality: float = 0.15
 
 
 class CompositeScorer:
@@ -555,6 +674,7 @@ class CompositeScorer:
         trades: List[float],
         daily_returns: np.ndarray,
         model_attribution_score: float,
+        execution_metrics: ExecutionMetrics | None = None,
         baseline_pnl: float = 0.0,
     ) -> ScoreVector:
         """
@@ -565,14 +685,15 @@ class CompositeScorer:
         the gap between backtested model quality (L1) and deployment
         viability.
 
-        The composite score is a weighted sum of six normalized metrics:
+        The composite score is a weighted sum of seven normalized metrics:
 
-            composite = 0.25 * realized_pnl
-                      + 0.20 * omega
+            composite = 0.20 * realized_pnl
+                      + 0.15 * omega
                       + 0.15 * max_drawdown
                       + 0.10 * win_rate
-                      + 0.20 * consistency
+                      + 0.15 * consistency
                       + 0.10 * model_attribution
+                      + 0.15 * execution_quality
 
         Args:
             realized_pnl: Total P&L of the strategy in quote currency
@@ -590,6 +711,12 @@ class CompositeScorer:
             model_attribution_score: Pre-computed attribution score in
                 [0, 1] from ModelAttributionEngine, reflecting the
                 quality of L1 models the strategy relies on.
+            execution_metrics: Aggregated execution telemetry for the
+                epoch (latency, reliability, slippage). If None, a
+                default ExecutionMetrics() is used, which yields a
+                perfect execution quality score — appropriate for
+                paper trading where execution infrastructure is
+                simulated.
             baseline_pnl: Reference P&L for the realized_pnl metric
                 (default 0.0 = absolute profitability).
 
@@ -597,6 +724,8 @@ class CompositeScorer:
             ScoreVector containing raw metric values, normalized values
             (all in [0, 1]), and the weighted composite score.
         """
+        exec_metrics = execution_metrics or ExecutionMetrics()
+
         raw = {
             "realized_pnl": realized_pnl_score(realized_pnl, baseline_pnl),
             "omega": omega_ratio(returns),
@@ -604,6 +733,7 @@ class CompositeScorer:
             "win_rate": win_rate(trades),
             "consistency": consistency_score(daily_returns),
             "model_attribution": model_attribution_score,
+            "execution_quality": execution_quality_score(exec_metrics),
         }
 
         normalized = self._normalize_l2(raw)
@@ -616,6 +746,7 @@ class CompositeScorer:
             + w.l2_win_rate * normalized["win_rate"]
             + w.l2_consistency * normalized["consistency"]
             + w.l2_model_attribution * normalized["model_attribution"]
+            + w.l2_execution_quality * normalized["execution_quality"]
         )
 
         return ScoreVector(raw=raw, normalized=normalized, composite=composite)
@@ -670,6 +801,10 @@ class CompositeScorer:
             Clamped as a safety guard.
           - model_attribution: Already in [0, 1] from
             `ModelAttributionEngine`. Clamped as a safety guard.
+          - execution_quality: Already in [0, 1] from
+            `execution_quality_score()`. The sub-scores (latency,
+            reliability, slippage) are each individually normalized
+            before combination. Clamped as a safety guard.
         """
         omega_norm = min(1.0, raw["omega"] / 3.0)
 
@@ -680,4 +815,5 @@ class CompositeScorer:
             "win_rate": min(1.0, max(0.0, raw["win_rate"])),
             "consistency": min(1.0, max(0.0, raw["consistency"])),
             "model_attribution": min(1.0, max(0.0, raw["model_attribution"])),
+            "execution_quality": min(1.0, max(0.0, raw["execution_quality"])),
         }

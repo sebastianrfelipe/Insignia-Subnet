@@ -40,20 +40,21 @@ Top-performing L1 miners earn alpha token emissions via Yuma consensus. Weights 
 
 ## Layer 2: Strategy Deployment Incentives
 
-### Scoring Vector (6 Dimensions)
+### Scoring Vector (7 Dimensions)
 
 | Metric | Weight | Purpose |
 |--------|--------|---------|
-| Realized P&L | 25% | Absolute returns from actual trading outcomes |
-| Omega Ratio | 20% | Full-distribution risk measure (captures tail behavior) |
+| Realized P&L | 20% | Absolute returns from actual trading outcomes |
+| Omega Ratio | 15% | Full-distribution risk measure (captures tail behavior) |
 | Max Drawdown | 15% | Hard ceiling — breach eliminates the strategy entirely |
 | Win Rate | 10% | Signal precision — penalizes low-conviction noise trading |
-| Consistency | 20% | Rolling 7-day sub-window analysis — penalizes spike-then-collapse |
+| Consistency | 15% | Rolling 7-day sub-window analysis — penalizes spike-then-collapse |
 | Model Attribution | 10% | Credit to miners using models with strong L2 track records |
+| Execution Quality | 15% | Latency, reliability, and slippage — infrastructure health |
 
 ### Metric Definitions
 
-#### 1. Realized P&L (25%)
+#### 1. Realized P&L (20%)
 
 Measures the strategy's raw profitability relative to a baseline (typically buy-and-hold or zero). This is the most direct measure of whether a strategy generates economic value.
 
@@ -63,11 +64,11 @@ score = clamp((pnl - baseline) / max(|baseline|, 1.0), 0, 1)
 
 - Strategies at or below the baseline receive a score of zero.
 - The denominator scales by the absolute baseline value so that the metric is meaningful across different capital levels and market conditions.
-- Carries the highest single weight (25%) because realized returns are the ultimate objective of the subnet.
+- Carries the highest single weight (20%) because realized returns are the ultimate objective of the subnet.
 
 **Normalization**: Already in [0, 1] from the scoring function itself.
 
-#### 2. Omega Ratio (20%)
+#### 2. Omega Ratio (15%)
 
 A full-distribution risk measure that captures the complete shape of the return distribution, including skewness and fat tails. Unlike Sharpe ratio (which only considers mean and variance), Omega reflects the probability-weighted balance between gains and losses at a given threshold.
 
@@ -108,7 +109,7 @@ win_rate = count(trade_pnl > 0) / total_trades
 
 **Normalization**: Already in [0, 1] from the scoring function.
 
-#### 5. Consistency (20%)
+#### 5. Consistency (15%)
 
 Rolling sub-window analysis that penalizes "spike-then-collapse" strategies. This is the strongest predictor of a strategy's viability in live deployment.
 
@@ -144,20 +145,82 @@ This metric creates incentive alignment between L1 and L2 miners: L2 miners bene
 
 **Normalization**: Already in [0, 1] from the `ModelAttributionEngine`.
 
+#### 7. Execution Quality (15%)
+
+Evaluates the strategy's infrastructure health — how cleanly and efficiently it interacts with the exchange. A strategy with strong theoretical returns but poor execution (high latency, frequent rejects, excessive slippage) will degrade under real market conditions, so execution quality gates deployment readiness.
+
+The metric combines three orthogonal sub-scores:
+
+**Latency sub-score (40% of execution quality)**
+
+Measures end-to-end order lifecycle speed: from signal decision through order submission, exchange acknowledgement, and fill. Uses `end_to_end_intent_ms` as the primary signal.
+
+```
+if e2e <= 200ms:  latency = 1.0
+else:             latency = exp(-(e2e - 200) / 200)
+```
+
+Latency telemetry fields tracked:
+- `ws_message_lag_ms` — WebSocket message lag
+- `decision_to_submit_ms` — Time from decision to order submission
+- `submit_to_ack_ms` — Time to exchange acknowledgement
+- `ack_to_fill_ms` — Time from ack to fill
+- `end_to_end_intent_ms` — Total intent execution time
+
+**Reliability sub-score (30% of execution quality)**
+
+Measures infrastructure stability via failure rates relative to total order volume.
+
+```
+failure_rate = (rejects + stuck + partials + reconnects) / total_orders
+reliability = max(0, 1 - failure_rate * 5)
+```
+
+The 5x multiplier means a 20% failure rate zeroes the reliability sub-score. Reliability counters tracked:
+- Order reject count (by reason)
+- Cancel count
+- Partial fill count
+- Stuck order count (no response)
+- Reconnect/resubscribe count
+
+**Slippage sub-score (30% of execution quality)**
+
+Measures realized execution cost in basis points. Lower slippage indicates better order routing, smarter sizing, and less market impact.
+
+```
+if slippage <= 5bps:  slip = 1.0
+else:                 slip = exp(-(slippage - 5) / 5)
+```
+
+Performance metrics tracked:
+- Slippage distribution (bps)
+- Realized fees
+- P&L (net of execution costs)
+- Turnover
+
+**Combined formula:**
+
+```
+execution_quality = 0.40 * latency + 0.30 * reliability + 0.30 * slippage
+```
+
+**Normalization**: Already in [0, 1] from the composite sub-score formula. Clamped as a safety guard.
+
 ### Composite Score Formula
 
-The L2 composite score is a weighted sum of all six normalized metrics:
+The L2 composite score is a weighted sum of all seven normalized metrics:
 
 ```
-composite = 0.25 * realized_pnl
-          + 0.20 * omega
+composite = 0.20 * realized_pnl
+          + 0.15 * omega
           + 0.15 * max_drawdown
           + 0.10 * win_rate
-          + 0.20 * consistency
+          + 0.15 * consistency
           + 0.10 * model_attribution
+          + 0.15 * execution_quality
 ```
 
-Weights are published and configurable via `WeightConfig`. They are balanced so that no single metric dominates (max weight 25%), preventing single-dimension gaming.
+Weights are published and configurable via `WeightConfig`. They are balanced so that no single metric dominates (max weight 20%), preventing single-dimension gaming.
 
 ### Why This Drives Good Behavior
 
@@ -166,7 +229,8 @@ Weights are published and configurable via `WeightConfig`. They are balanced so 
 - **Consistency requirements** prevent strategies that take one lucky trade and coast.
 - **Omega ratio** captures tail risk that Sharpe ratio misses, preventing strategies that look good on average but carry hidden blow-up risk.
 - **Model attribution** creates incentive alignment between L1 and L2 miners.
-- **Weight balance** ensures miners must optimize across all dimensions — high P&L with poor consistency or excessive drawdown still scores poorly.
+- **Execution quality** ensures strategies are deployment-ready by penalizing high latency, infrastructure instability, and excessive slippage. A strategy with perfect returns but fragile execution will score poorly, incentivizing miners to invest in robust infrastructure.
+- **Weight balance** ensures miners must optimize across all dimensions — high P&L with poor execution quality or excessive drawdown still scores poorly.
 
 ---
 
@@ -227,8 +291,8 @@ This closes the simulation-to-reality gap: models are ultimately judged by deplo
 | | |
 |---|---|
 | **Attack** | Miner optimizes for one dominant metric while ignoring others. |
-| **Defense** | Composite scoring across 7 L1 / 6 L2 metrics. No single metric dominates (max weight 25%). |
-| **Why it fails** | High accuracy with high drawdown scores poorly. High Sharpe with overfitting scores poorly. |
+| **Defense** | Composite scoring across 7 L1 / 7 L2 metrics. No single metric dominates (max weight 20%). |
+| **Why it fails** | High accuracy with high drawdown scores poorly. High Sharpe with overfitting scores poorly. High P&L with poor execution quality scores poorly. |
 
 ### 6. Validator Data Leakage
 
