@@ -2,12 +2,12 @@
 
 ## Executive Summary
 
-The Insignia subnet's incentive mechanism involves **two composite scoring vectors** (L1: 7 metrics, L2: 6 metrics), **cross-layer feedback parameters**, **anti-gaming thresholds**, **emission distribution parameters**, and **subnet hyperparameters**. The full tuning landscape spans two distinct levels:
+The Insignia subnet's incentive mechanism involves **two composite scoring vectors** (L1: 7 metrics, L2: 7 metrics), **cross-layer feedback parameters**, **anti-gaming thresholds**, **emission distribution parameters**, and **subnet hyperparameters**. The full tuning landscape spans two distinct levels:
 
-- **41 Insignia application-level parameters** — scoring weights, thresholds, emission distribution, and mechanism knobs (tuned by the emulator)
+- **42 Insignia application-level parameters** — scoring weights, thresholds, emission distribution, and mechanism knobs (tuned by the emulator)
 - **39 Bittensor on-chain subnet hyperparameters** — network-level parameters controlling registration, consensus, staking, and bonds (set via `btcli subnets hyperparameters`)
 
-Together these form an **80-parameter optimization surface**. Tuning by hand is infeasible because:
+Together these form an **81-parameter optimization surface**. Tuning by hand is infeasible because:
 
 1. The parameter space is high-dimensional (80 total parameters across two levels)
 2. Interactions between parameters are non-linear (e.g., changing L1 overfitting weight affects which models reach L2; changing `tempo` affects how frequently weights are set)
@@ -70,7 +70,7 @@ Together these form an **80-parameter optimization surface**. Tuning by hand is 
 | Category | Parameters | Count |
 |----------|-----------|-------|
 | L1 Scoring Weights | penalized_f1, penalized_sharpe, max_drawdown, variance_score, overfitting_penalty, feature_efficiency, latency | 7 |
-| L2 Scoring Weights | realized_pnl, omega, max_drawdown, win_rate, consistency, model_attribution | 6 |
+| L2 Scoring Weights | realized_pnl, omega, max_drawdown, win_rate, consistency, model_attribution, execution_quality | 7 |
 | Overfitting Detector | gap_threshold, decay_rate | 2 |
 | Cross-Layer Promotion | top_n, min_consecutive_epochs, max_overfitting_score, max_score_decay_pct, expiry_epochs | 5 |
 | Cross-Layer Feedback | feedback_bonus_weight, feedback_penalty_weight | 2 |
@@ -80,7 +80,7 @@ Together these form an **80-parameter optimization surface**. Tuning by hand is 
 | Emission Distribution | sigmoid_midpoint, sigmoid_steepness, l1_l2_emission_split | 3 |
 | Rate Limiting | rate_limit_epoch_seconds | 1 |
 | Feedback Thresholds | feedback_min_l2_epochs, feedback_bonus_threshold, feedback_penalty_threshold | 3 |
-| **Subtotal** | | **41** |
+| **Subtotal** | | **42** |
 
 #### Bittensor On-Chain Subnet Hyperparameters (39 total, set via btcli)
 
@@ -102,9 +102,9 @@ Together these form an **80-parameter optimization surface**. Tuning by hand is 
 
 | Level | Parameters | Tuned By |
 |-------|-----------|----------|
-| Insignia application-level | 41 | Emulator (NSGA-II evolutionary optimization) |
+| Insignia application-level | 42 | Emulator (NSGA-II evolutionary optimization) |
 | Bittensor on-chain | 33+ | btcli / subnet owner configuration |
-| **Total** | **74+** | |
+| **Total** | **75+** | |
 
 **Constraints:**
 - L1 weights must sum to 1.0

@@ -5,13 +5,14 @@ Validates Layer 2 miner strategies by scoring their real/paper trading
 outcomes. L2 validators track positions in real-time, compute risk-adjusted
 performance metrics, and assign scores for Yuma consensus.
 
-Scoring Dimensions:
+Scoring Dimensions (7):
   - Realized P&L (absolute returns)
   - Omega Ratio (full distribution measure, captures tail behavior)
   - Max Drawdown (hard ceiling — breach = elimination)
   - Win Rate & Trade Quality (signal precision)
   - Consistency (rolling sub-window analysis)
   - Model Attribution (which L1 models contributed to performance)
+  - Execution Quality (latency, reliability, slippage)
 
 L2 validators also feed performance data back to Layer 1 via the
 cross-layer feedback engine, closing the simulation-to-reality loop.
@@ -37,7 +38,7 @@ except ImportError:
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from insignia.scoring import CompositeScorer, ScoreVector, WeightConfig
+from insignia.scoring import CompositeScorer, ExecutionMetrics, ScoreVector, WeightConfig
 from insignia.incentive import (
     CopyTradeDetector,
     CrossLayerFeedbackEngine,
@@ -56,8 +57,9 @@ class StrategyTracker:
     """
     Tracks a single L2 miner's strategy in real-time.
 
-    Maintains position state, equity curve, and all metrics needed for
-    scoring. Updated incrementally as position updates stream in.
+    Maintains position state, equity curve, execution telemetry, and all
+    metrics needed for scoring. Updated incrementally as position updates
+    and execution events stream in.
     """
 
     strategy_id: str
@@ -77,6 +79,18 @@ class StrategyTracker:
     start_time: float = 0.0
     last_update: float = 0.0
 
+    # Execution telemetry accumulators
+    _latency_samples: List[float] = field(default_factory=list)
+    _order_reject_count: int = 0
+    _cancel_count: int = 0
+    _partial_fill_count: int = 0
+    _stuck_order_count: int = 0
+    _reconnect_count: int = 0
+    _total_orders: int = 0
+    _slippage_samples: List[float] = field(default_factory=list)
+    _realized_fees: List[float] = field(default_factory=list)
+    _turnover: float = 0.0
+
     # Flags
     eliminated: bool = False
     elimination_reason: str = ""
@@ -94,6 +108,70 @@ class StrategyTracker:
         dd = (self.peak_equity - equity) / self.peak_equity
         self.max_drawdown = max(self.max_drawdown, dd)
         self.last_update = trade.get("timestamp", time.time())
+
+        self._total_orders += 1
+        if "slippage_bps" in trade:
+            self._slippage_samples.append(trade["slippage_bps"])
+        if "fee_pct" in trade:
+            self._realized_fees.append(trade["fee_pct"])
+        if "notional" in trade:
+            self._turnover += abs(trade["notional"])
+
+    def record_execution_event(self, event: Dict):
+        """
+        Record an execution telemetry event from the L2 miner.
+
+        Supported event types:
+          - "latency": records end-to-end intent latency in ms
+          - "reject": order rejected by exchange
+          - "cancel": order cancelled
+          - "partial_fill": order partially filled
+          - "stuck": order stuck without response
+          - "reconnect": WebSocket reconnection
+        """
+        etype = event.get("type", "")
+        if etype == "latency":
+            self._latency_samples.append(event.get("e2e_ms", 0.0))
+        elif etype == "reject":
+            self._order_reject_count += 1
+        elif etype == "cancel":
+            self._cancel_count += 1
+        elif etype == "partial_fill":
+            self._partial_fill_count += 1
+        elif etype == "stuck":
+            self._stuck_order_count += 1
+        elif etype == "reconnect":
+            self._reconnect_count += 1
+
+    def build_execution_metrics(self) -> ExecutionMetrics:
+        """Aggregate accumulated telemetry into an ExecutionMetrics snapshot."""
+        avg_latency = (
+            float(np.mean(self._latency_samples))
+            if self._latency_samples
+            else 0.0
+        )
+        avg_slippage = (
+            float(np.mean(self._slippage_samples))
+            if self._slippage_samples
+            else 0.0
+        )
+        avg_fees = (
+            float(np.mean(self._realized_fees))
+            if self._realized_fees
+            else 0.0
+        )
+        return ExecutionMetrics(
+            end_to_end_intent_ms=avg_latency,
+            order_reject_count=self._order_reject_count,
+            cancel_count=self._cancel_count,
+            partial_fill_count=self._partial_fill_count,
+            stuck_order_count=self._stuck_order_count,
+            reconnect_count=self._reconnect_count,
+            total_orders=self._total_orders,
+            slippage_bps=avg_slippage,
+            realized_fees_pct=avg_fees,
+            turnover=self._turnover,
+        )
 
     def record_daily_return(self, ret: float):
         self.daily_returns.append(ret)
@@ -228,6 +306,10 @@ class L2Validator:
             pnl = update.get("pnl", 0.0)
             tracker.record_trade(update)
             self.attribution_engine.record(tracker.model_ids_used, pnl)
+        elif update.get("type") in (
+            "latency", "reject", "cancel", "partial_fill", "stuck", "reconnect",
+        ):
+            tracker.record_execution_event(update)
 
         if tracker.check_elimination(self.max_drawdown_limit):
             logger.warning(
@@ -259,6 +341,8 @@ class L2Validator:
                 tracker.model_ids_used
             )
 
+            exec_metrics = tracker.build_execution_metrics()
+
             score = self.scorer.score_l2(
                 realized_pnl=tracker.total_pnl,
                 returns=returns,
@@ -266,6 +350,7 @@ class L2Validator:
                 trades=trades_pnl,
                 daily_returns=daily_ret,
                 model_attribution_score=attr_score,
+                execution_metrics=exec_metrics,
             )
             scores[miner_uid] = score
             self.epoch_scores[miner_uid] = score
