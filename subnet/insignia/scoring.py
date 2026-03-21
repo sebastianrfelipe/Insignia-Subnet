@@ -261,10 +261,59 @@ class ReferenceOverfittingDetector(OverfittingDetector):
 
 # ---------------------------------------------------------------------------
 # Layer 2 Metrics
+#
+# L2 scoring evaluates real/paper trading outcomes rather than model
+# predictions. The six metrics below capture complementary dimensions of
+# strategy quality:
+#
+#   1. Realized P&L (25%)      — raw profitability vs. baseline
+#   2. Omega Ratio (20%)       — full-distribution risk (tail behavior)
+#   3. Max Drawdown (15%)      — peak-to-trough loss; hard elimination threshold
+#   4. Win Rate (10%)          — signal precision
+#   5. Consistency (20%)       — rolling sub-window steadiness
+#   6. Model Attribution (10%) — credit for using strong L1 models
+#
+# Max Drawdown reuses the L1 `max_drawdown_score` function applied to the
+# L2 equity curve. In L2 scoring it additionally serves as a hard ceiling:
+# strategies that breach the drawdown limit (default 20%) are immediately
+# eliminated and receive a composite score of zero.
+#
+# Model Attribution is computed externally by `ModelAttributionEngine` in
+# `neurons/l2_validator.py` and passed into `score_l2` as a pre-computed
+# float in [0, 1]. It rewards L2 miners who select and combine L1 models
+# with strong deployment track records, creating incentive alignment
+# between the two layers.
 # ---------------------------------------------------------------------------
 
 def realized_pnl_score(pnl: float, baseline: float = 0.0) -> float:
-    """Normalize realized P&L relative to a baseline (e.g., buy-and-hold)."""
+    """
+    Realized P&L Score — absolute return quality relative to a baseline.
+
+    Measures the strategy's raw profitability by comparing its realized
+    profit/loss against a baseline return (typically buy-and-hold or zero).
+    This is the most direct measure of whether a strategy generates
+    economic value.
+
+    Calculation:
+        score = clamp((pnl - baseline) / max(|baseline|, 1.0), 0, 1)
+
+    Strategies at or below the baseline receive a score of zero. The
+    denominator scales by the absolute baseline value so that the metric
+    is meaningful across different capital levels and market conditions.
+    The floor of 1.0 in the denominator prevents division-by-zero when
+    the baseline is zero (e.g., when scoring absolute P&L without a
+    benchmark).
+
+    Args:
+        pnl: Realized profit/loss of the strategy in quote currency.
+        baseline: Reference return to beat (default 0.0 = absolute profit).
+
+    Returns:
+        Float in [0, 1] where 0 = at or below baseline, 1 = strong
+        outperformance.
+
+    Weight: 25% of L2 composite score (highest single weight).
+    """
     if pnl <= baseline:
         return 0.0
     return float(min(1.0, (pnl - baseline) / max(abs(baseline), 1.0)))
@@ -272,8 +321,37 @@ def realized_pnl_score(pnl: float, baseline: float = 0.0) -> float:
 
 def omega_ratio(returns: np.ndarray, threshold: float = 0.0) -> float:
     """
-    Omega ratio: probability-weighted gains / probability-weighted losses.
-    Captures the full return distribution, not just mean/variance.
+    Omega Ratio — full-distribution risk measure capturing tail behavior.
+
+    Unlike Sharpe ratio (which only considers mean and variance), the Omega
+    ratio captures the *entire* return distribution, including skewness and
+    kurtosis (fat tails). This is critical for crypto trading strategies
+    where returns are rarely normally distributed and tail risk is the
+    primary destroyer of capital.
+
+    Calculation:
+        Omega = sum(max(r_i - threshold, 0)) / sum(max(threshold - r_i, 0))
+
+    In plain terms: the ratio of probability-weighted gains above the
+    threshold to probability-weighted losses below it. An Omega > 1
+    indicates the strategy's gain mass exceeds its loss mass at the
+    chosen threshold.
+
+    The raw value is capped at 10.0 to prevent degenerate cases (e.g.,
+    a strategy with a single winning trade and no losses) from dominating
+    the composite score.
+
+    Args:
+        returns: Array of per-trade or per-period returns (as decimals,
+            e.g., 0.02 for a 2% return).
+        threshold: Minimum acceptable return threshold (default 0.0).
+
+    Returns:
+        Float in [0, 10] where higher = better risk-adjusted gains.
+        During normalization, this is scaled to [0, 1] by dividing by 3.0
+        (so Omega >= 3.0 maps to a perfect normalized score).
+
+    Weight: 20% of L2 composite score.
     """
     gains = returns[returns > threshold] - threshold
     losses = threshold - returns[returns <= threshold]
@@ -283,7 +361,35 @@ def omega_ratio(returns: np.ndarray, threshold: float = 0.0) -> float:
 
 
 def win_rate(trades: List[float]) -> float:
-    """Fraction of trades that were profitable."""
+    """
+    Win Rate — signal precision measuring the fraction of profitable trades.
+
+    A straightforward but important metric that captures the strategy's
+    ability to generate positive-expectancy signals. While a high win rate
+    alone doesn't guarantee profitability (a strategy can win 90% of
+    trades but lose money if losses are large), it penalizes low-conviction
+    noise trading where a strategy enters and exits positions without
+    meaningful directional skill.
+
+    In the composite score, win rate carries a deliberately lower weight
+    (10%) because profitable strategies can legitimately have moderate
+    win rates (e.g., trend-following with ~40% wins but large risk/reward).
+    Its primary role is to filter out strategies that generate excessive
+    churn without directional edge.
+
+    Calculation:
+        win_rate = count(trade_pnl > 0) / total_trades
+
+    Args:
+        trades: List of per-trade P&L values (positive = profit,
+            negative = loss).
+
+    Returns:
+        Float in [0, 1] where 0 = no winning trades, 1 = all trades
+        profitable.
+
+    Weight: 10% of L2 composite score (lowest weight, by design).
+    """
     if not trades:
         return 0.0
     return float(sum(1 for t in trades if t > 0) / len(trades))
@@ -294,8 +400,40 @@ def consistency_score(
     window_days: int = 7,
 ) -> float:
     """
-    Rolling sub-window analysis. Penalizes strategies that spike then
-    collapse. Returns 1.0 for perfectly consistent positive returns.
+    Consistency Score — rolling sub-window analysis penalizing spike-then-collapse.
+
+    Measures whether a strategy performs *steadily* over time rather than
+    generating returns through a single lucky streak. This is the second-
+    highest weighted L2 metric (20%) because consistency is the strongest
+    predictor of a strategy's viability in live deployment.
+
+    The metric divides the return history into non-overlapping weekly
+    windows and computes a Sharpe-like ratio (mean/std) for each window.
+    It then scores two properties:
+
+    1. **Positive fraction**: What fraction of windows have positive
+       risk-adjusted returns? Higher = more consistently profitable.
+    2. **Stability (1 - CV)**: How stable are the per-window Sharpe
+       ratios? Lower coefficient of variation = more predictable
+       performance across time periods.
+
+    The final score is the product of these two factors:
+        consistency = positive_frac * max(0, 1 - CV)
+
+    This product structure means both properties must be present: a
+    strategy that is profitable in all windows but wildly variable still
+    scores moderately, and a stable strategy that is consistently flat
+    or negative also scores poorly.
+
+    Args:
+        daily_returns: Array of daily return values (as decimals).
+        window_days: Size of each rolling sub-window in days (default 7).
+
+    Returns:
+        Float in [0, 1] where 0 = inconsistent/insufficient data,
+        1 = perfectly consistent positive returns across all windows.
+
+    Weight: 20% of L2 composite score.
     """
     if len(daily_returns) < window_days * 2:
         return 0.0
@@ -423,7 +561,41 @@ class CompositeScorer:
         Compute the Layer 2 composite score for a strategy miner.
 
         All inputs are derived from real or paper trading outcomes — no
-        simulation involved. This is the empirical proof layer.
+        simulation involved. This is the empirical proof layer that closes
+        the gap between backtested model quality (L1) and deployment
+        viability.
+
+        The composite score is a weighted sum of six normalized metrics:
+
+            composite = 0.25 * realized_pnl
+                      + 0.20 * omega
+                      + 0.15 * max_drawdown
+                      + 0.10 * win_rate
+                      + 0.20 * consistency
+                      + 0.10 * model_attribution
+
+        Args:
+            realized_pnl: Total P&L of the strategy in quote currency
+                over the scoring epoch.
+            returns: Per-trade or per-period returns as a numpy array
+                (decimals, e.g., 0.02 for 2%). Used to compute the
+                Omega ratio.
+            max_dd: Maximum drawdown observed over the epoch, as a
+                fraction in [0, 1]. Strategies breaching the hard
+                limit (default 0.20) are eliminated before scoring.
+            trades: List of per-trade P&L values. Used to compute win
+                rate.
+            daily_returns: Array of daily returns. Used to compute the
+                consistency score via rolling sub-window analysis.
+            model_attribution_score: Pre-computed attribution score in
+                [0, 1] from ModelAttributionEngine, reflecting the
+                quality of L1 models the strategy relies on.
+            baseline_pnl: Reference P&L for the realized_pnl metric
+                (default 0.0 = absolute profitability).
+
+        Returns:
+            ScoreVector containing raw metric values, normalized values
+            (all in [0, 1]), and the weighted composite score.
         """
         raw = {
             "realized_pnl": realized_pnl_score(realized_pnl, baseline_pnl),
@@ -480,7 +652,25 @@ class CompositeScorer:
 
     @staticmethod
     def _normalize_l2(raw: Dict[str, float]) -> Dict[str, float]:
-        """Map raw L2 metrics to [0, 1] where 1 is best."""
+        """
+        Map raw L2 metrics to [0, 1] where 1 is best.
+
+        Normalization transforms per metric:
+          - realized_pnl: Already in [0, 1] from `realized_pnl_score()`.
+            Clamped as a safety guard.
+          - omega: Divided by 3.0, so an Omega ratio of 3+ maps to a
+            perfect 1.0. This threshold reflects that Omega >= 3 is
+            exceptional for crypto strategies and avoids letting
+            degenerate edge cases (Omega = 10) dominate.
+          - max_drawdown: Inverted (1 - dd) so lower drawdown = higher
+            score. A 0% drawdown scores 1.0; a 100% drawdown scores 0.0.
+          - win_rate: Already in [0, 1] from `win_rate()`. Clamped as
+            a safety guard.
+          - consistency: Already in [0, 1] from `consistency_score()`.
+            Clamped as a safety guard.
+          - model_attribution: Already in [0, 1] from
+            `ModelAttributionEngine`. Clamped as a safety guard.
+        """
         omega_norm = min(1.0, raw["omega"] / 3.0)
 
         return {
