@@ -242,6 +242,164 @@ class BuybackMechanism:
 
 
 # ---------------------------------------------------------------------------
+# Commit-Reveal Scheme (Approach B: off-chain with validator attestation)
+#
+# Prevents validator latency exploitation (Vector 8) and front-running by
+# requiring miners to commit to trade hashes before market data is
+# available, then reveal after the validation window closes.
+#
+# Recommended by the deployer agent's feasibility assessment (CR-FEAS-001).
+# ---------------------------------------------------------------------------
+
+@dataclass
+class CommitRevealConfig:
+    """Parameters for the off-chain commit-reveal scheme."""
+
+    commit_window_seconds: float = 30.0
+    reveal_window_seconds: float = 15.0
+    hash_algorithm: str = "sha256"
+    nonce_bits: int = 128
+    max_reveal_attempts: int = 3
+    late_reveal_penalty: float = 1.0
+
+
+@dataclass
+class CommitRecord:
+    miner_uid: str
+    commit_hash: str
+    timestamp: float
+    validator_attestations: Dict[str, float] = field(default_factory=dict)
+    revealed: bool = False
+    reveal_data: Optional[bytes] = None
+    reveal_nonce: Optional[str] = None
+
+
+class CommitRevealManager:
+    """
+    Off-chain commit-reveal manager with multi-validator attestation.
+
+    Flow:
+      1. Miner computes trade decision, generates nonce, sends
+         commit_hash = SHA-256(trade_data || nonce) to validators.
+      2. Validators attest to receiving the commit before the deadline.
+      3. After the validation window closes, miner reveals trade_data
+         and nonce.
+      4. Validator recomputes hash and verifies match.
+      5. Trades with invalid or late reveals are scored zero.
+    """
+
+    def __init__(self, config: CommitRevealConfig | None = None):
+        self.config = config or CommitRevealConfig()
+        self._commits: Dict[str, CommitRecord] = {}
+        self._epoch_commits: Dict[int, List[str]] = {}
+
+    @staticmethod
+    def compute_hash(trade_data: bytes, nonce: bytes) -> str:
+        return hashlib.sha256(trade_data + nonce).hexdigest()
+
+    @staticmethod
+    def generate_nonce(n_bits: int = 128) -> bytes:
+        import os as _os
+        return _os.urandom(n_bits // 8)
+
+    def submit_commit(
+        self,
+        miner_uid: str,
+        commit_hash: str,
+        epoch: int,
+        current_time: float | None = None,
+    ) -> bool:
+        """Register a miner's commit hash. Returns True if accepted."""
+        t = current_time or time.time()
+        key = f"{epoch}:{miner_uid}"
+        if key in self._commits:
+            return False
+
+        record = CommitRecord(
+            miner_uid=miner_uid,
+            commit_hash=commit_hash,
+            timestamp=t,
+        )
+        self._commits[key] = record
+        self._epoch_commits.setdefault(epoch, []).append(key)
+        return True
+
+    def attest_commit(
+        self,
+        miner_uid: str,
+        epoch: int,
+        validator_uid: str,
+        current_time: float | None = None,
+    ) -> bool:
+        """Validator attests it received the commit before the deadline."""
+        t = current_time or time.time()
+        key = f"{epoch}:{miner_uid}"
+        record = self._commits.get(key)
+        if record is None:
+            return False
+        record.validator_attestations[validator_uid] = t
+        return True
+
+    def submit_reveal(
+        self,
+        miner_uid: str,
+        epoch: int,
+        trade_data: bytes,
+        nonce: bytes,
+        current_time: float | None = None,
+    ) -> Tuple[bool, str]:
+        """
+        Miner reveals their trade data and nonce.
+        Returns (success, reason).
+        """
+        t = current_time or time.time()
+        key = f"{epoch}:{miner_uid}"
+        record = self._commits.get(key)
+        if record is None:
+            return False, "no_commit_found"
+
+        if record.revealed:
+            return False, "already_revealed"
+
+        elapsed = t - record.timestamp
+        deadline = self.config.commit_window_seconds + self.config.reveal_window_seconds
+        if elapsed > deadline:
+            return False, "reveal_too_late"
+
+        expected_hash = self.compute_hash(trade_data, nonce)
+        if expected_hash != record.commit_hash:
+            return False, "hash_mismatch"
+
+        record.revealed = True
+        record.reveal_data = trade_data
+        record.reveal_nonce = nonce.hex()
+        return True, "ok"
+
+    def is_valid_for_scoring(self, miner_uid: str, epoch: int) -> bool:
+        """Check whether a miner's submission is valid for scoring."""
+        key = f"{epoch}:{miner_uid}"
+        record = self._commits.get(key)
+        if record is None:
+            return True  # no commit-reveal required if scheme not active
+        return record.revealed and len(record.validator_attestations) > 0
+
+    def get_penalty(self, miner_uid: str, epoch: int) -> float:
+        """
+        Returns 0.0 if valid, or a penalty multiplier (up to 1.0)
+        for invalid/late reveals.
+        """
+        key = f"{epoch}:{miner_uid}"
+        record = self._commits.get(key)
+        if record is None:
+            return 0.0
+        if not record.revealed:
+            return self.config.late_reveal_penalty
+        if len(record.validator_attestations) == 0:
+            return 0.5
+        return 0.0
+
+
+# ---------------------------------------------------------------------------
 # Attack / Defense Matrix (for judges)
 # ---------------------------------------------------------------------------
 
@@ -307,5 +465,29 @@ ATTACK_DEFENSE_MATRIX: List[AttackDefense] = [
         description="Model only works in specific market regimes (e.g., bull market) and fails in others.",
         defense="Stability Score metric explicitly measures cross-regime consistency. Validation windows deliberately cover trending, ranging, high-vol, low-vol, and crisis periods.",
         mechanism="stability_score + regime-diverse validation windows",
+    ),
+    AttackDefense(
+        attack="Validator latency exploitation",
+        description="Miners exploit validator latency to submit trades using market data that has already materialized but not yet been validated.",
+        defense="Enforce min_prediction_lead_time, validator latency penalty, and commit-reveal scheme requiring miners to commit trade hashes before data is available.",
+        mechanism="CommitRevealManager + min_prediction_lead_time + validator_latency_penalty_weight",
+    ),
+    AttackDefense(
+        attack="Miner-validator collusion",
+        description="A colluding validator inflates scores for cooperating miners via weight-setting manipulation or information leakage.",
+        defense="Multi-validator consensus scoring, weight entropy minimum, cross-validator score variance caps, validator rotation limits, and agreement deviation monitoring.",
+        mechanism="weight_entropy_minimum + cross_validator_score_variance_max + validator_rotation + validator_agreement_threshold",
+    ),
+    AttackDefense(
+        attack="L1/L2 weight skew exploitation",
+        description="Adversarial miners exploit the emission split between L1 and L2 to capture disproportionate rewards.",
+        defense="Cross-layer penalty strength parameter penalizes deviations from the configured l1_l2_emission_split.",
+        mechanism="cross_layer_penalty_strength + l1_l2_emission_split",
+    ),
+    AttackDefense(
+        attack="Cross-layer timing sync attack",
+        description="Adversarial miners exploit timing gaps between L1 and L2 scoring windows to game cross-layer feedback.",
+        defense="Cross-layer latency threshold enforcement and temporal correlation monitoring.",
+        mechanism="cross_layer_latency + collusion_detection_lookback_epochs",
     ),
 ]

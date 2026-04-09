@@ -1,8 +1,31 @@
 """
 Attack Vector Detection System
 
-Automatically detects whether each of the 9 documented attack vectors
-has been breached under a given parameter configuration.
+Evaluates whether each of the 19 documented attack vectors has been
+breached under a given parameter configuration.
+
+Original 9 vectors:
+  1. Overfitting exploitation
+  2. Model plagiarism
+  3. Single-metric gaming
+  4. Sybil attack
+  5. Copy-trading
+  6. Random baseline discrimination failure
+  7. Adversarial dominance
+  8. Insufficient honest/adversarial separation
+  9. Score concentration (HHI)
+
+Novel vectors discovered during orchestration runs (2026-03-29):
+  10. Validator latency exploitation
+  11. Prediction timing manipulation
+  12. Miner-validator collusion
+  13. Weight entropy violation
+  14. Cross-validator score variance
+  15. Validator rotation circumvention
+  16. Validator agreement anomaly
+  17. Collusion temporal pattern
+  18. Weight manipulation (L1/L2 skew)
+  19. Cross-layer attack (timing sync)
 
 For each attack, defines:
   - A breach condition (boolean)
@@ -97,8 +120,12 @@ class AttackDetector:
     and produces a BreachReport.
     """
 
+    def __init__(self, config: dict | None = None):
+        self.config = config or {}
+
     def evaluate(self, result: SimulationResult) -> BreachReport:
         report = BreachReport()
+        # Original 9 vectors
         report.breaches.append(self._check_overfitting(result))
         report.breaches.append(self._check_plagiarism(result))
         report.breaches.append(self._check_single_metric_gaming(result))
@@ -108,6 +135,17 @@ class AttackDetector:
         report.breaches.append(self._check_adversarial_dominance(result))
         report.breaches.append(self._check_honest_separation(result))
         report.breaches.append(self._check_score_concentration(result))
+        # Novel vectors 10-19
+        report.breaches.append(self._check_validator_latency_exploit(result))
+        report.breaches.append(self._check_prediction_timing_manipulation(result))
+        report.breaches.append(self._check_miner_validator_collusion(result))
+        report.breaches.append(self._check_weight_entropy_violation(result))
+        report.breaches.append(self._check_cross_validator_score_variance(result))
+        report.breaches.append(self._check_validator_rotation_circumvention(result))
+        report.breaches.append(self._check_validator_agreement_anomaly(result))
+        report.breaches.append(self._check_collusion_temporal_pattern(result))
+        report.breaches.append(self._check_weight_manipulation(result))
+        report.breaches.append(self._check_cross_layer_attack(result))
         return report
 
     def _check_overfitting(self, result: SimulationResult) -> AttackBreach:
@@ -375,6 +413,424 @@ class AttackDetector:
         return AttackBreach(
             "score_concentration", breached, severity,
             f"HHI={hhi:.4f} (fair={fair_hhi:.4f}, threshold={max(0.25, fair_hhi*3):.4f})",
+        )
+
+
+    # -------------------------------------------------------------------
+    # Novel attack vectors 10-19 (discovered during orchestration runs)
+    # -------------------------------------------------------------------
+
+    def _check_validator_latency_exploit(self, result: SimulationResult) -> AttackBreach:
+        """
+        Vector 10: Validator latency exploitation.
+
+        Breach condition: Miner accuracy is significantly correlated with
+        validator latency, indicating trades submitted after data publication.
+        Severity = correlation * high_latency_fraction.
+        """
+        validator_latencies = getattr(result, "validator_latencies", None)
+        if not validator_latencies or not result.miner_scores:
+            return AttackBreach(
+                "validator_latency_exploitation", False, 0.0,
+                "No validator latency data available for analysis",
+            )
+
+        min_lead = self.config.get("validation_timing", {}).get(
+            "min_prediction_lead_time", 35,
+        )
+        high_thresh = self.config.get("validation_timing", {}).get(
+            "high_latency_threshold_ms", 2000,
+        )
+
+        scores = np.array(list(result.miner_scores.values()))
+        latencies = np.array(
+            [validator_latencies.get(uid, 0) for uid in result.miner_scores]
+        )
+
+        if len(scores) < 3 or np.std(latencies) < 1e-12:
+            return AttackBreach(
+                "validator_latency_exploitation", False, 0.0,
+                "Insufficient latency variation for correlation analysis",
+            )
+
+        with np.errstate(divide="ignore", invalid="ignore"):
+            corr = float(np.corrcoef(scores, latencies)[0, 1])
+        corr = 0.0 if np.isnan(corr) else corr
+
+        high_frac = float(np.mean(latencies > high_thresh))
+        severity = max(0.0, min(1.0, abs(corr) * high_frac))
+        breached = abs(corr) > 0.5 and high_frac > 0.3
+
+        return AttackBreach(
+            "validator_latency_exploitation", breached, severity,
+            f"corr(score,latency)={corr:.3f}, high_latency_frac={high_frac:.2f}",
+            {"correlation": corr, "high_latency_fraction": high_frac,
+             "min_lead_time": min_lead},
+        )
+
+    def _check_prediction_timing_manipulation(self, result: SimulationResult) -> AttackBreach:
+        """
+        Vector 11: Prediction timing manipulation.
+
+        Breach condition: Miners submit predictions suspiciously close to
+        data publication time, suggesting post-hoc "prediction".
+        """
+        submission_gaps = getattr(result, "submission_timing_gaps", None)
+        if not submission_gaps:
+            return AttackBreach(
+                "prediction_timing_manipulation", False, 0.0,
+                "No submission timing data available",
+            )
+
+        min_lead = self.config.get("validation_timing", {}).get(
+            "min_prediction_lead_time", 35,
+        )
+
+        violations = [uid for uid, gap in submission_gaps.items() if gap < min_lead]
+        total = max(len(submission_gaps), 1)
+        violation_rate = len(violations) / total
+        severity = max(0.0, min(1.0, violation_rate * 2))
+        breached = violation_rate > 0.2
+
+        return AttackBreach(
+            "prediction_timing_manipulation", breached, severity,
+            f"{len(violations)}/{total} miners below {min_lead}s lead time",
+            {"violations": violations, "min_lead_time": min_lead},
+        )
+
+    def _check_miner_validator_collusion(self, result: SimulationResult) -> AttackBreach:
+        """
+        Vector 12: Miner-validator collusion.
+
+        Breach condition: A validator's weight distribution or scoring
+        pattern shows statistically significant bias toward specific miners
+        whose objective performance does not justify the preferential
+        treatment.
+        """
+        per_validator_scores = getattr(result, "per_validator_scores", None)
+        if not per_validator_scores or len(per_validator_scores) < 2:
+            return AttackBreach(
+                "miner_validator_collusion", False, 0.0,
+                "Multi-validator scoring data not available",
+            )
+
+        max_z = 0.0
+        flagged_pairs = []
+        for miner_uid in result.miner_scores:
+            v_scores = []
+            for vid, scores_map in per_validator_scores.items():
+                if miner_uid in scores_map:
+                    v_scores.append((vid, scores_map[miner_uid]))
+            if len(v_scores) < 2:
+                continue
+            vals = np.array([s for _, s in v_scores])
+            mean, std = np.mean(vals), np.std(vals)
+            if std < 1e-12:
+                continue
+            for vid, s in v_scores:
+                z = abs(s - mean) / std
+                if z > max_z:
+                    max_z = z
+                if z > 2.0:
+                    flagged_pairs.append((miner_uid, vid, float(z)))
+
+        severity = max(0.0, min(1.0, (max_z - 1.0) / 3.0))
+        breached = max_z > 2.0
+
+        return AttackBreach(
+            "miner_validator_collusion", breached, severity,
+            f"Max z-score={max_z:.2f}, flagged pairs={len(flagged_pairs)}",
+            {"max_z_score": max_z, "flagged_pairs": flagged_pairs},
+        )
+
+    def _check_weight_entropy_violation(self, result: SimulationResult) -> AttackBreach:
+        """
+        Vector 13: Weight entropy violation.
+
+        Breach condition: A validator's weight distribution has entropy
+        below the configured minimum, indicating concentration on few UIDs.
+        """
+        validator_weights = getattr(result, "validator_weight_vectors", None)
+        if not validator_weights:
+            return AttackBreach(
+                "weight_entropy_violation", False, 0.0,
+                "No validator weight vector data available",
+            )
+
+        min_entropy = self.config.get("consensus_integrity", {}).get(
+            "weight_entropy_minimum", 1.3,
+        )
+
+        min_observed = float("inf")
+        violating_validators = []
+        for vid, weights in validator_weights.items():
+            w = np.array(weights, dtype=float)
+            w = w / max(w.sum(), 1e-12)
+            w = w[w > 1e-12]
+            entropy = -float(np.sum(w * np.log(w)))
+            if entropy < min_observed:
+                min_observed = entropy
+            if entropy < min_entropy:
+                violating_validators.append(vid)
+
+        severity = max(0.0, min(1.0, 1.0 - min_observed / max(min_entropy, 1e-12)))
+        breached = len(violating_validators) > 0
+
+        return AttackBreach(
+            "weight_entropy_violation", breached, severity,
+            f"Min entropy={min_observed:.3f} (threshold={min_entropy}), "
+            f"violators={len(violating_validators)}",
+            {"min_entropy_observed": min_observed, "threshold": min_entropy},
+        )
+
+    def _check_cross_validator_score_variance(self, result: SimulationResult) -> AttackBreach:
+        """
+        Vector 14: Cross-validator score variance.
+
+        Breach condition: A miner's scores vary dramatically across
+        validators, suggesting preferential treatment by one validator.
+        """
+        per_validator_scores = getattr(result, "per_validator_scores", None)
+        if not per_validator_scores or len(per_validator_scores) < 2:
+            return AttackBreach(
+                "cross_validator_score_variance", False, 0.0,
+                "Multi-validator scoring data not available",
+            )
+
+        max_var_threshold = self.config.get("consensus_integrity", {}).get(
+            "cross_validator_score_variance_max", 0.22,
+        )
+
+        max_variance = 0.0
+        flagged_miners = []
+        for miner_uid in result.miner_scores:
+            v_scores = [
+                scores_map[miner_uid]
+                for scores_map in per_validator_scores.values()
+                if miner_uid in scores_map
+            ]
+            if len(v_scores) < 2:
+                continue
+            var = float(np.var(v_scores))
+            if var > max_variance:
+                max_variance = var
+            if var > max_var_threshold:
+                flagged_miners.append(miner_uid)
+
+        severity = max(0.0, min(1.0, max_variance / max(max_var_threshold * 2, 1e-12)))
+        breached = len(flagged_miners) > 0
+
+        return AttackBreach(
+            "cross_validator_score_variance", breached, severity,
+            f"Max variance={max_variance:.4f} (threshold={max_var_threshold}), "
+            f"flagged={len(flagged_miners)}",
+            {"max_variance": max_variance, "threshold": max_var_threshold},
+        )
+
+    def _check_validator_rotation_circumvention(self, result: SimulationResult) -> AttackBreach:
+        """
+        Vector 15: Validator rotation circumvention.
+
+        Breach condition: The same validator scores the same miner for
+        more than the allowed number of consecutive epochs.
+        """
+        scoring_history = getattr(result, "validator_scoring_history", None)
+        if not scoring_history:
+            return AttackBreach(
+                "validator_rotation_circumvention", False, 0.0,
+                "No validator scoring history available",
+            )
+
+        max_consec = self.config.get("consensus_integrity", {}).get(
+            "validator_rotation_max_consecutive_epochs", 5,
+        )
+
+        worst_streak = 0
+        for miner_uid, epochs in scoring_history.items():
+            for vid in set(v for _, v in epochs):
+                streak = 0
+                for _, scorer_vid in epochs:
+                    if scorer_vid == vid:
+                        streak += 1
+                        worst_streak = max(worst_streak, streak)
+                    else:
+                        streak = 0
+
+        severity = max(0.0, min(1.0, (worst_streak - max_consec) / max(max_consec, 1)))
+        breached = worst_streak > max_consec
+
+        return AttackBreach(
+            "validator_rotation_circumvention", breached, severity,
+            f"Longest streak={worst_streak} (limit={max_consec})",
+            {"worst_streak": worst_streak, "limit": max_consec},
+        )
+
+    def _check_validator_agreement_anomaly(self, result: SimulationResult) -> AttackBreach:
+        """
+        Vector 16: Validator agreement anomaly.
+
+        Breach condition: A validator's scoring deviates from the
+        consensus of other validators by more than the threshold.
+        """
+        per_validator_scores = getattr(result, "per_validator_scores", None)
+        if not per_validator_scores or len(per_validator_scores) < 2:
+            return AttackBreach(
+                "validator_agreement_anomaly", False, 0.0,
+                "Multi-validator scoring data not available",
+            )
+
+        agreement_threshold = self.config.get("consensus_integrity", {}).get(
+            "validator_agreement_threshold", 0.18,
+        )
+
+        max_deviation = 0.0
+        for vid, scores_map in per_validator_scores.items():
+            others = {
+                uid: np.mean([
+                    om[uid] for ovid, om in per_validator_scores.items()
+                    if ovid != vid and uid in om
+                ])
+                for uid in scores_map
+                if sum(1 for ovid, om in per_validator_scores.items()
+                       if ovid != vid and uid in om) > 0
+            }
+            for uid in scores_map:
+                if uid in others:
+                    dev = abs(scores_map[uid] - others[uid])
+                    max_deviation = max(max_deviation, dev)
+
+        severity = max(0.0, min(1.0, max_deviation / max(agreement_threshold * 3, 1e-12)))
+        breached = max_deviation > agreement_threshold
+
+        return AttackBreach(
+            "validator_agreement_anomaly", breached, severity,
+            f"Max scoring deviation={max_deviation:.4f} (threshold={agreement_threshold})",
+            {"max_deviation": max_deviation, "threshold": agreement_threshold},
+        )
+
+    def _check_collusion_temporal_pattern(self, result: SimulationResult) -> AttackBreach:
+        """
+        Vector 17: Collusion temporal pattern.
+
+        Breach condition: Miner submission patterns change in lockstep
+        with a specific validator's behavior over the lookback window.
+        """
+        temporal_correlation = getattr(result, "miner_validator_temporal_corr", None)
+        if not temporal_correlation:
+            return AttackBreach(
+                "collusion_temporal_pattern", False, 0.0,
+                "No temporal correlation data available",
+            )
+
+        lookback = self.config.get("consensus_integrity", {}).get(
+            "collusion_detection_lookback_epochs", 12,
+        )
+
+        max_corr = 0.0
+        flagged = []
+        for (miner_uid, vid), corr in temporal_correlation.items():
+            abs_corr = abs(corr)
+            if abs_corr > max_corr:
+                max_corr = abs_corr
+            if abs_corr > 0.7:
+                flagged.append((miner_uid, vid, corr))
+
+        severity = max(0.0, min(1.0, (max_corr - 0.3) / 0.7))
+        breached = max_corr > 0.7
+
+        return AttackBreach(
+            "collusion_temporal_pattern", breached, severity,
+            f"Max temporal corr={max_corr:.3f}, flagged pairs={len(flagged)}, "
+            f"lookback={lookback}",
+            {"max_correlation": max_corr, "flagged_pairs": flagged},
+        )
+
+    def _check_weight_manipulation(self, result: SimulationResult) -> AttackBreach:
+        """
+        Vector 18: L1/L2 weight skew exploitation.
+
+        Breach condition: The effective emission split between L1 and L2
+        deviates significantly from the configured ratio, indicating that
+        adversarial miners are exploiting the weight-setting mechanism.
+        """
+        l1_total = sum(result.miner_scores.values()) if result.miner_scores else 0
+        l2_total = sum(result.l2_scores.values()) if result.l2_scores else 0
+        combined = l1_total + l2_total
+
+        if combined < 1e-12:
+            return AttackBreach(
+                "weight_manipulation", False, 0.0,
+                "No scores available for weight analysis",
+            )
+
+        target_split = self.config.get("emissions", {}).get("l1_l2_split", 0.6)
+        actual_l1_share = l1_total / combined
+        skew = abs(actual_l1_share - target_split)
+
+        penalty_strength = self.config.get("cross_layer_balance", {}).get(
+            "penalty_strength", 0.3,
+        )
+        severity = max(0.0, min(1.0, skew * penalty_strength * 5))
+        breached = skew > 0.2
+
+        return AttackBreach(
+            "weight_manipulation", breached, severity,
+            f"L1 share={actual_l1_share:.3f} vs target={target_split:.3f}, skew={skew:.3f}",
+            {"actual_l1_share": actual_l1_share, "target_split": target_split},
+        )
+
+    def _check_cross_layer_attack(self, result: SimulationResult) -> AttackBreach:
+        """
+        Vector 19: Cross-layer timing sync attack.
+
+        Breach condition: Cross-layer feedback latency exceeds the
+        configured threshold, or adversarial miners exploit timing gaps
+        between L1 and L2 scoring windows.
+        """
+        cross_layer_latencies = getattr(result, "cross_layer_latencies", None)
+        if not cross_layer_latencies:
+            adv_l1 = result.adversarial_l1_scores
+            adv_l2 = result.adversarial_l2_scores
+            if not adv_l1 or not adv_l2:
+                return AttackBreach(
+                    "cross_layer_attack", False, 0.0,
+                    "No cross-layer timing data available",
+                )
+            mean_adv_l1 = np.mean(adv_l1)
+            mean_honest_l1 = np.mean(result.honest_l1_scores) if result.honest_l1_scores else 0
+            mean_adv_l2 = np.mean(adv_l2)
+            mean_honest_l2 = np.mean(result.honest_l2_scores) if result.honest_l2_scores else 0
+
+            l1_gap = mean_honest_l1 - mean_adv_l1
+            l2_gap = mean_honest_l2 - mean_adv_l2
+
+            if l1_gap > 0 and l2_gap < 0:
+                severity = min(1.0, abs(l2_gap) / max(abs(l1_gap), 1e-12))
+                return AttackBreach(
+                    "cross_layer_attack", True, severity,
+                    f"Adversarial L2 gain despite L1 defense: L1 gap={l1_gap:.4f}, L2 gap={l2_gap:.4f}",
+                )
+            return AttackBreach(
+                "cross_layer_attack", False, 0.0,
+                "No cross-layer timing exploit detected",
+            )
+
+        max_latency_threshold = self.config.get("cross_layer_timing", {}).get(
+            "max_latency_ms", 200,
+        )
+
+        latency_arr = np.array(list(cross_layer_latencies.values()))
+        max_lat = float(np.max(latency_arr)) if len(latency_arr) > 0 else 0
+        violation_rate = float(np.mean(latency_arr > max_latency_threshold))
+
+        severity = max(0.0, min(1.0, violation_rate))
+        breached = violation_rate > 0.3
+
+        return AttackBreach(
+            "cross_layer_attack", breached, severity,
+            f"Max latency={max_lat:.0f}ms, violation rate={violation_rate:.2f} "
+            f"(threshold={max_latency_threshold}ms)",
+            {"max_latency": max_lat, "violation_rate": violation_rate},
         )
 
 
