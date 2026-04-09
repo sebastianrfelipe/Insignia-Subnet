@@ -107,6 +107,49 @@ class SubnetHyperparameters:
 
 
 @dataclass
+class CommitRevealConfig:
+    """
+    Application-level commit-reveal scheme configuration.
+
+    Approach B (off-chain with validator attestation) as recommended by
+    the deployer agent's feasibility assessment (CR-FEAS-001).
+    """
+
+    enabled: bool = False
+    commit_window_seconds: float = 30.0
+    reveal_window_seconds: float = 15.0
+    hash_algorithm: str = "sha256"
+    nonce_bits: int = 128
+    min_attestations: int = 1
+
+
+@dataclass
+class ValidationTimingConfig:
+    """
+    Parameters defending against validator latency exploitation (Vector 8)
+    and prediction timing manipulation (Vector 11).
+    """
+
+    min_prediction_lead_time_seconds: float = 35.0
+    validator_latency_penalty_weight: float = 0.20
+    high_latency_threshold_ms: float = 2000.0
+
+
+@dataclass
+class ConsensusIntegrityConfig:
+    """
+    Parameters defending against miner-validator collusion (Vector 9).
+    Values from V3-PF-007 knee point and autoresearch optimal.
+    """
+
+    weight_entropy_minimum: float = 1.3
+    cross_validator_score_variance_max: float = 0.22
+    validator_rotation_max_consecutive_epochs: int = 5
+    validator_agreement_threshold: float = 0.20
+    collusion_detection_lookback_epochs: int = 10
+
+
+@dataclass
 class EmulatorConfig:
     """Top-level emulator configuration."""
 
@@ -115,6 +158,10 @@ class EmulatorConfig:
 
     wallets: WalletConfig = field(default_factory=WalletConfig)
     subnet_params: SubnetHyperparameters = field(default_factory=SubnetHyperparameters)
+
+    commit_reveal: CommitRevealConfig = field(default_factory=CommitRevealConfig)
+    validation_timing: ValidationTimingConfig = field(default_factory=ValidationTimingConfig)
+    consensus_integrity: ConsensusIntegrityConfig = field(default_factory=ConsensusIntegrityConfig)
 
     n_l1_epochs: int = 5
     n_l2_trading_steps: int = 300
