@@ -378,6 +378,12 @@ class SimulationHarness:
         self.l2_agents = l2_agents
         self.n_epochs = n_epochs
         self.n_trading_steps = n_trading_steps
+        self._last_config: Optional[Dict] = None
+
+    @property
+    def last_config(self) -> Optional[Dict]:
+        """The decoded parameter config from the most recent run."""
+        return self._last_config
 
     def run(self, param_vector: np.ndarray) -> SimulationResult:
         """
@@ -385,6 +391,7 @@ class SimulationHarness:
         Returns structured results for fitness evaluation.
         """
         config = decode(param_vector)
+        self._last_config = config
         result = SimulationResult()
 
         weight_config = config["weight_config"]
@@ -393,6 +400,8 @@ class SimulationHarness:
         feedback_params = config["feedback"]
         anti_gaming = config["anti_gaming"]
         trading_config = config["trading"]
+        validation_timing = config.get("validation_timing", {})
+        consensus_integrity = config.get("consensus_integrity", {})
 
         ovf_detector = ReferenceOverfittingDetector(
             gap_threshold=ovf_params["gap_threshold"],

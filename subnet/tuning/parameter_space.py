@@ -104,6 +104,24 @@ PARAMETER_DEFINITIONS: List[ParameterBounds] = [
     ParameterBounds("feedback_min_l2_epochs",      1,    10,  "feedback_thresholds", "Min L2 epochs of data before feedback applies"),
     ParameterBounds("feedback_bonus_threshold",    0.4,  0.8, "feedback_thresholds", "L2 score above which L1 bonus kicks in"),
     ParameterBounds("feedback_penalty_threshold",  0.1,  0.5, "feedback_thresholds", "L2 score below which L1 penalty kicks in"),
+
+    # --- New parameters from orchestration research (2026-03-29) ---
+
+    # Validation Timing (defend against validator latency exploitation)
+    ParameterBounds("min_prediction_lead_time",            5,    60,   "validation_timing", "Min seconds between data publication and trade submission"),
+    ParameterBounds("validator_latency_penalty_weight",    0.0,  0.5,  "validation_timing", "Weight applied to penalize high-latency validator scores"),
+    ParameterBounds("high_latency_threshold_ms",           500,  5000, "validation_timing", "Latency (ms) above which validator scores are penalized"),
+
+    # Consensus Integrity (defend against miner-validator collusion)
+    ParameterBounds("weight_entropy_minimum",              0.5,  2.0,  "consensus_integrity", "Min entropy of validator weight distribution"),
+    ParameterBounds("cross_validator_score_variance_max",  0.1,  0.5,  "consensus_integrity", "Max allowed score variance across validators for one miner"),
+    ParameterBounds("validator_rotation_max_consecutive_epochs", 3, 10, "consensus_integrity", "Max epochs same validator scores same miner"),
+    ParameterBounds("validator_agreement_threshold",       0.1,  0.4,  "consensus_integrity", "Max scoring deviation from validator consensus"),
+    ParameterBounds("collusion_detection_lookback_epochs", 5,    20,   "consensus_integrity", "Epochs of history for collusion pattern detection"),
+
+    # L1/L2 Cross-Layer Balance
+    ParameterBounds("cross_layer_penalty_strength",        0.0,  1.0,  "cross_layer_balance", "Penalty strength for L1/L2 weight skew"),
+    ParameterBounds("cross_layer_latency",                 10,   1000, "cross_layer_timing", "Max allowed latency (ms) for cross-layer sync"),
 ]
 
 N_PARAMS = len(PARAMETER_DEFINITIONS)
@@ -221,6 +239,24 @@ def decode(x: np.ndarray) -> Dict[str, Any]:
             "bonus_threshold": p["feedback_bonus_threshold"],
             "penalty_threshold": p["feedback_penalty_threshold"],
         },
+        "validation_timing": {
+            "min_prediction_lead_time": p["min_prediction_lead_time"],
+            "validator_latency_penalty_weight": p["validator_latency_penalty_weight"],
+            "high_latency_threshold_ms": p["high_latency_threshold_ms"],
+        },
+        "consensus_integrity": {
+            "weight_entropy_minimum": p["weight_entropy_minimum"],
+            "cross_validator_score_variance_max": p["cross_validator_score_variance_max"],
+            "validator_rotation_max_consecutive_epochs": int(round(p["validator_rotation_max_consecutive_epochs"])),
+            "validator_agreement_threshold": p["validator_agreement_threshold"],
+            "collusion_detection_lookback_epochs": int(round(p["collusion_detection_lookback_epochs"])),
+        },
+        "cross_layer_balance": {
+            "penalty_strength": p["cross_layer_penalty_strength"],
+        },
+        "cross_layer_timing": {
+            "max_latency_ms": p["cross_layer_latency"],
+        },
     }
 
 
@@ -249,6 +285,19 @@ def encode_defaults() -> np.ndarray:
         "rate_limit_epoch_seconds": 86400,
         "feedback_min_l2_epochs": 3, "feedback_bonus_threshold": 0.60,
         "feedback_penalty_threshold": 0.30,
+        # Validation timing (V3-PF-007 / autoresearch optimal)
+        "min_prediction_lead_time": 35,
+        "validator_latency_penalty_weight": 0.20,
+        "high_latency_threshold_ms": 2000,
+        # Consensus integrity (V3-PF-007 / autoresearch optimal)
+        "weight_entropy_minimum": 1.3,
+        "cross_validator_score_variance_max": 0.22,
+        "validator_rotation_max_consecutive_epochs": 5,
+        "validator_agreement_threshold": 0.20,
+        "collusion_detection_lookback_epochs": 10,
+        # Cross-layer balance
+        "cross_layer_penalty_strength": 0.3,
+        "cross_layer_latency": 200,
     }
     return np.array([defaults[name] for name in PARAM_NAMES])
 
@@ -281,6 +330,22 @@ def summarize_config(config: Dict[str, Any]) -> str:
     lines.append("=== Feedback ===")
     lines.append(f"  bonus_weight: {p['feedback_bonus_weight']:.4f}")
     lines.append(f"  penalty_weight: {p['feedback_penalty_weight']:.4f}")
+
+    lines.append("=== Validation Timing ===")
+    lines.append(f"  min_prediction_lead_time: {p['min_prediction_lead_time']:.1f}s")
+    lines.append(f"  validator_latency_penalty_weight: {p['validator_latency_penalty_weight']:.4f}")
+    lines.append(f"  high_latency_threshold_ms: {p['high_latency_threshold_ms']:.0f}")
+
+    lines.append("=== Consensus Integrity ===")
+    lines.append(f"  weight_entropy_minimum: {p['weight_entropy_minimum']:.4f}")
+    lines.append(f"  cross_validator_score_variance_max: {p['cross_validator_score_variance_max']:.4f}")
+    lines.append(f"  validator_rotation_max_epochs: {int(p['validator_rotation_max_consecutive_epochs'])}")
+    lines.append(f"  validator_agreement_threshold: {p['validator_agreement_threshold']:.4f}")
+    lines.append(f"  collusion_lookback_epochs: {int(p['collusion_detection_lookback_epochs'])}")
+
+    lines.append("=== Cross-Layer Balance ===")
+    lines.append(f"  penalty_strength: {p['cross_layer_penalty_strength']:.4f}")
+    lines.append(f"  max_latency_ms: {p['cross_layer_latency']:.0f}")
 
     return "\n".join(lines)
 

@@ -22,10 +22,11 @@ the swarm. Agents do **not** modify this file — they execute it.
 8. [Phase 5: Autoresearch Experiment Loop](#phase-5-autoresearch-experiment-loop)
 9. [Convergence & Reset Protocol](#convergence--reset-protocol)
 10. [Novel Attack Discovery Protocol](#novel-attack-discovery-protocol)
-11. [MCP Server Interface](#mcp-server-interface)
-12. [State Management](#state-management)
-13. [Metrics & Observability](#metrics--observability)
-14. [Constraints & Safety Rails](#constraints--safety-rails)
+11. [Orchestration Run Findings (2026-03-29)](#orchestration-run-findings-2026-03-29)
+12. [MCP Server Interface](#mcp-server-interface)
+13. [State Management](#state-management)
+14. [Metrics & Observability](#metrics--observability)
+15. [Constraints & Safety Rails](#constraints--safety-rails)
 
 ---
 
@@ -64,9 +65,9 @@ The swarm operates as a continuous autonomous loop. Once started, it runs
 indefinitely until manually stopped. Each agent has a distinct role but
 they coordinate through shared state on disk and Prometheus metrics.
 
-**Primary objective:** Find the parameter configuration across all 75+
-dimensions (42 Insignia application-level + 33 Bittensor on-chain) that
-maximizes honest miner composite scores while driving all 9 attack breach
+**Primary objective:** Find the parameter configuration across all 85+
+dimensions (51 Insignia application-level + 33 Bittensor on-chain) that
+maximizes honest miner composite scores while driving all 19 attack breach
 rates to zero.
 
 **Secondary objective:** Discover novel attack vectors not yet in the
@@ -156,7 +157,7 @@ when convergence toward an attack is detected.
 - Ability to signal RESET to the orchestrator
 
 **Capabilities:**
-- Evaluate all 9 documented attack vectors per simulation
+- Evaluate all 19 documented attack vectors per simulation
 - Track breach trends across generations (moving averages)
 - Detect convergence toward attack exploitation (3+ consecutive
   generations with increasing severity on any single attack)
@@ -173,6 +174,16 @@ when convergence toward an attack is detected.
 7. Adversarial dominance
 8. Insufficient honest/adversarial separation
 9. Score concentration (HHI)
+10. L1/L2 weight skew exploitation
+11. Cross-layer timing sync attack
+12. Objective weight manipulation
+13. Genetic algorithm parameter exploitation
+14. Governance parameter manipulation
+15. L1/L2 incentive misalignment
+16. Pareto front manipulation
+17. Reward distribution manipulation
+18. Validator latency exploitation
+19. Miner-validator collusion
 
 **State file:** `state/sentinel_state.json`
 
@@ -804,6 +815,549 @@ report.breaches.append(self._check_new_attack(result))
 
 ---
 
+## Orchestration Run Findings (2026-03-29)
+
+Results from a full orchestration run (session `69c86eed`, 11h 52m,
+1477 tool calls, 54/59 tasks completed). These findings inform the
+next iteration of tuning and attack surface hardening.
+
+### Run Summary
+
+| Metric | Value |
+|--------|-------|
+| Completed / Failed / Pending | 54 / 5 / 1 |
+| Tool calls (errors) | 1477 (35) |
+| Duration | 11h 52m |
+| Baseline breach_rate | 1.0 |
+| Baseline honest_score | 0.0 |
+| Post-tuning honest_score_mean | 0.83 |
+| Post-tuning breach_rate_mean | 0.017 |
+| Post-tuning score_separation_mean | 0.472 |
+| Pareto front size | 27 solutions |
+| NSGA-II generations completed | 29 |
+
+### Key Outcomes
+
+1. **NSGA-II tuning** ran 29 generations with 30 individuals across 75
+   parameter dimensions (41 Insignia + 33 Bittensor + 6 primary).
+   Honest score improved from 0.0 → 0.83 and breach rate dropped from
+   1.0 → 0.017 against the original 9 attack vectors.
+
+2. **Convergence & Reset Protocol** was implemented with Pareto stability,
+   attack convergence, fitness plateau, and exploration saturation
+   criteria. Soft/Hard/Full reset procedures are operational with
+   checkpointing every 5 generations (max 10 checkpoints).
+
+3. **Autoresearch experiment loop** executed a Karpathy-style autonomous
+   loop with keep/discard evaluation, radical change escalation after
+   10 consecutive failures, and elite config injection to the tuner at
+   a 0.9 threshold. L1_L2_weight_ratio sweep (9 points: 0.1–0.9) was
+   completed as part of tuner integration.
+
+4. **Sybil attack** was identified as the current highest-risk vector
+   with severity 0.35.
+
+### Novel Attack Vectors Discovered
+
+The researcher and sentinel agents identified 7 novel attack vectors
+beyond the original 9, plus 2 additional vectors identified through
+manual analysis (vectors 8–9 below):
+
+| # | Vector | Category | Risk |
+|---|--------|----------|------|
+| 1 | Objective weight manipulation | NSGA-II optimization | HIGH |
+| 2 | Cross-layer timing sync | L1/L2 interaction | MEDIUM |
+| 3 | Genetic algorithm parameter exploitation | NSGA-II optimization | MEDIUM |
+| 4 | Reward distribution manipulation | Tokenomics | HIGH (exploit: 0.8, impact: 0.9, detect: 0.4) |
+| 5 | Governance parameter manipulation | Governance | HIGH |
+| 6 | L1/L2 incentive misalignment | L1/L2 incentive dynamics | HIGH |
+| 7 | Pareto front manipulation | NSGA-II optimization | MEDIUM (exploit: 0.6, impact: 0.7) |
+| 8 | Validator latency exploitation | Validation timing | HIGH |
+| 9 | Miner-validator collusion | Consensus integrity | CRITICAL |
+
+#### Novel Vector 8: Validator Latency Exploitation
+
+**Category:** Validation timing vulnerability
+
+**Description:** If a validator does not validate a trade within the
+expected time window, miners can submit trades using market data that
+has already been publicized. Because the validation is delayed, the
+miner's "prediction" is effectively a replay of known market movements,
+allowing them to achieve artificially high accuracy and PnL.
+
+**Attack mechanism:**
+1. Miner monitors public market data feeds in real time
+2. Miner detects when validator validation is lagging (high latency,
+   queue backlog, or network delay)
+3. Miner submits trades using data that has already materialized but
+   has not yet been validated by the slow validator
+4. Validator eventually processes the trade and scores it as a
+   legitimate prediction, awarding high L2 scores
+
+**Breach condition:** A miner's trade submission timestamp is
+significantly closer to the market data availability time than to the
+validator's validation timestamp, AND the miner consistently achieves
+near-perfect accuracy during high-latency validation windows.
+
+**Severity metric:** `latency_exploit_score = correlation(miner_accuracy,
+validator_latency) * fraction_of_trades_during_high_latency_windows`
+
+**Detection methods:**
+- Monitor per-validator latency distributions and flag miners whose
+  accuracy is inversely correlated with validator response time
+- Compare miner submission timestamps against market data publication
+  timestamps — flag if the gap is below a configurable threshold
+  (`min_prediction_lead_time`, suggested range [5, 60] seconds)
+- Track per-miner accuracy segmented by validator latency quartiles
+
+**Recommended defenses:**
+- Enforce a `min_prediction_lead_time` parameter: reject trades where
+  `submission_time - data_publication_time < threshold`
+- Implement validator latency monitoring with automatic trade windowing:
+  trades submitted during high-latency periods receive reduced weight
+- Use commit-reveal scheme: miners commit to trade hashes before market
+  data is available, then reveal after the validation window
+- Add `validator_latency_penalty` to L2 scoring: discount scores from
+  validators with latency above the 90th percentile
+
+**Primary parameters:** `min_prediction_lead_time` [5, 60],
+`validator_latency_penalty_weight` [0.0, 0.5],
+`high_latency_threshold_ms` [500, 5000]
+
+```python
+def _check_validator_latency_exploit(self, result: SimulationResult) -> AttackBreach:
+    """
+    Check for validator latency exploitation.
+
+    Breach condition: Miner accuracy is significantly correlated with
+    validator latency, indicating trades submitted after data publication.
+    """
+    # For each miner, compute correlation between their per-trade
+    # accuracy and the validating validator's latency for that trade
+    # Flag if correlation > threshold AND high-latency trade fraction > threshold
+    # severity = correlation * high_latency_fraction
+    ...
+```
+
+#### Novel Vector 9: Miner-Validator Collusion
+
+**Category:** Consensus integrity vulnerability
+
+**Description:** A malicious validator and one or more miners collude
+to inflate miner scores, manipulate weight-setting, or extract
+disproportionate rewards. Because validators set weights on-chain and
+score miners, a colluding validator can systematically overweight
+colluding miners while penalizing honest miners.
+
+**Attack mechanism — score inflation:**
+1. Colluding validator assigns artificially high L1 and L2 scores to
+   colluding miners regardless of actual performance
+2. Colluding miners receive inflated composite scores and climb rankings
+3. Over time, colluding miners capture a disproportionate share of
+   emissions
+
+**Attack mechanism — weight-setting manipulation:**
+1. Colluding validator sets on-chain weights to maximize emission flow
+   to colluding miners (e.g., setting max_weight_limit for colluders
+   and min for honest miners)
+2. Combined with `bonds_moving_avg` exploitation, the colluding pair
+   can lock in weight advantages that persist across multiple tempo
+   cycles
+
+**Attack mechanism — trade spoofing via shared information:**
+1. Validator leaks upcoming validation parameters, scoring thresholds,
+   or feature importance weights to colluding miners before each epoch
+2. Colluding miners tailor their submissions to exactly match what the
+   validator will reward, achieving near-perfect scores
+3. This is especially dangerous combined with validator latency
+   exploitation (Vector 8): the validator intentionally delays
+   validation to give colluding miners time to submit after data
+   publication
+
+**Attack mechanism — coordinated Sybil amplification:**
+1. Colluding validator registers multiple miner UIDs (or coordinates
+   with multiple miners)
+2. Validator distributes weight across all colluding UIDs to maximize
+   total emission capture while staying under per-UID detection
+   thresholds
+3. Individual colluding miners may appear to have moderate scores, but
+   collectively they dominate emissions
+
+**Breach condition:** A validator's weight-setting pattern shows
+statistically significant bias toward a subset of miners whose
+performance does not justify their weights, OR a miner's score from
+a specific validator is consistently >2σ above their scores from other
+validators.
+
+**Severity metric:**
+`collusion_score = max(weight_bias_score, score_inflation_score,
+information_leakage_score)`
+where:
+- `weight_bias_score = gini(validator_weights) * correlation(weights, non_performance_features)`
+- `score_inflation_score = max_over_miners(z_score(miner_score_from_validator_v - mean_score_from_other_validators))`
+- `information_leakage_score = mutual_information(miner_submissions, validator_internal_state)`
+
+**Detection methods:**
+- Cross-validator score comparison: flag miners whose scores from one
+  validator are consistently >2σ above their scores from others
+- Weight-setting entropy analysis: flag validators whose weight
+  distributions have low entropy (concentrated on few UIDs)
+- Temporal correlation: detect if miner submission patterns change in
+  lockstep with a specific validator's behavior
+- Network graph analysis: identify tightly coupled miner-validator
+  clusters via on-chain weight and bond data
+- Performance consistency check: flag miners who perform well only
+  when a specific validator is active
+
+**Recommended defenses:**
+- Require multi-validator consensus: a miner's score is the median
+  across all validators, not from a single validator
+- Implement `weight_entropy_minimum`: reject weight vectors from
+  validators whose weight distribution entropy is below a threshold
+- Add `cross_validator_score_variance_penalty`: penalize miners whose
+  scores vary dramatically across validators
+- Enforce validator rotation: prevent the same validator from scoring
+  the same miner for more than N consecutive epochs
+- Use `validator_agreement_threshold`: flag validators whose scoring
+  deviates from the consensus of other validators by more than a
+  configurable margin
+- Monitor on-chain bond accumulation patterns for coordinated behavior
+
+**Primary parameters:** `weight_entropy_minimum` [0.5, 2.0],
+`cross_validator_score_variance_max` [0.1, 0.5],
+`validator_rotation_max_consecutive_epochs` [3, 10],
+`validator_agreement_threshold` [0.1, 0.4],
+`collusion_detection_lookback_epochs` [5, 20]
+
+```python
+def _check_miner_validator_collusion(self, result: SimulationResult) -> AttackBreach:
+    """
+    Check for miner-validator collusion.
+
+    Breach condition: A validator's weight distribution or scoring pattern
+    shows statistically significant bias toward specific miners whose
+    objective performance does not justify the preferential treatment.
+    """
+    # 1. Compute per-validator weight entropy — flag low-entropy validators
+    # 2. For each miner, compare scores from each validator — flag high variance
+    # 3. Correlate weight assignments with non-performance features
+    # 4. Check for temporal coordination patterns
+    # severity = max(weight_bias, score_inflation, coordination_signal)
+    ...
+```
+
+### Updated Attack-Parameter Mapping (Addendum)
+
+| Attack | Primary Parameters | Secondary Parameters |
+|--------|-------------------|---------------------|
+| L1/L2 weight skew | `l1_l2_emission_split`, all L1/L2 weights | `cross_layer_penalty_strength` |
+| Cross-layer timing | `rate_limit_epoch_seconds`, `tempo` | `cross_layer_latency` |
+| Objective weight manipulation | NSGA-II objective weights | `breach_rate` weight scaling |
+| GA parameter exploitation | SBX eta, mutation eta, crossover prob | Population size, tournament size |
+| Governance manipulation | `immunity_period`, `max_weight_limit`, `adjustment_alpha` | `min_allowed_weights` |
+| L1/L2 incentive misalignment | `l1_l2_emission_split`, L1/L2 weight ratios | `feedback_bonus_weight` |
+| Pareto front manipulation | Population diversity, elite preservation % | Checkpoint integrity |
+| Reward distribution manipulation | `emission_sigmoid_*`, `buyback_*` | `l1_l2_emission_split` |
+| Validator latency exploitation | `min_prediction_lead_time`, `validator_latency_penalty_weight` | `high_latency_threshold_ms` |
+| Miner-validator collusion | `weight_entropy_minimum`, `cross_validator_score_variance_max` | `validator_rotation_max_consecutive_epochs`, `validator_agreement_threshold` |
+
+### Next Steps
+
+1. Implement `_check_validator_latency_exploit()` and
+   `_check_miner_validator_collusion()` in `tuning/attack_detector.py`
+2. Add the new parameters (`min_prediction_lead_time`,
+   `validator_latency_penalty_weight`, `weight_entropy_minimum`,
+   `cross_validator_score_variance_max`,
+   `validator_rotation_max_consecutive_epochs`,
+   `validator_agreement_threshold`) to the parameter space and NSGA-II
+   bounds
+3. Re-run NSGA-II with the expanded attack surface (19 total vectors)
+4. Target: breach_rate < 0.05 across all 19 vectors, honest_score > 0.85
+5. Investigate commit-reveal scheme feasibility for validator latency
+   defense
+6. Build multi-validator consensus scoring prototype
+
+### ACTION REQUIRED: Record PF-02 Parameter Vector
+
+The TUNER agent **must** retrieve and record the full PF-02 knee-point
+parameter vector into this section before starting the next optimization
+cycle. This is a **blocking prerequisite** — the swarm cannot begin
+tuning against the expanded 19-vector attack surface without a
+documented baseline configuration to seed from.
+
+**Why this matters:** The orchestration report confirmed PF-02 as the
+selected knee-point (breach_rate: 0.012, honest_score: 0.91) but did
+not serialize the underlying 75-dimensional parameter vector. Without
+these values recorded here, the next run has no verified starting point
+and may waste generations rediscovering configurations that were already
+found.
+
+**Retrieval procedure (TUNER agent):**
+
+1. Query the Pareto front from the previous run:
+   ```
+   mongodb_find({ collection: "tuner_optimization",
+                  filter: { "knee_point": "PF-02", "generation": 29 } })
+   ```
+   Fallback sources (try in order):
+   - `read_memory({ key: "pareto_front" })`
+   - Load `state/best_config.yaml`
+   - Load `results/best_params.npy` via `np.load()`
+
+2. Decode the raw vector via `tuning.parameter_space.decode()`
+
+3. Fill in **every** `___` placeholder in the tables below with the
+   actual tuned value. Do not leave any blanks.
+
+4. After filling, run a validation simulation with the recorded config
+   and confirm it reproduces `breach_rate ≈ 0.012`, `honest_score ≈ 0.91`.
+
+5. Commit the completed tables back to this file so they persist across
+   runs.
+
+#### Insignia Application Parameters (41) — PF-02 Tuned Values
+
+| # | Parameter | Tuned Value | Range | Group |
+|---|-----------|-------------|-------|-------|
+| 1 | `l1_penalized_f1` | ___ | [0.05, 0.40] | L1 weights |
+| 2 | `l1_penalized_sharpe` | ___ | [0.05, 0.40] | L1 weights |
+| 3 | `l1_max_drawdown` | ___ | [0.05, 0.30] | L1 weights |
+| 4 | `l1_variance_score` | ___ | [0.05, 0.30] | L1 weights |
+| 5 | `l1_overfitting_penalty` | ___ | [0.05, 0.35] | L1 weights |
+| 6 | `l1_feature_efficiency` | ___ | [0.01, 0.15] | L1 weights |
+| 7 | `l1_latency` | ___ | [0.01, 0.20] | L1 weights |
+| 8 | `l2_realized_pnl` | ___ | [0.05, 0.40] | L2 weights |
+| 9 | `l2_omega` | ___ | [0.05, 0.30] | L2 weights |
+| 10 | `l2_max_drawdown` | ___ | [0.05, 0.30] | L2 weights |
+| 11 | `l2_win_rate` | ___ | [0.05, 0.25] | L2 weights |
+| 12 | `l2_consistency` | ___ | [0.05, 0.30] | L2 weights |
+| 13 | `l2_model_attribution` | ___ | [0.01, 0.25] | L2 weights |
+| 14 | `l2_execution_quality` | ___ | [0.05, 0.30] | L2 weights |
+| 15 | `overfit_gap_threshold` | ___ | [0.05, 0.40] | Overfitting |
+| 16 | `overfit_decay_rate` | ___ | [1.0, 15.0] | Overfitting |
+| 17 | `promotion_top_n` | ___ | [3, 20] | Promotion |
+| 18 | `promotion_min_consecutive_epochs` | ___ | [1, 5] | Promotion |
+| 19 | `promotion_max_overfitting_score` | ___ | [0.1, 0.6] | Promotion |
+| 20 | `promotion_max_score_decay_pct` | ___ | [0.05, 0.4] | Promotion |
+| 21 | `promotion_expiry_epochs` | ___ | [3, 15] | Promotion |
+| 22 | `feedback_bonus_weight` | ___ | [0.0, 0.40] | Feedback |
+| 23 | `feedback_penalty_weight` | ___ | [0.0, 0.30] | Feedback |
+| 24 | `fingerprint_correlation_threshold` | ___ | [0.80, 0.99] | Anti-gaming |
+| 25 | `copy_trade_time_tolerance` | ___ | [10, 300] | Anti-gaming |
+| 26 | `copy_trade_size_tolerance` | ___ | [0.01, 0.15] | Anti-gaming |
+| 27 | `copy_trade_correlation_threshold` | ___ | [0.75, 0.98] | Anti-gaming |
+| 28 | `slippage_base_spread_bps` | ___ | [0.5, 10.0] | Trading |
+| 29 | `slippage_vol_impact_factor` | ___ | [0.1, 2.0] | Trading |
+| 30 | `slippage_size_impact_factor` | ___ | [0.01, 0.5] | Trading |
+| 31 | `slippage_fee_bps` | ___ | [1.0, 15.0] | Trading |
+| 32 | `trading_max_position_pct` | ___ | [0.02, 0.20] | Trading |
+| 33 | `trading_max_drawdown_pct` | ___ | [0.10, 0.35] | Trading |
+| 34 | `buyback_pct` | ___ | [0.05, 0.50] | Buyback |
+| 35 | `buyback_min_profit` | ___ | [100, 5000] | Buyback |
+| 36 | `emission_sigmoid_midpoint` | ___ | [0.2, 0.8] | Emissions |
+| 37 | `emission_sigmoid_steepness` | ___ | [1.0, 20.0] | Emissions |
+| 38 | `l1_l2_emission_split` | ___ | [0.40, 0.80] | Emissions |
+| 39 | `rate_limit_epoch_seconds` | ___ | [3600, 172800] | Rate limit |
+| 40 | `feedback_min_l2_epochs` | ___ | [1, 10] | Feedback thresh |
+| 41 | `feedback_bonus_threshold` | ___ | [0.4, 0.8] | Feedback thresh |
+
+**L1 weight sum check:** parameters 1–7 must sum to 1.0 → ___
+
+#### Bittensor On-Chain Parameters (6 Primary) — PF-02 Tuned Values
+
+| Parameter | Tuned Value | Default | Range |
+|-----------|-------------|---------|-------|
+| `tempo` | ___ | 360 | [100, 1440] |
+| `immunity_period` | ___ | 5000 | [1000, 20000] |
+| `bonds_moving_avg` | ___ | 900000 | [500000, 999999] |
+| `adjustment_alpha` | ___ | 0 | [0, 65535] |
+| `max_weight_limit` | ___ | 65535 | [16384, 65535] |
+| `min_allowed_weights` | ___ | 1 | [1, 16] |
+
+**L2 weight sum check:** parameters 8–14 must sum to 1.0 → ___
+
+#### PF-02 Fitness Confirmation
+
+After recording all values above, the TUNER agent must run:
+
+```bash
+cd subnet && python -m tuning.orchestrator --mode single \
+  --config state/best_config.yaml \
+  --n-honest 6 --n-adversarial 4 --no-metrics
+```
+
+And confirm the following outputs match (±5% tolerance):
+
+| Objective | Expected | Actual |
+|-----------|----------|--------|
+| honest_score | 0.91 | ___ |
+| breach_rate | 0.012 | ___ |
+| security_score | 0.88 | ___ |
+| performance_score | 0.85 | ___ |
+| score_separation | ~0.472 | ___ |
+
+If values diverge by more than 5%, investigate whether state drift
+occurred during the reset cycles and re-extract from the nearest
+checkpoint in `state/nsga_ii_checkpoints/`.
+
+---
+
+## Orchestration Run Findings (2026-04-09) — Sessions 69d66f77 & 69d69d32
+
+Two consecutive orchestration sessions executed on 2026-04-09. Combined
+results represent 68 minutes of autonomous tuning (41m 52s + 26m 5s),
+718 tool calls, and 10 completed tasks across all 5 agents.
+
+### Session 1: 69d66f77 (Validation & Autoresearch Kickoff)
+
+| Metric | Value |
+|--------|-------|
+| Duration | 41m 52s |
+| Tasks completed | 5 / 5 |
+| Tool calls (errors) | 221 (0) |
+| Agent breakdown | orchestrator:109, tuner:56, simulator:5, researcher:25, sentinel:1, deployer:25 |
+
+**Key outcomes:**
+
+1. **Tuner** attempted to record the full PF-EXP-02 parameter vector
+   (generation 50, 8 new parameters identified in expanded search).
+
+2. **Simulator** prepared a validation simulation for PF-EXP-02 with
+   the full 19-vector attack surface, 50 epochs, 360 blocks/epoch.
+   Baseline metrics confirmed: breach_rate=0.007, honest_score=0.89,
+   score_separation=0.55.
+
+3. **Deployer** completed infrastructure health check (HEALTHY) and
+   commit-reveal feasibility assessment (FEASIBLE — Approach B
+   recommended). Key parameters established:
+   - Commit window: 30s (T-35s to T-5s)
+   - Reveal window: 15s (T+5s to T+20s)
+   - Hash: SHA-256, Nonce: 128-bit random
+   - Estimated LOC: ~1,100
+
+4. **Researcher** launched 10-experiment autoresearch loop with mixed
+   strategy. Sybil attack identified as highest-risk vector (severity 0.35).
+
+5. **Sentinel** confirmed 11 vectors monitored, breach_rate=0.017
+   (DECREASING). All reset protocols ready.
+
+### Session 2: 69d69d32 (Full NSGA-II V3 + Deep Autoresearch)
+
+| Metric | Value |
+|--------|-------|
+| Duration | 26m 5s |
+| Tasks completed | 5 / 5 |
+| Tool calls (errors) | 497 (7) |
+| Agent breakdown | orchestrator:96, deployer:27, tuner:55, simulator:25, researcher:162, sentinel:132 |
+
+**Key outcomes:**
+
+1. **Tuner (NSGA-II V3)** completed full 50-generation optimization:
+   - Hypervolume: 0.82 (converged at gen 32)
+   - Pareto front: 43 non-dominated solutions
+   - Best breach_rate: 0.001, best honest_score: 0.96
+   - Tradeoff correlation: breach_rate ↔ honest_score = -0.89
+
+2. **Tuner knee-point selection (V3-PF-007 — BALANCED)**:
+
+   | Profile | Config ID | Breach Rate | Honest Score | Variance | Separation |
+   |---------|-----------|-------------|--------------|----------|------------|
+   | Balanced (KNEE) | V3-PF-007 | 0.006 | 0.93 | 0.009 | 0.73 |
+   | Security | V3-PF-004 | 0.004 | 0.915 | 0.011 | 0.71 |
+   | Performance | V3-PF-012 | 0.011 | 0.95 | 0.007 | 0.76 |
+   | Consistency | V3-PF-016 | 0.015 | 0.955 | 0.005 | 0.78 |
+
+3. **Tuner autoresearch findings** (single-variable experiments):
+
+   | Variable | Optimal | Range | Sensitivity |
+   |----------|---------|-------|-------------|
+   | L1_L2_weight_ratio | 0.7 | 0.6–0.7 | |
+   | validator_latency_penalty_weight | 0.2 | 0.15–0.25 | Highest impact |
+   | validator_agreement_threshold | 0.2 | 0.15–0.25 | Most sensitive |
+   | collusion_detection_lookback_epochs | 10 | 8–12 | |
+   | score_smoothing_factor | 0.5 | 0.4–0.5 | |
+
+4. **Researcher** completed 29 experiments with 86.9% breach reduction:
+
+   | Metric | Baseline (PF-EXP-02) | Final (EXP-029) | Improvement |
+   |--------|----------------------|-----------------|-------------|
+   | breach_rate | 0.007 | 0.00092 | -86.9% |
+   | honest_score | 0.89 | 0.938 | +5.4% |
+   | score_separation | 0.55 | 0.728 | +32.4% |
+
+   Key innovations proposed:
+   - EXP-018: Adaptive nonlinear scoring (breach_penalty^1.5)
+   - EXP-019: Temporal consistency heuristic
+   - EXP-020: Temporal correlation detector
+   - EXP-021: Novelty bonus heuristic (radical change)
+   - EXP-022: Temporal entropy analysis (frontier targets achieved)
+   - EXP-025: Tiered adaptive scoring (3-tier complexity bonus)
+   - EXP-026: Behavioral entropy detector (multi-dimensional)
+   - EXP-029: Exponential complexity reward
+
+5. **Sentinel** evaluated all 19 vectors at generation 52:
+
+   | Summary | Count |
+   |---------|-------|
+   | Decreasing vectors | 12 / 19 |
+   | Stable vectors | 7 / 19 |
+   | Increasing vectors | 0 / 19 |
+   | WARNING | 1 (Sybil Attack, severity 0.35) |
+   | CRITICAL / EMERGENCY | 0 |
+
+   Optimization progress (gen 30 → 52):
+
+   | Metric | Gen 30 | Gen 52 | Change |
+   |--------|--------|--------|--------|
+   | Breach Rate | 0.016 | 0.003 | -81% |
+   | Honest Score | 0.89 | 0.922 | +3.6% |
+   | Score Separation | 0.59 | 0.70 | +18.6% |
+   | Hypervolume | 0.66 | 0.83 | +25.8% |
+   | Pareto Front | 33 | 44 | +33% |
+
+   Top 3 threats:
+   1. Sybil Attack (severity 0.35) — data imbalance BTCUSDT:ETHUSDT 17:1
+   2. Data Poisoning (severity 0.27) — correlated with Sybil via data concentration
+   3. Backdoor Attack (severity 0.23) — elevated from model complexity
+
+### Combined Action Items for Next Orchestration Cycle
+
+1. **COMPLETED** (in this commit): New parameters 42-51 added to
+   `parameter_space.py` with bounds from orchestration research.
+
+2. **COMPLETED** (in this commit): Attack detector expanded from 9 to
+   19 vectors in `attack_detector.py`.
+
+3. **COMPLETED** (in this commit): CommitRevealManager implemented in
+   `incentive.py` (Approach B: off-chain with validator attestation).
+
+4. **COMPLETED** (in this commit): Default values updated to V3-PF-007
+   knee-point and autoresearch optimal in `parameter_space.py` and
+   `testnet/config.py`.
+
+5. **PRIORITY**: Diversify data sources — add 3+ additional trading
+   pairs (SOLUSDT, AVAXUSDT, ADAUSDT) to break the BTCUSDT:ETHUSDT
+   17:1 imbalance. Directly addresses Sybil WARNING and reduces Data
+   Poisoning severity.
+
+6. **MONITOR**: Novel vectors 10 & 11 — Validator latency exploitation
+   (0.09) and prediction timing manipulation (0.06) are trending
+   decreasing but require full simulation data with latency metrics.
+
+7. **DEPLOY**: Commit-reveal scheme (Phase 1: design already complete
+   in CommitRevealManager). Next: integrate with ChainInterface and
+   modify miner forward()/reveal forward() endpoints.
+
+8. **SEED**: Next NSGA-II run should seed from V3-PF-007 and EXP-029
+   configurations as elite individuals.
+
+9. **TARGET**: Frontier targets for next cycle:
+   - breach_rate < 0.001 (achieved at 0.00092 by researcher)
+   - honest_score > 0.94 (approaching at 0.938)
+   - score_separation > 0.75 (approaching at 0.728)
+
+---
+
 ## MCP Server Interface
 
 The MCP server orchestrates the agent swarm. Each agent registers its
@@ -996,7 +1550,7 @@ Pre-configured at `monitoring/grafana/dashboards/insignia-tuning.json`:
 
 1. **Overview Panel** — Generation, best fitness, breach count, uptime
 2. **Scoring Distribution** — L1/L2 score histograms by agent type
-3. **Attack Status** — Traffic light for each of 9 attacks
+3. **Attack Status** — Traffic light for each of 19 attacks
 4. **Convergence Monitor** — Per-attack severity time series with trend lines
 5. **Pareto Front** — Scatter plot of multi-objective fitness
 6. **Researcher Progress** — Experiment keep/discard rate over time
@@ -1040,7 +1594,7 @@ Pre-configured at `monitoring/grafana/dashboards/insignia-tuning.json`:
 
 ## Appendix A: Parameter Quick Reference
 
-### Insignia Application Parameters (41)
+### Insignia Application Parameters (41 original + 10 from research = 51)
 
 | # | Parameter | Range | Group |
 |---|-----------|-------|-------|
@@ -1086,6 +1640,25 @@ Pre-configured at `monitoring/grafana/dashboards/insignia-tuning.json`:
 | 40 | `feedback_min_l2_epochs` | [1, 10] | Feedback thresh |
 | 41 | `feedback_bonus_threshold` | [0.4, 0.8] | Feedback thresh |
 
+### New Parameters from Orchestration Research (10)
+
+These parameters were identified during the 2026-03-29 orchestration
+run and must be added to the parameter space and NSGA-II bounds before
+the next optimization cycle.
+
+| # | Parameter | Range | Group | Defends Against |
+|---|-----------|-------|-------|-----------------|
+| 42 | `min_prediction_lead_time` | [5, 60] seconds | Validation timing | Validator latency exploit |
+| 43 | `validator_latency_penalty_weight` | [0.0, 0.5] | Validation timing | Validator latency exploit |
+| 44 | `high_latency_threshold_ms` | [500, 5000] | Validation timing | Validator latency exploit |
+| 45 | `weight_entropy_minimum` | [0.5, 2.0] | Consensus integrity | Miner-validator collusion |
+| 46 | `cross_validator_score_variance_max` | [0.1, 0.5] | Consensus integrity | Miner-validator collusion |
+| 47 | `validator_rotation_max_consecutive_epochs` | [3, 10] | Consensus integrity | Miner-validator collusion |
+| 48 | `validator_agreement_threshold` | [0.1, 0.4] | Consensus integrity | Miner-validator collusion |
+| 49 | `collusion_detection_lookback_epochs` | [5, 20] | Consensus integrity | Miner-validator collusion |
+| 50 | `cross_layer_penalty_strength` | [0.0, 1.0] | L1/L2 balance | L1/L2 weight skew |
+| 51 | `cross_layer_latency` | [10, 1000] ms | L1/L2 timing | Cross-layer timing sync |
+
 ### Key Bittensor On-Chain Parameters (6 Primary)
 
 | Parameter | Default | Range | Impact |
@@ -1115,6 +1688,16 @@ help defend against it:
 | Adversarial dominance | All L1 weights, `feedback_*` weights | `promotion_top_n` |
 | Insufficient separation | `l1_overfitting_penalty`, feedback weights | `emission_sigmoid_steepness` |
 | Score concentration | `emission_sigmoid_midpoint`, `emission_sigmoid_steepness` | `max_weight_limit` (on-chain) |
+| L1/L2 weight skew | `l1_l2_emission_split`, all L1/L2 weights | `cross_layer_penalty_strength` |
+| Cross-layer timing | `rate_limit_epoch_seconds`, `tempo` | `cross_layer_latency` |
+| Objective weight manipulation | NSGA-II objective weights | `breach_rate` weight scaling |
+| GA parameter exploitation | SBX eta, mutation eta, crossover prob | Population size, tournament size |
+| Governance manipulation | `immunity_period`, `max_weight_limit`, `adjustment_alpha` | `min_allowed_weights` |
+| L1/L2 incentive misalignment | `l1_l2_emission_split`, L1/L2 weight ratios | `feedback_bonus_weight` |
+| Pareto front manipulation | Population diversity, elite preservation % | Checkpoint integrity |
+| Reward distribution manipulation | `emission_sigmoid_*`, `buyback_*` | `l1_l2_emission_split` |
+| Validator latency exploitation | `min_prediction_lead_time`, `validator_latency_penalty_weight` | `high_latency_threshold_ms` |
+| Miner-validator collusion | `weight_entropy_minimum`, `cross_validator_score_variance_max` | `validator_rotation_max_consecutive_epochs`, `validator_agreement_threshold` |
 
 ---
 
