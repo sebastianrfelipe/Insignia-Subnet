@@ -65,8 +65,8 @@ The swarm operates as a continuous autonomous loop. Once started, it runs
 indefinitely until manually stopped. Each agent has a distinct role but
 they coordinate through shared state on disk and Prometheus metrics.
 
-**Primary objective:** Find the parameter configuration across all 85+
-dimensions (51 Insignia application-level + 33 Bittensor on-chain) that
+**Primary objective:** Find the parameter configuration across all 88+
+dimensions (55 Insignia application-level + 33 Bittensor on-chain) that
 maximizes honest miner composite scores while driving all 19 attack breach
 rates to zero.
 
@@ -1133,7 +1133,10 @@ found.
 | 12 | `l2_consistency` | ___ | [0.05, 0.30] | L2 weights |
 | 13 | `l2_model_attribution` | ___ | [0.01, 0.25] | L2 weights |
 | 14 | `l2_execution_quality` | ___ | [0.05, 0.30] | L2 weights |
-| 15 | `overfit_gap_threshold` | ___ | [0.05, 0.40] | Overfitting |
+| 15 | `l2_annualized_volatility` | ___ | [0.02, 0.15] | L2 weights |
+| 16 | `l2_sharpe_ratio` | ___ | [0.02, 0.15] | L2 weights |
+| 17 | `l2_sortino_ratio` | ___ | [0.02, 0.15] | L2 weights |
+| 18 | `overfit_gap_threshold` | ___ | [0.05, 0.40] | Overfitting |
 | 16 | `overfit_decay_rate` | ___ | [1.0, 15.0] | Overfitting |
 | 17 | `promotion_top_n` | ___ | [3, 20] | Promotion |
 | 18 | `promotion_min_consecutive_epochs` | ___ | [1, 5] | Promotion |
@@ -1174,7 +1177,7 @@ found.
 | `max_weight_limit` | ___ | 65535 | [16384, 65535] |
 | `min_allowed_weights` | ___ | 1 | [1, 16] |
 
-**L2 weight sum check:** parameters 8–14 must sum to 1.0 → ___
+**L2 weight sum check:** parameters 8–17 must sum to 1.0 → ___
 
 #### PF-02 Fitness Confirmation
 
@@ -1594,7 +1597,7 @@ Pre-configured at `monitoring/grafana/dashboards/insignia-tuning.json`:
 
 ## Appendix A: Parameter Quick Reference
 
-### Insignia Application Parameters (41 original + 10 from research = 51)
+### Insignia Application Parameters (44 original + 10 from research = 54)
 
 | # | Parameter | Range | Group |
 |---|-----------|-------|-------|
@@ -1612,7 +1615,10 @@ Pre-configured at `monitoring/grafana/dashboards/insignia-tuning.json`:
 | 12 | `l2_consistency` | [0.05, 0.30] | L2 weights |
 | 13 | `l2_model_attribution` | [0.01, 0.25] | L2 weights |
 | 14 | `l2_execution_quality` | [0.05, 0.30] | L2 weights |
-| 15 | `overfit_gap_threshold` | [0.05, 0.40] | Overfitting |
+| 15 | `l2_annualized_volatility` | [0.02, 0.15] | L2 weights |
+| 16 | `l2_sharpe_ratio` | [0.02, 0.15] | L2 weights |
+| 17 | `l2_sortino_ratio` | [0.02, 0.15] | L2 weights |
+| 18 | `overfit_gap_threshold` | [0.05, 0.40] | Overfitting |
 | 16 | `overfit_decay_rate` | [1.0, 15.0] | Overfitting |
 | 17 | `promotion_top_n` | [3, 20] | Promotion |
 | 18 | `promotion_min_consecutive_epochs` | [1, 5] | Promotion |

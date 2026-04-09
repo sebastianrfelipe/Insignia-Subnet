@@ -461,6 +461,132 @@ def consistency_score(
     return float(positive_frac * max(0.0, 1.0 - cv))
 
 
+def annualized_volatility(
+    daily_returns: np.ndarray,
+    trading_days: int = 365,
+) -> float:
+    """
+    Annualized Volatility — cumulative realized volatility of returns.
+
+    Measures the standard deviation of daily returns, annualized to give
+    a yearly volatility figure. This is the most direct measure of how
+    much a strategy's returns fluctuate day-to-day, independent of
+    whether those fluctuations are up or down.
+
+    Strategies with high annualized volatility carry more risk of large
+    drawdowns and are less suitable for deployment with real capital.
+    In the composite score this is an *inverted* metric: lower volatility
+    yields a higher normalized score.
+
+    Calculation:
+        ann_vol = std(daily_returns) * sqrt(trading_days)
+
+    Args:
+        daily_returns: Array of daily return values (as decimals).
+        trading_days: Number of trading days per year (default 365 for
+            crypto markets which trade 24/7).
+
+    Returns:
+        Float >= 0 representing annualized volatility as a decimal
+        (e.g., 0.80 = 80% annualized vol).
+
+    Weight: 5% of L2 composite score.
+    """
+    if len(daily_returns) < 2:
+        return 0.0
+    return float(np.std(daily_returns) * np.sqrt(trading_days))
+
+
+def sharpe_ratio(
+    daily_returns: np.ndarray,
+    risk_free_rate: float = 0.0,
+    trading_days: int = 365,
+) -> float:
+    """
+    Sharpe Ratio — risk-adjusted return per unit of total volatility.
+
+    The most widely used risk-adjusted performance measure in
+    institutional finance. It answers the question: "How much excess
+    return does the strategy generate per unit of risk taken?"
+
+    A Sharpe above 1.0 is generally considered good; above 2.0 is
+    excellent; above 3.0 is exceptional. The metric is annualized
+    using the square root of the number of trading days.
+
+    Calculation:
+        sharpe = (mean(daily_returns) - rf_daily) / std(daily_returns) * sqrt(trading_days)
+
+    Where rf_daily = (1 + risk_free_rate)^(1/trading_days) - 1.
+
+    Args:
+        daily_returns: Array of daily return values (as decimals).
+        risk_free_rate: Annual risk-free rate (default 0.0).
+        trading_days: Number of trading days per year (default 365
+            for crypto).
+
+    Returns:
+        Float representing annualized Sharpe ratio. Can be negative
+        for losing strategies. Capped at [-5, 10] to prevent
+        degenerate cases.
+
+    Weight: 5% of L2 composite score.
+    """
+    if len(daily_returns) < 2 or np.std(daily_returns) < 1e-12:
+        return 0.0
+    rf_daily = (1 + risk_free_rate) ** (1 / trading_days) - 1
+    excess = daily_returns - rf_daily
+    raw = float(np.mean(excess) / np.std(excess) * np.sqrt(trading_days))
+    return max(-5.0, min(10.0, raw))
+
+
+def sortino_ratio(
+    daily_returns: np.ndarray,
+    risk_free_rate: float = 0.0,
+    trading_days: int = 365,
+) -> float:
+    """
+    Sortino Ratio — risk-adjusted return per unit of *downside* volatility.
+
+    A refinement of the Sharpe ratio that only penalizes harmful
+    (downside) volatility rather than total volatility. This is more
+    appropriate for trading strategies because upside volatility (large
+    gains) should not be penalized — only the risk of losses matters.
+
+    The denominator uses downside deviation: the standard deviation of
+    returns that fall below the target (risk-free rate), treating all
+    above-target returns as zero deviation.
+
+    Calculation:
+        downside_returns = min(daily_returns - rf_daily, 0)
+        downside_dev = sqrt(mean(downside_returns^2))
+        sortino = (mean(daily_returns) - rf_daily) / downside_dev * sqrt(trading_days)
+
+    Args:
+        daily_returns: Array of daily return values (as decimals).
+        risk_free_rate: Annual risk-free rate (default 0.0).
+        trading_days: Number of trading days per year (default 365
+            for crypto).
+
+    Returns:
+        Float representing annualized Sortino ratio. Capped at [-5, 15]
+        to prevent degenerate cases. Values above the Sharpe ratio
+        indicate the strategy has favorable skew (more upside than
+        downside vol).
+
+    Weight: 5% of L2 composite score.
+    """
+    if len(daily_returns) < 2:
+        return 0.0
+    rf_daily = (1 + risk_free_rate) ** (1 / trading_days) - 1
+    excess = daily_returns - rf_daily
+    downside = np.minimum(excess, 0.0)
+    downside_dev = float(np.sqrt(np.mean(downside ** 2)))
+    if downside_dev < 1e-12:
+        return 10.0 if np.mean(excess) > 0 else 0.0
+    raw = float(np.mean(excess) / downside_dev * np.sqrt(trading_days))
+    return max(-5.0, min(15.0, raw))
+
+
 @dataclass
 class ExecutionMetrics:
     """
@@ -594,13 +720,16 @@ class WeightConfig:
     l1_latency: float = 0.10
 
     # Layer 2 weights (must sum to 1.0)
-    l2_realized_pnl: float = 0.20
-    l2_omega: float = 0.15
-    l2_max_drawdown: float = 0.15
-    l2_win_rate: float = 0.10
-    l2_consistency: float = 0.15
-    l2_model_attribution: float = 0.10
-    l2_execution_quality: float = 0.15
+    l2_realized_pnl: float = 0.17
+    l2_omega: float = 0.13
+    l2_max_drawdown: float = 0.13
+    l2_win_rate: float = 0.08
+    l2_consistency: float = 0.13
+    l2_model_attribution: float = 0.08
+    l2_execution_quality: float = 0.13
+    l2_annualized_volatility: float = 0.05
+    l2_sharpe_ratio: float = 0.05
+    l2_sortino_ratio: float = 0.05
 
 
 class CompositeScorer:
@@ -685,15 +814,18 @@ class CompositeScorer:
         the gap between backtested model quality (L1) and deployment
         viability.
 
-        The composite score is a weighted sum of seven normalized metrics:
+        The composite score is a weighted sum of ten normalized metrics:
 
-            composite = 0.20 * realized_pnl
-                      + 0.15 * omega
-                      + 0.15 * max_drawdown
-                      + 0.10 * win_rate
-                      + 0.15 * consistency
-                      + 0.10 * model_attribution
-                      + 0.15 * execution_quality
+            composite = 0.17 * realized_pnl
+                      + 0.13 * omega
+                      + 0.13 * max_drawdown
+                      + 0.08 * win_rate
+                      + 0.13 * consistency
+                      + 0.08 * model_attribution
+                      + 0.13 * execution_quality
+                      + 0.05 * annualized_volatility
+                      + 0.05 * sharpe_ratio
+                      + 0.05 * sortino_ratio
 
         Args:
             realized_pnl: Total P&L of the strategy in quote currency
@@ -707,7 +839,8 @@ class CompositeScorer:
             trades: List of per-trade P&L values. Used to compute win
                 rate.
             daily_returns: Array of daily returns. Used to compute the
-                consistency score via rolling sub-window analysis.
+                consistency score, annualized volatility, Sharpe ratio,
+                and Sortino ratio.
             model_attribution_score: Pre-computed attribution score in
                 [0, 1] from ModelAttributionEngine, reflecting the
                 quality of L1 models the strategy relies on.
@@ -734,6 +867,9 @@ class CompositeScorer:
             "consistency": consistency_score(daily_returns),
             "model_attribution": model_attribution_score,
             "execution_quality": execution_quality_score(exec_metrics),
+            "annualized_volatility": annualized_volatility(daily_returns),
+            "sharpe_ratio": sharpe_ratio(daily_returns),
+            "sortino_ratio": sortino_ratio(daily_returns),
         }
 
         normalized = self._normalize_l2(raw)
@@ -747,6 +883,9 @@ class CompositeScorer:
             + w.l2_consistency * normalized["consistency"]
             + w.l2_model_attribution * normalized["model_attribution"]
             + w.l2_execution_quality * normalized["execution_quality"]
+            + w.l2_annualized_volatility * normalized["annualized_volatility"]
+            + w.l2_sharpe_ratio * normalized["sharpe_ratio"]
+            + w.l2_sortino_ratio * normalized["sortino_ratio"]
         )
 
         return ScoreVector(raw=raw, normalized=normalized, composite=composite)
@@ -787,26 +926,31 @@ class CompositeScorer:
         Map raw L2 metrics to [0, 1] where 1 is best.
 
         Normalization transforms per metric:
-          - realized_pnl: Already in [0, 1] from `realized_pnl_score()`.
-            Clamped as a safety guard.
-          - omega: Divided by 3.0, so an Omega ratio of 3+ maps to a
-            perfect 1.0. This threshold reflects that Omega >= 3 is
-            exceptional for crypto strategies and avoids letting
-            degenerate edge cases (Omega = 10) dominate.
-          - max_drawdown: Inverted (1 - dd) so lower drawdown = higher
-            score. A 0% drawdown scores 1.0; a 100% drawdown scores 0.0.
-          - win_rate: Already in [0, 1] from `win_rate()`. Clamped as
-            a safety guard.
-          - consistency: Already in [0, 1] from `consistency_score()`.
-            Clamped as a safety guard.
-          - model_attribution: Already in [0, 1] from
-            `ModelAttributionEngine`. Clamped as a safety guard.
-          - execution_quality: Already in [0, 1] from
-            `execution_quality_score()`. The sub-scores (latency,
-            reliability, slippage) are each individually normalized
-            before combination. Clamped as a safety guard.
+          - realized_pnl: Already in [0, 1]. Clamped.
+          - omega: Divided by 3.0 (Omega >= 3 → 1.0).
+          - max_drawdown: Inverted (1 - dd).
+          - win_rate: Already in [0, 1]. Clamped.
+          - consistency: Already in [0, 1]. Clamped.
+          - model_attribution: Already in [0, 1]. Clamped.
+          - execution_quality: Already in [0, 1]. Clamped.
+          - annualized_volatility: Inverted and scaled — lower vol =
+            higher score. Vol <= 0.3 (30%) maps to 1.0; vol >= 1.5
+            (150%) maps to 0.0. Uses linear interpolation.
+          - sharpe_ratio: Sigmoid-like transform centered at 1.0.
+            Sharpe >= 3.0 maps to ~1.0; Sharpe <= -1.0 maps to ~0.0.
+          - sortino_ratio: Sigmoid-like transform centered at 1.5.
+            Sortino >= 4.0 maps to ~1.0; Sortino <= -1.0 maps to ~0.0.
         """
         omega_norm = min(1.0, raw["omega"] / 3.0)
+
+        ann_vol = raw.get("annualized_volatility", 0.0)
+        vol_norm = max(0.0, min(1.0, 1.0 - (ann_vol - 0.3) / 1.2))
+
+        raw_sharpe = raw.get("sharpe_ratio", 0.0)
+        sharpe_norm = 1.0 / (1.0 + math.exp(-1.0 * (raw_sharpe - 1.0)))
+
+        raw_sortino = raw.get("sortino_ratio", 0.0)
+        sortino_norm = 1.0 / (1.0 + math.exp(-0.8 * (raw_sortino - 1.5)))
 
         return {
             "realized_pnl": min(1.0, max(0.0, raw["realized_pnl"])),
@@ -816,4 +960,7 @@ class CompositeScorer:
             "consistency": min(1.0, max(0.0, raw["consistency"])),
             "model_attribution": min(1.0, max(0.0, raw["model_attribution"])),
             "execution_quality": min(1.0, max(0.0, raw["execution_quality"])),
+            "annualized_volatility": vol_norm,
+            "sharpe_ratio": sharpe_norm,
+            "sortino_ratio": sortino_norm,
         }

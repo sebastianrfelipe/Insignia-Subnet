@@ -25,7 +25,7 @@
 **Target output quality metric miners are scored on.**
 
 - **Layer 1**: Multi-metric evaluation vector (7 dimensions: Penalized F1, Penalized Sharpe, Max Drawdown, Variance Score, Overfitting Penalty, Feature Efficiency, Latency) scored against proprietary tick-by-tick benchmark dataset
-- **Layer 2**: Real trading outcomes (6 dimensions) measured against actual market performance
+- **Layer 2**: Real trading outcomes (10 dimensions: Realized P&L, Omega Ratio, Max Drawdown, Win Rate, Consistency, Model Attribution, Execution Quality, Annualized Volatility, Sharpe Ratio, Sortino Ratio) measured against actual market performance
 - Published metric definitions with configurable weights (see `scoring.py`)
 
 ### Evaluation Loop

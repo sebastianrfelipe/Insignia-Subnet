@@ -5,7 +5,7 @@ Validates Layer 2 miner strategies by scoring their real/paper trading
 outcomes. L2 validators track positions in real-time, compute risk-adjusted
 performance metrics, and assign scores for Yuma consensus.
 
-Scoring Dimensions (7):
+Scoring Dimensions (10):
   - Realized P&L (absolute returns)
   - Omega Ratio (full distribution measure, captures tail behavior)
   - Max Drawdown (hard ceiling — breach = elimination)
@@ -13,6 +13,9 @@ Scoring Dimensions (7):
   - Consistency (rolling sub-window analysis)
   - Model Attribution (which L1 models contributed to performance)
   - Execution Quality (latency, reliability, slippage)
+  - Annualized Volatility (cumulative realized volatility — lower = better)
+  - Sharpe Ratio (risk-adjusted return per unit total volatility)
+  - Sortino Ratio (risk-adjusted return per unit downside volatility)
 
 L2 validators also feed performance data back to Layer 1 via the
 cross-layer feedback engine, closing the simulation-to-reality loop.
