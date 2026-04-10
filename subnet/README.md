@@ -82,12 +82,12 @@ uv run python demo/run.py
 
 | Metric | Weight | Purpose |
 |--------|--------|---------|
-| Penalized F1 | 20% | Directional prediction quality with cross-regime consistency penalty |
-| Penalized Sharpe Ratio | 20% | Risk-adjusted returns with variance penalty across sub-windows |
-| Max Drawdown | 15% | Penalizes fragile models with large peak-to-trough losses |
-| Variance Score | 15% | Cross-regime consistency — coefficient of variation across market regimes |
-| Overfitting Penalty | 15% | Gap between in-sample and out-of-sample performance (proprietary metric) |
-| Feature Efficiency | 5% | Penalizes models requiring excessive features |
+| Penalized F1 | 22% | Directional prediction quality with cross-regime consistency penalty |
+| Penalized Sharpe Ratio | 18% | Risk-adjusted returns with variance penalty across sub-windows |
+| Max Drawdown | 14% | Penalizes fragile models with large peak-to-trough losses |
+| Variance Score | 16% | Cross-regime consistency — coefficient of variation across market regimes |
+| Overfitting Penalty | 14% | Gap between in-sample and out-of-sample performance (proprietary metric) |
+| Feature Efficiency | 6% | Penalizes models requiring excessive features |
 | Latency | 10% | Inference speed — critical for short-horizon deployment |
 
 All metrics use a **variance-penalized formulation** (`mean − λ·std`) across rolling windows, rewarding both performance and consistency.

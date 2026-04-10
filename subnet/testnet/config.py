@@ -131,7 +131,7 @@ class ValidationTimingConfig:
     """
 
     min_prediction_lead_time_seconds: float = 35.0
-    validator_latency_penalty_weight: float = 0.20
+    validator_latency_penalty_weight: float = 0.25
     high_latency_threshold_ms: float = 2000.0
 
 

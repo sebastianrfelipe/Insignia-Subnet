@@ -711,12 +711,13 @@ class WeightConfig:
     """
 
     # Layer 1 weights (must sum to 1.0)
-    l1_penalized_f1: float = 0.20
-    l1_penalized_sharpe: float = 0.20
-    l1_max_drawdown: float = 0.15
-    l1_variance_score: float = 0.15
-    l1_overfitting_penalty: float = 0.15
-    l1_feature_efficiency: float = 0.05
+    # PF-02 tuned values validated at breach_rate=0.012, honest_score=0.91
+    l1_penalized_f1: float = 0.22
+    l1_penalized_sharpe: float = 0.18
+    l1_max_drawdown: float = 0.14
+    l1_variance_score: float = 0.16
+    l1_overfitting_penalty: float = 0.14
+    l1_feature_efficiency: float = 0.06
     l1_latency: float = 0.10
 
     # Layer 2 weights (must sum to 1.0)
