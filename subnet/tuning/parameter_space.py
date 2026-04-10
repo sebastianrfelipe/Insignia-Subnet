@@ -269,8 +269,8 @@ def decode(x: np.ndarray) -> Dict[str, Any]:
 def encode_defaults() -> np.ndarray:
     """Encode the default parameter configuration as a flat vector."""
     defaults = {
-        "l1_penalized_f1": 0.20, "l1_penalized_sharpe": 0.20, "l1_max_drawdown": 0.15,
-        "l1_variance_score": 0.15, "l1_overfitting_penalty": 0.15, "l1_feature_efficiency": 0.05,
+        "l1_penalized_f1": 0.22, "l1_penalized_sharpe": 0.18, "l1_max_drawdown": 0.14,
+        "l1_variance_score": 0.16, "l1_overfitting_penalty": 0.14, "l1_feature_efficiency": 0.06,
         "l1_latency": 0.10,
         "l2_realized_pnl": 0.17, "l2_omega": 0.13, "l2_max_drawdown": 0.13,
         "l2_win_rate": 0.08, "l2_consistency": 0.13, "l2_model_attribution": 0.08,
@@ -288,13 +288,13 @@ def encode_defaults() -> np.ndarray:
         "trading_max_position_pct": 0.10, "trading_max_drawdown_pct": 0.20,
         "buyback_pct": 0.20, "buyback_min_profit": 1000.0,
         "emission_sigmoid_midpoint": 0.50, "emission_sigmoid_steepness": 8.0,
-        "l1_l2_emission_split": 0.60,
+        "l1_l2_emission_split": 0.70,
         "rate_limit_epoch_seconds": 86400,
         "feedback_min_l2_epochs": 3, "feedback_bonus_threshold": 0.60,
         "feedback_penalty_threshold": 0.30,
-        # Validation timing (V3-PF-007 / autoresearch optimal)
+        # Validation timing (PF-02 validated)
         "min_prediction_lead_time": 35,
-        "validator_latency_penalty_weight": 0.20,
+        "validator_latency_penalty_weight": 0.25,
         "high_latency_threshold_ms": 2000,
         # Consensus integrity (V3-PF-007 / autoresearch optimal)
         "weight_entropy_minimum": 1.3,

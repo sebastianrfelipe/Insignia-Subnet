@@ -14,12 +14,12 @@ The design operates across two independent layers, each with its own Yuma consen
 
 | Metric | Weight | Purpose |
 |--------|--------|---------|
-| Penalized F1 | 20% | Directional prediction quality with cross-regime consistency penalty (mean − λ·std across windows) |
-| Penalized Sharpe Ratio | 20% | Risk-adjusted returns with variance penalty across rolling sub-windows |
-| Max Drawdown | 15% | Penalizes fragile models with large peak-to-trough losses |
-| Variance Score | 15% | Cross-regime consistency — measures coefficient of variation across market regimes |
-| Overfitting Penalty | 15% | Gap between in-sample and out-of-sample performance (proprietary metric) |
-| Feature Efficiency | 5% | Penalizes models requiring exotic or excessive features |
+| Penalized F1 | 22% | Directional prediction quality with cross-regime consistency penalty (mean − λ·std across windows) |
+| Penalized Sharpe Ratio | 18% | Risk-adjusted returns with variance penalty across rolling sub-windows |
+| Max Drawdown | 14% | Penalizes fragile models with large peak-to-trough losses |
+| Variance Score | 16% | Cross-regime consistency — measures coefficient of variation across market regimes |
+| Overfitting Penalty | 14% | Gap between in-sample and out-of-sample performance (proprietary metric) |
+| Feature Efficiency | 6% | Penalizes models requiring exotic or excessive features |
 | Latency Score | 10% | Inference speed — critical for short-horizon deployment |
 
 All metrics use a **variance-penalized formulation** (`mean − λ·std`) across rolling windows, rewarding both peak performance and consistency.
@@ -67,7 +67,7 @@ score = clamp((pnl - baseline) / max(|baseline|, 1.0), 0, 1)
 
 - Strategies at or below the baseline receive a score of zero.
 - The denominator scales by the absolute baseline value so that the metric is meaningful across different capital levels and market conditions.
-- Carries the highest single weight (20%) because realized returns are the ultimate objective of the subnet.
+- Carries the highest single L2 weight (17%) because realized returns are the ultimate objective of the subnet.
 
 **Normalization**: Already in [0, 1] from the scoring function itself.
 
@@ -343,7 +343,7 @@ This closes the simulation-to-reality gap: models are ultimately judged by deplo
 | | |
 |---|---|
 | **Attack** | Miner optimizes for one dominant metric while ignoring others. |
-| **Defense** | Composite scoring across 7 L1 / 10 L2 metrics. No single metric dominates (max weight 20% L1, 17% L2). |
+| **Defense** | Composite scoring across 7 L1 / 10 L2 metrics. No single metric dominates (max weight 22% L1, 17% L2). |
 | **Why it fails** | High accuracy with high drawdown scores poorly. High Sharpe with overfitting scores poorly. High P&L with poor execution quality or high volatility scores poorly. |
 
 ### 6. Validator Data Leakage
