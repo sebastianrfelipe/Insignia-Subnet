@@ -40,17 +40,20 @@ Top-performing L1 miners earn alpha token emissions via Yuma consensus. Weights 
 
 ## Layer 2: Strategy Deployment Incentives
 
-### Scoring Vector (7 Dimensions)
+### Scoring Vector (10 Dimensions)
 
 | Metric | Weight | Purpose |
 |--------|--------|---------|
-| Realized P&L | 20% | Absolute returns from actual trading outcomes |
-| Omega Ratio | 15% | Full-distribution risk measure (captures tail behavior) |
-| Max Drawdown | 15% | Hard ceiling — breach eliminates the strategy entirely |
-| Win Rate | 10% | Signal precision — penalizes low-conviction noise trading |
-| Consistency | 15% | Rolling 7-day sub-window analysis — penalizes spike-then-collapse |
-| Model Attribution | 10% | Credit to miners using models with strong L2 track records |
-| Execution Quality | 15% | Latency, reliability, and slippage — infrastructure health |
+| Realized P&L | 17% | Absolute returns from actual trading outcomes |
+| Omega Ratio | 13% | Full-distribution risk measure (captures tail behavior) |
+| Max Drawdown | 13% | Hard ceiling — breach eliminates the strategy entirely |
+| Win Rate | 8% | Signal precision — penalizes low-conviction noise trading |
+| Consistency | 13% | Rolling 7-day sub-window analysis — penalizes spike-then-collapse |
+| Model Attribution | 8% | Credit to miners using models with strong L2 track records |
+| Execution Quality | 13% | Latency, reliability, and slippage — infrastructure health |
+| Annualized Volatility | 5% | Cumulative realized volatility — lower = better score |
+| Sharpe Ratio | 5% | Risk-adjusted return per unit of total volatility |
+| Sortino Ratio | 5% | Risk-adjusted return per unit of downside volatility |
 
 ### Metric Definitions
 
@@ -206,21 +209,68 @@ execution_quality = 0.40 * latency + 0.30 * reliability + 0.30 * slippage
 
 **Normalization**: Already in [0, 1] from the composite sub-score formula. Clamped as a safety guard.
 
+#### 8. Annualized Volatility (5%)
+
+Cumulative realized volatility of the strategy's daily returns, annualized. This is the most direct measure of how much a strategy's returns fluctuate. Strategies with high volatility carry more risk of catastrophic drawdowns and are less suitable for deployment with real capital.
+
+```
+ann_vol = std(daily_returns) * sqrt(365)
+```
+
+- Uses 365 trading days for crypto markets (24/7 operation).
+- This is an **inverted** metric: lower volatility yields a higher normalized score.
+- A strategy with 30% or lower annualized vol scores 1.0; at 150%+ vol, it scores 0.0.
+
+**Normalization**: Linear interpolation: `score = clamp(1 - (vol - 0.3) / 1.2, 0, 1)`.
+
+#### 9. Sharpe Ratio (5%)
+
+The most widely used risk-adjusted performance measure in institutional finance. It measures excess return per unit of total volatility — answering "how much return does the strategy generate per unit of risk taken?"
+
+```
+sharpe = (mean(daily_excess_returns) / std(daily_returns)) * sqrt(365)
+```
+
+- Sharpe > 1.0 is good; > 2.0 is excellent; > 3.0 is exceptional.
+- Penalizes strategies that achieve high P&L through high variance (i.e., luck-dependent returns).
+- Unlike Omega ratio (which captures distribution shape), Sharpe directly penalizes the *level* of volatility.
+
+**Normalization**: Sigmoid transform centered at 1.0: `score = 1 / (1 + exp(-1.0 * (sharpe - 1.0)))`.
+
+#### 10. Sortino Ratio (5%)
+
+A refinement of the Sharpe ratio that only penalizes **downside** volatility. Upside volatility (large gains) is not penalized — only the risk of losses matters. This is more appropriate for trading strategies where upside variance is desirable.
+
+```
+downside_returns = min(daily_excess_returns, 0)
+downside_dev = sqrt(mean(downside_returns^2))
+sortino = (mean(daily_excess_returns) / downside_dev) * sqrt(365)
+```
+
+- Values above the Sharpe ratio indicate favorable skew (more upside than downside vol).
+- A strategy with high Sharpe but low Sortino has symmetric risk; high Sortino relative to Sharpe has positively skewed returns.
+- Combined with Sharpe, this pair distinguishes strategies with "good volatility" (upside) from those with "bad volatility" (downside).
+
+**Normalization**: Sigmoid transform centered at 1.5: `score = 1 / (1 + exp(-0.8 * (sortino - 1.5)))`.
+
 ### Composite Score Formula
 
-The L2 composite score is a weighted sum of all seven normalized metrics:
+The L2 composite score is a weighted sum of all ten normalized metrics:
 
 ```
-composite = 0.20 * realized_pnl
-          + 0.15 * omega
-          + 0.15 * max_drawdown
-          + 0.10 * win_rate
-          + 0.15 * consistency
-          + 0.10 * model_attribution
-          + 0.15 * execution_quality
+composite = 0.17 * realized_pnl
+          + 0.13 * omega
+          + 0.13 * max_drawdown
+          + 0.08 * win_rate
+          + 0.13 * consistency
+          + 0.08 * model_attribution
+          + 0.13 * execution_quality
+          + 0.05 * annualized_volatility
+          + 0.05 * sharpe_ratio
+          + 0.05 * sortino_ratio
 ```
 
-Weights are published and configurable via `WeightConfig`. They are balanced so that no single metric dominates (max weight 20%), preventing single-dimension gaming.
+Weights are published and configurable via `WeightConfig`. They are balanced so that no single metric dominates (max weight 17%), preventing single-dimension gaming.
 
 ### Why This Drives Good Behavior
 
@@ -228,9 +278,11 @@ Weights are published and configurable via `WeightConfig`. They are balanced so 
 - **Drawdown elimination**: Strategies that breach the drawdown limit (default 20%) are immediately eliminated, mirroring institutional prop trading standards.
 - **Consistency requirements** prevent strategies that take one lucky trade and coast.
 - **Omega ratio** captures tail risk that Sharpe ratio misses, preventing strategies that look good on average but carry hidden blow-up risk.
+- **Annualized volatility** directly penalizes cumulative return fluctuation, closing a gap where strategies could achieve moderate P&L through extreme vol swings that happen to net out.
+- **Sharpe and Sortino ratios** together provide a complete risk-adjusted view: Sharpe penalizes total volatility, Sortino penalizes only harmful (downside) volatility. A strategy with high upside variance but low downside deviation earns a Sortino premium over its Sharpe, correctly rewarding favorable skew.
 - **Model attribution** creates incentive alignment between L1 and L2 miners.
 - **Execution quality** ensures strategies are deployment-ready by penalizing high latency, infrastructure instability, and excessive slippage. A strategy with perfect returns but fragile execution will score poorly, incentivizing miners to invest in robust infrastructure.
-- **Weight balance** ensures miners must optimize across all dimensions — high P&L with poor execution quality or excessive drawdown still scores poorly.
+- **Weight balance** ensures miners must optimize across all dimensions — high P&L with poor execution quality, excessive drawdown, or high volatility still scores poorly.
 
 ---
 
@@ -291,8 +343,8 @@ This closes the simulation-to-reality gap: models are ultimately judged by deplo
 | | |
 |---|---|
 | **Attack** | Miner optimizes for one dominant metric while ignoring others. |
-| **Defense** | Composite scoring across 7 L1 / 7 L2 metrics. No single metric dominates (max weight 20%). |
-| **Why it fails** | High accuracy with high drawdown scores poorly. High Sharpe with overfitting scores poorly. High P&L with poor execution quality scores poorly. |
+| **Defense** | Composite scoring across 7 L1 / 10 L2 metrics. No single metric dominates (max weight 20% L1, 17% L2). |
+| **Why it fails** | High accuracy with high drawdown scores poorly. High Sharpe with overfitting scores poorly. High P&L with poor execution quality or high volatility scores poorly. |
 
 ### 6. Validator Data Leakage
 

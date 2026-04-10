@@ -12,9 +12,9 @@ Built on [Bittensor](https://bittensor.com) for the Sovereign Infrastructure Hac
 
 Insignia is a two-layer competitive network for producing high-quality ML models and validating that they actually work when deployed.
 
-**Layer 1 (Model Competition):** Participants ("miners") independently train ML models that predict future outcomes. Validators score every submission using a multi-metric system designed to be ungameable — accuracy alone isn't enough; consistency, risk, and generalization all matter.
+**Layer 1 (Model Competition):** Participants ("miners") independently train ML models that predict future outcomes. Validators score every submission using a 7-metric system designed to be ungameable — accuracy alone isn't enough; consistency, risk, and generalization all matter.
 
-**Layer 2 (Real-World Validation):** The best models from Layer 1 are promoted to Layer 2, where a second group of participants builds automated strategies around them. These strategies are scored on real outcomes — not simulations.
+**Layer 2 (Real-World Validation):** The best models from Layer 1 are promoted to Layer 2, where a second group of participants builds automated strategies around them. These strategies are scored on real outcomes across 10 risk-adjusted metrics — not simulations.
 
 **Cross-Layer Feedback:** Layer 2 performance feeds back into Layer 1 scores. A model is only considered "good" if it actually works when deployed. This closes the gap between theory and practice.
 
@@ -100,8 +100,8 @@ All metrics use a **variance-penalized formulation** (`mean − λ·std`) across
 subnet/
 ├── insignia/               # Core protocol
 │   ├── protocol.py         # Synapse definitions (L1 + L2)
-│   ├── scoring.py          # 7-metric composite scorer
-│   ├── incentive.py        # Anti-gaming mechanisms (9 attack defenses)
+│   ├── scoring.py          # L1 (7-metric) + L2 (10-metric) composite scorer
+│   ├── incentive.py        # Anti-gaming mechanisms (19 attack defenses)
 │   └── cross_layer.py      # Model promotion + feedback loop
 ├── neurons/                # Neuron implementations
 │   ├── l1_miner.py         # L1 miner (model training)
