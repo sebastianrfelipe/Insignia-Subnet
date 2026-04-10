@@ -1137,32 +1137,32 @@ found.
 | 16 | `l2_sharpe_ratio` | ___ | [0.02, 0.15] | L2 weights |
 | 17 | `l2_sortino_ratio` | ___ | [0.02, 0.15] | L2 weights |
 | 18 | `overfit_gap_threshold` | ___ | [0.05, 0.40] | Overfitting |
-| 16 | `overfit_decay_rate` | ___ | [1.0, 15.0] | Overfitting |
-| 17 | `promotion_top_n` | ___ | [3, 20] | Promotion |
-| 18 | `promotion_min_consecutive_epochs` | ___ | [1, 5] | Promotion |
-| 19 | `promotion_max_overfitting_score` | ___ | [0.1, 0.6] | Promotion |
-| 20 | `promotion_max_score_decay_pct` | ___ | [0.05, 0.4] | Promotion |
-| 21 | `promotion_expiry_epochs` | ___ | [3, 15] | Promotion |
-| 22 | `feedback_bonus_weight` | ___ | [0.0, 0.40] | Feedback |
-| 23 | `feedback_penalty_weight` | ___ | [0.0, 0.30] | Feedback |
-| 24 | `fingerprint_correlation_threshold` | ___ | [0.80, 0.99] | Anti-gaming |
-| 25 | `copy_trade_time_tolerance` | ___ | [10, 300] | Anti-gaming |
-| 26 | `copy_trade_size_tolerance` | ___ | [0.01, 0.15] | Anti-gaming |
-| 27 | `copy_trade_correlation_threshold` | ___ | [0.75, 0.98] | Anti-gaming |
-| 28 | `slippage_base_spread_bps` | ___ | [0.5, 10.0] | Trading |
-| 29 | `slippage_vol_impact_factor` | ___ | [0.1, 2.0] | Trading |
-| 30 | `slippage_size_impact_factor` | ___ | [0.01, 0.5] | Trading |
-| 31 | `slippage_fee_bps` | ___ | [1.0, 15.0] | Trading |
-| 32 | `trading_max_position_pct` | ___ | [0.02, 0.20] | Trading |
-| 33 | `trading_max_drawdown_pct` | ___ | [0.10, 0.35] | Trading |
-| 34 | `buyback_pct` | ___ | [0.05, 0.50] | Buyback |
-| 35 | `buyback_min_profit` | ___ | [100, 5000] | Buyback |
-| 36 | `emission_sigmoid_midpoint` | ___ | [0.2, 0.8] | Emissions |
-| 37 | `emission_sigmoid_steepness` | ___ | [1.0, 20.0] | Emissions |
-| 38 | `l1_l2_emission_split` | ___ | [0.40, 0.80] | Emissions |
-| 39 | `rate_limit_epoch_seconds` | ___ | [3600, 172800] | Rate limit |
-| 40 | `feedback_min_l2_epochs` | ___ | [1, 10] | Feedback thresh |
-| 41 | `feedback_bonus_threshold` | ___ | [0.4, 0.8] | Feedback thresh |
+| 19 | `overfit_decay_rate` | ___ | [1.0, 15.0] | Overfitting |
+| 20 | `promotion_top_n` | ___ | [3, 20] | Promotion |
+| 21 | `promotion_min_consecutive_epochs` | ___ | [1, 5] | Promotion |
+| 22 | `promotion_max_overfitting_score` | ___ | [0.1, 0.6] | Promotion |
+| 23 | `promotion_max_score_decay_pct` | ___ | [0.05, 0.4] | Promotion |
+| 24 | `promotion_expiry_epochs` | ___ | [3, 15] | Promotion |
+| 25 | `feedback_bonus_weight` | ___ | [0.0, 0.40] | Feedback |
+| 26 | `feedback_penalty_weight` | ___ | [0.0, 0.30] | Feedback |
+| 27 | `fingerprint_correlation_threshold` | ___ | [0.80, 0.99] | Anti-gaming |
+| 28 | `copy_trade_time_tolerance` | ___ | [10, 300] | Anti-gaming |
+| 29 | `copy_trade_size_tolerance` | ___ | [0.01, 0.15] | Anti-gaming |
+| 30 | `copy_trade_correlation_threshold` | ___ | [0.75, 0.98] | Anti-gaming |
+| 31 | `slippage_base_spread_bps` | ___ | [0.5, 10.0] | Trading |
+| 32 | `slippage_vol_impact_factor` | ___ | [0.1, 2.0] | Trading |
+| 33 | `slippage_size_impact_factor` | ___ | [0.01, 0.5] | Trading |
+| 34 | `slippage_fee_bps` | ___ | [1.0, 15.0] | Trading |
+| 35 | `trading_max_position_pct` | ___ | [0.02, 0.20] | Trading |
+| 36 | `trading_max_drawdown_pct` | ___ | [0.10, 0.35] | Trading |
+| 37 | `buyback_pct` | ___ | [0.05, 0.50] | Buyback |
+| 38 | `buyback_min_profit` | ___ | [100, 5000] | Buyback |
+| 39 | `emission_sigmoid_midpoint` | ___ | [0.2, 0.8] | Emissions |
+| 40 | `emission_sigmoid_steepness` | ___ | [1.0, 20.0] | Emissions |
+| 41 | `l1_l2_emission_split` | ___ | [0.40, 0.80] | Emissions |
+| 42 | `rate_limit_epoch_seconds` | ___ | [3600, 172800] | Rate limit |
+| 43 | `feedback_min_l2_epochs` | ___ | [1, 10] | Feedback thresh |
+| 44 | `feedback_bonus_threshold` | ___ | [0.4, 0.8] | Feedback thresh |
 
 **L1 weight sum check:** parameters 1–7 must sum to 1.0 → ___
 
@@ -1619,32 +1619,32 @@ Pre-configured at `monitoring/grafana/dashboards/insignia-tuning.json`:
 | 16 | `l2_sharpe_ratio` | [0.02, 0.15] | L2 weights |
 | 17 | `l2_sortino_ratio` | [0.02, 0.15] | L2 weights |
 | 18 | `overfit_gap_threshold` | [0.05, 0.40] | Overfitting |
-| 16 | `overfit_decay_rate` | [1.0, 15.0] | Overfitting |
-| 17 | `promotion_top_n` | [3, 20] | Promotion |
-| 18 | `promotion_min_consecutive_epochs` | [1, 5] | Promotion |
-| 19 | `promotion_max_overfitting_score` | [0.1, 0.6] | Promotion |
-| 20 | `promotion_max_score_decay_pct` | [0.05, 0.4] | Promotion |
-| 21 | `promotion_expiry_epochs` | [3, 15] | Promotion |
-| 22 | `feedback_bonus_weight` | [0.0, 0.40] | Feedback |
-| 23 | `feedback_penalty_weight` | [0.0, 0.30] | Feedback |
-| 24 | `fingerprint_correlation_threshold` | [0.80, 0.99] | Anti-gaming |
-| 25 | `copy_trade_time_tolerance` | [10, 300] | Anti-gaming |
-| 26 | `copy_trade_size_tolerance` | [0.01, 0.15] | Anti-gaming |
-| 27 | `copy_trade_correlation_threshold` | [0.75, 0.98] | Anti-gaming |
-| 28 | `slippage_base_spread_bps` | [0.5, 10.0] | Trading |
-| 29 | `slippage_vol_impact_factor` | [0.1, 2.0] | Trading |
-| 30 | `slippage_size_impact_factor` | [0.01, 0.5] | Trading |
-| 31 | `slippage_fee_bps` | [1.0, 15.0] | Trading |
-| 32 | `trading_max_position_pct` | [0.02, 0.20] | Trading |
-| 33 | `trading_max_drawdown_pct` | [0.10, 0.35] | Trading |
-| 34 | `buyback_pct` | [0.05, 0.50] | Buyback |
-| 35 | `buyback_min_profit` | [100, 5000] | Buyback |
-| 36 | `emission_sigmoid_midpoint` | [0.2, 0.8] | Emissions |
-| 37 | `emission_sigmoid_steepness` | [1.0, 20.0] | Emissions |
-| 38 | `l1_l2_emission_split` | [0.40, 0.80] | Emissions |
-| 39 | `rate_limit_epoch_seconds` | [3600, 172800] | Rate limit |
-| 40 | `feedback_min_l2_epochs` | [1, 10] | Feedback thresh |
-| 41 | `feedback_bonus_threshold` | [0.4, 0.8] | Feedback thresh |
+| 19 | `overfit_decay_rate` | [1.0, 15.0] | Overfitting |
+| 20 | `promotion_top_n` | [3, 20] | Promotion |
+| 21 | `promotion_min_consecutive_epochs` | [1, 5] | Promotion |
+| 22 | `promotion_max_overfitting_score` | [0.1, 0.6] | Promotion |
+| 23 | `promotion_max_score_decay_pct` | [0.05, 0.4] | Promotion |
+| 24 | `promotion_expiry_epochs` | [3, 15] | Promotion |
+| 25 | `feedback_bonus_weight` | [0.0, 0.40] | Feedback |
+| 26 | `feedback_penalty_weight` | [0.0, 0.30] | Feedback |
+| 27 | `fingerprint_correlation_threshold` | [0.80, 0.99] | Anti-gaming |
+| 28 | `copy_trade_time_tolerance` | [10, 300] | Anti-gaming |
+| 29 | `copy_trade_size_tolerance` | [0.01, 0.15] | Anti-gaming |
+| 30 | `copy_trade_correlation_threshold` | [0.75, 0.98] | Anti-gaming |
+| 31 | `slippage_base_spread_bps` | [0.5, 10.0] | Trading |
+| 32 | `slippage_vol_impact_factor` | [0.1, 2.0] | Trading |
+| 33 | `slippage_size_impact_factor` | [0.01, 0.5] | Trading |
+| 34 | `slippage_fee_bps` | [1.0, 15.0] | Trading |
+| 35 | `trading_max_position_pct` | [0.02, 0.20] | Trading |
+| 36 | `trading_max_drawdown_pct` | [0.10, 0.35] | Trading |
+| 37 | `buyback_pct` | [0.05, 0.50] | Buyback |
+| 38 | `buyback_min_profit` | [100, 5000] | Buyback |
+| 39 | `emission_sigmoid_midpoint` | [0.2, 0.8] | Emissions |
+| 40 | `emission_sigmoid_steepness` | [1.0, 20.0] | Emissions |
+| 41 | `l1_l2_emission_split` | [0.40, 0.80] | Emissions |
+| 42 | `rate_limit_epoch_seconds` | [3600, 172800] | Rate limit |
+| 43 | `feedback_min_l2_epochs` | [1, 10] | Feedback thresh |
+| 44 | `feedback_bonus_threshold` | [0.4, 0.8] | Feedback thresh |
 
 ### New Parameters from Orchestration Research (10)
 
@@ -1654,16 +1654,16 @@ the next optimization cycle.
 
 | # | Parameter | Range | Group | Defends Against |
 |---|-----------|-------|-------|-----------------|
-| 42 | `min_prediction_lead_time` | [5, 60] seconds | Validation timing | Validator latency exploit |
-| 43 | `validator_latency_penalty_weight` | [0.0, 0.5] | Validation timing | Validator latency exploit |
-| 44 | `high_latency_threshold_ms` | [500, 5000] | Validation timing | Validator latency exploit |
-| 45 | `weight_entropy_minimum` | [0.5, 2.0] | Consensus integrity | Miner-validator collusion |
-| 46 | `cross_validator_score_variance_max` | [0.1, 0.5] | Consensus integrity | Miner-validator collusion |
-| 47 | `validator_rotation_max_consecutive_epochs` | [3, 10] | Consensus integrity | Miner-validator collusion |
-| 48 | `validator_agreement_threshold` | [0.1, 0.4] | Consensus integrity | Miner-validator collusion |
-| 49 | `collusion_detection_lookback_epochs` | [5, 20] | Consensus integrity | Miner-validator collusion |
-| 50 | `cross_layer_penalty_strength` | [0.0, 1.0] | L1/L2 balance | L1/L2 weight skew |
-| 51 | `cross_layer_latency` | [10, 1000] ms | L1/L2 timing | Cross-layer timing sync |
+| 45 | `min_prediction_lead_time` | [5, 60] seconds | Validation timing | Validator latency exploit |
+| 46 | `validator_latency_penalty_weight` | [0.0, 0.5] | Validation timing | Validator latency exploit |
+| 47 | `high_latency_threshold_ms` | [500, 5000] | Validation timing | Validator latency exploit |
+| 48 | `weight_entropy_minimum` | [0.5, 2.0] | Consensus integrity | Miner-validator collusion |
+| 49 | `cross_validator_score_variance_max` | [0.1, 0.5] | Consensus integrity | Miner-validator collusion |
+| 50 | `validator_rotation_max_consecutive_epochs` | [3, 10] | Consensus integrity | Miner-validator collusion |
+| 51 | `validator_agreement_threshold` | [0.1, 0.4] | Consensus integrity | Miner-validator collusion |
+| 52 | `collusion_detection_lookback_epochs` | [5, 20] | Consensus integrity | Miner-validator collusion |
+| 53 | `cross_layer_penalty_strength` | [0.0, 1.0] | L1/L2 balance | L1/L2 weight skew |
+| 54 | `cross_layer_latency` | [10, 1000] ms | L1/L2 timing | Cross-layer timing sync |
 
 ### Key Bittensor On-Chain Parameters (6 Primary)
 
