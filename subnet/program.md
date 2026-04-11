@@ -448,6 +448,26 @@ Default population mix for testnet simulation:
 Population is configurable. For heavier attack testing, scale adversarial
 agent counts up to 2x the honest count.
 
+**Recommended heavy adversarial population** (from session 69d8eb10,
+which revealed consensus degradation patterns not visible in the
+default population):
+
+| Agent Type | Count | Layer | Purpose |
+|------------|-------|-------|---------|
+| HonestMiner | 5 | L1 | Baseline good-faith miners |
+| OverfittingMiner | 3 | L1 | Heavier overfitting pressure |
+| CopycatMiner | 4 | L1 | Stronger plagiarism testing |
+| SingleMetricGamer | 3 | L1 | Multi-gamer interaction effects |
+| SybilMiner | 2 | L1 | Sybil cluster detection |
+| RandomMiner | 3 | L1 | Noise floor baseline |
+| HonestTrader | 4 | L2 | Baseline trading strategies |
+| CopyTrader | 3 | L2 | Copy-trade detection pressure |
+
+This 27-agent population (vs. default 17) produced a critical finding:
+SingleMetricGamer and Overfitter agents dominated HonestMiner over 10
+epochs (consensus degraded 0.85 → 0.64), suggesting L1 scoring weights
+need further tuning against adversarial-heavy populations.
+
 ### Step 2.2: Run Initial Baseline Simulation
 
 ```bash
@@ -566,7 +586,7 @@ The SENTINEL agent monitors every simulation result.
 After every simulation, SENTINEL:
 
 1. Runs `AttackDetector.evaluate(sim_result)` → `BreachReport`
-2. Records breach/severity for each of the 9 attack vectors
+2. Records breach/severity for each of the 19 attack vectors
 3. Updates rolling 5-generation moving averages per attack
 4. Checks convergence conditions (see below)
 
@@ -1061,59 +1081,65 @@ def _check_miner_validator_collusion(self, result: SimulationResult) -> AttackBr
 | Validator latency exploitation | `min_prediction_lead_time`, `validator_latency_penalty_weight` | `high_latency_threshold_ms` |
 | Miner-validator collusion | `weight_entropy_minimum`, `cross_validator_score_variance_max` | `validator_rotation_max_consecutive_epochs`, `validator_agreement_threshold` |
 
-### Next Steps
+### Next Steps (Updated 2026-04-10)
 
-1. Implement `_check_validator_latency_exploit()` and
-   `_check_miner_validator_collusion()` in `tuning/attack_detector.py`
-2. Add the new parameters (`min_prediction_lead_time`,
-   `validator_latency_penalty_weight`, `weight_entropy_minimum`,
-   `cross_validator_score_variance_max`,
-   `validator_rotation_max_consecutive_epochs`,
-   `validator_agreement_threshold`) to the parameter space and NSGA-II
-   bounds
-3. Re-run NSGA-II with the expanded attack surface (19 total vectors)
-4. Target: breach_rate < 0.05 across all 19 vectors, honest_score > 0.85
-5. Investigate commit-reveal scheme feasibility for validator latency
-   defense
-6. Build multi-validator consensus scoring prototype
+**Completed in previous sessions (do NOT repeat):**
+- ~~Implement `_check_validator_latency_exploit()` and
+  `_check_miner_validator_collusion()` in `tuning/attack_detector.py`~~
+  → Done (v4.0, 19 vectors, session 69d8eb10)
+- ~~Add new parameters to parameter space and NSGA-II bounds~~
+  → Done (55 total dimensions in `parameter_space.py`)
+- ~~Investigate commit-reveal scheme feasibility~~
+  → Done (PROCEED with hybrid deployment, session 69d8eb10)
+- ~~Record PF-02 parameter vector~~
+  → Done (all placeholders filled, validated at breach_rate=0.012,
+  honest_score=0.91, session 69d8eb10)
 
-### ACTION REQUIRED: Record PF-02 Parameter Vector
+**Current priorities for the next orchestration cycle:**
 
-The TUNER agent **must** retrieve and record the full PF-02 knee-point
-parameter vector into this section before starting the next optimization
-cycle. This is a **blocking prerequisite** — the swarm cannot begin
-tuning against the expanded 19-vector attack surface without a
-documented baseline configuration to seed from.
+1. **CRITICAL — Consensus degradation investigation**: The session
+   69d8eb10 simulator found that SingleMetricGamer (172) and Overfitter
+   (168) outperform HonestMiner (150) over 10 epochs, causing consensus
+   to degrade from 0.85 → 0.64. The TUNER and RESEARCHER agents must
+   investigate whether increasing `l1_overfitting_penalty` (currently
+   0.14) and `l1_variance_score` (currently 0.16) can counter this
+   temporal drift pattern. Run targeted single-variable experiments
+   on these two weights first.
 
-**Why this matters:** The orchestration report confirmed PF-02 as the
-selected knee-point (breach_rate: 0.012, honest_score: 0.91) but did
-not serialize the underlying 75-dimensional parameter vector. Without
-these values recorded here, the next run has no verified starting point
-and may waste generations rediscovering configurations that were already
-found.
+2. **Run NSGA-II with expanded attack surface**: Seed from PF-02
+   recorded vector (see tables below) and V3-PF-007 knee-point. The
+   optimization must use the full 19-vector attack surface and the
+   expanded 55-parameter space (including 3 new L2 risk-adjusted
+   metrics: annualized volatility, Sharpe ratio, Sortino ratio).
+   Target: breach_rate < 0.001, honest_score > 0.94,
+   score_separation > 0.75.
 
-**Retrieval procedure (TUNER agent):**
+3. **Commit-reveal Phase 1 implementation**: The DEPLOYER and
+   RESEARCHER agents should begin integrating CommitRevealManager
+   (already implemented in `insignia/incentive.py`) with ChainInterface.
+   Required modifications: add `/commit` and `/reveal` Axon endpoints,
+   modify miner `forward()` → `commit_forward()` + `reveal_forward()`,
+   add commitment verification to validator scoring. Use the hybrid
+   deployment strategy: optional for miners initially, mandatory after
+   90-day transition.
 
-1. Query the Pareto front from the previous run:
-   ```
-   mongodb_find({ collection: "tuner_optimization",
-                  filter: { "knee_point": "PF-02", "generation": 29 } })
-   ```
-   Fallback sources (try in order):
-   - `read_memory({ key: "pareto_front" })`
-   - Load `state/best_config.yaml`
-   - Load `results/best_params.npy` via `np.load()`
+4. **Monitor new L2 risk-adjusted metrics**: Track whether the 3 new
+   L2 metrics (annualized volatility at 5%, Sharpe at 5%, Sortino at
+   5%) penalize high-volatility gaming strategies effectively. If the
+   consensus degradation pattern persists even with these metrics,
+   escalate their weights.
 
-2. Decode the raw vector via `tuning.parameter_space.decode()`
+5. **Diversify data sources**: The Sybil attack remains at WARNING
+   severity (0.35) due to BTCUSDT:ETHUSDT 17:1 data imbalance. Add
+   3+ additional trading pairs (SOLUSDT, AVAXUSDT, ADAUSDT) to the
+   simulation to break this structural vulnerability.
 
-3. Fill in **every** `___` placeholder in the tables below with the
-   actual tuned value. Do not leave any blanks.
+### PF-02 Parameter Vector (RECORDED — Session 69d8eb10)
 
-4. After filling, run a validation simulation with the recorded config
-   and confirm it reproduces `breach_rate ≈ 0.012`, `honest_score ≈ 0.91`.
-
-5. Commit the completed tables back to this file so they persist across
-   runs.
+The PF-02 knee-point parameter vector has been recorded and validated.
+The tables below contain the actual tuned values from the generation 30
+NSGA-II rank-2 solution. These values should be used as the seed
+configuration for the next optimization cycle.
 
 #### Insignia Application Parameters (41) — PF-02 Tuned Values
 
@@ -1441,23 +1467,133 @@ and simulation validation.
 
 ### Action Items for Next Orchestration Cycle
 
+**Partially addressed (L1 weights updated to PF-02 values but further
+tuning needed):**
+
 1. **INVESTIGATE**: Consensus degradation pattern — metric gamers and
    overfitters dominating honest miners despite composite scoring.
-   Consider increasing `l1_overfitting_penalty` weight (currently
-   0.14) and `l1_variance_score` weight (currently 0.16) to
-   strengthen defenses against these strategies.
+   L1 weights were updated to PF-02 tuned values (F1=0.22,
+   Sharpe=0.18, DD=0.14, Variance=0.16, Overfit=0.14, FeatEff=0.06,
+   Latency=0.10) and emission split changed to 0.70. However, the
+   TUNER agent must run targeted experiments to determine if further
+   increases to `l1_overfitting_penalty` and `l1_variance_score` are
+   needed to fully counter the temporal drift pattern.
+
+**Still open:**
 
 2. **IMPLEMENT**: Commit-reveal Phase 1 — integrate CommitRevealManager
    with ChainInterface, add `/commit` and `/reveal` Axon endpoints,
-   modify miner `forward()` flow.
+   modify miner `forward()` flow. CommitRevealManager is already
+   implemented in `insignia/incentive.py`. The hybrid deployment
+   strategy (optional → mandatory over 90 days) was validated in
+   the researcher feasibility study.
 
 3. **VALIDATE**: Run full NSGA-II optimization seeded from PF-02
    recorded vector against expanded 19-vector attack surface with
-   the new L2 metrics (annualized volatility, Sharpe, Sortino).
+   the new 10-metric L2 scoring (including annualized volatility,
+   Sharpe, Sortino). Use updated defaults: L1 weights at PF-02
+   values, emission split at 0.70, validator_latency_penalty_weight
+   at 0.25.
 
 4. **MONITOR**: Track whether the 3 new L2 risk-adjusted metrics
-   (added in this commit) improve the consensus degradation pattern
-   by penalizing high-volatility gaming strategies.
+   penalize high-volatility gaming strategies effectively. If the
+   consensus degradation pattern persists, escalate their weights
+   above the current 5% each.
+
+---
+
+## Known State from Last Session (Read Before Starting)
+
+This section summarizes what each agent completed and what persisted
+state is available. Agents should read this to avoid repeating work.
+
+### Repository State (as of 2026-04-10)
+
+| Component | Current State |
+|-----------|--------------|
+| `parameter_space.py` | 55 parameters (44 original + 10 defense + 1 feedback_penalty_threshold), PF-02 defaults applied |
+| `attack_detector.py` | 19 attack vectors with full detection methods |
+| `incentive.py` | CommitRevealManager implemented (Approach B, off-chain), not yet integrated with ChainInterface |
+| `scoring.py` | L1: 7 metrics (PF-02 weights), L2: 10 metrics (with annualized volatility, Sharpe, Sortino) |
+| `testnet/config.py` | CommitRevealConfig, ValidationTimingConfig, ConsensusIntegrityConfig added |
+| `l1_l2_emission_split` | 0.70 (was 0.60, updated per PF-02 + autoresearch convergence) |
+| `validator_latency_penalty_weight` | 0.25 (was 0.20, updated per PF-02 validation) |
+
+### Current Default L1 Scoring Weights (PF-02 Tuned)
+
+| Metric | Weight |
+|--------|--------|
+| Penalized F1 | 0.22 |
+| Penalized Sharpe | 0.18 |
+| Max Drawdown | 0.14 |
+| Variance Score | 0.16 |
+| Overfitting Penalty | 0.14 |
+| Feature Efficiency | 0.06 |
+| Latency | 0.10 |
+
+### Current Default L2 Scoring Weights (10-metric)
+
+| Metric | Weight |
+|--------|--------|
+| Realized P&L | 0.17 |
+| Omega Ratio | 0.13 |
+| Max Drawdown | 0.13 |
+| Win Rate | 0.08 |
+| Consistency | 0.13 |
+| Model Attribution | 0.08 |
+| Execution Quality | 0.13 |
+| Annualized Volatility | 0.05 |
+| Sharpe Ratio | 0.05 |
+| Sortino Ratio | 0.05 |
+
+### Persisted Data (MongoDB / Shared Memory)
+
+| Key / Collection | Content | Status |
+|-----------------|---------|--------|
+| `pf02_knee_point` | Full PF-02 parameter vector (41 Insignia + 6 Bittensor) | Available |
+| `insignia_subnet_spec_pf02` | PF-02 spec with filled placeholders | Available |
+| `tuner_state` | V3.0 state: 43-solution Pareto front, hypervolume 0.82 | Available |
+| `knee_point_deployment_config` | V3-PF-007 deployment config (breach_rate=0.006, honest_score=0.93) | Available |
+| `tuner_autoresearch_findings` | 5 single-variable experiment results with optimal values | Available |
+| `sentinel_state` | Phase 4 monitoring active, 19 vectors, breach_rate=0.003 | Available |
+| `commit_reveal_feasibility_report` | Full researcher report: PROCEED with hybrid deployment | Available |
+| `attack_detector_source_code_v4` | Enhanced Vector 8 (3 methods) + Vector 9 (5 methods) implementation | Available |
+| `tuner_optimization` | 101 documents: 28 previous + 73 from session 69d69d32 | Available |
+
+### Critical Findings the Swarm Must Know
+
+1. **Consensus degrades under adversarial pressure**: In a 27-agent
+   simulation (session 69d8eb10), SingleMetricGamer dominated
+   (score 172) over HonestMiner (150) across 10 epochs. Consensus
+   dropped from 0.85 → 0.64. The L1 weights have been updated to
+   PF-02 values but further investigation is needed — the TUNER
+   agent should run experiments specifically targeting
+   `l1_overfitting_penalty` and `l1_variance_score` increases.
+
+2. **Sybil attack is structural, not parametric**: The Sybil WARNING
+   (severity 0.35) persists because of BTCUSDT:ETHUSDT 17:1 data
+   imbalance, not because of detection weakness. Sybil agents are
+   effectively penalized (score 95 → 45). The fix is data
+   diversification, not parameter tuning.
+
+3. **Commit-reveal is ready for integration**: CommitRevealManager
+   exists in `insignia/incentive.py` with full commit/attest/reveal
+   lifecycle. The DEPLOYER agent needs to add Axon endpoints and
+   the RESEARCHER should validate it reduces Vector 8 severity
+   below 0.05.
+
+4. **Three new L2 metrics have not been NSGA-II optimized yet**:
+   Annualized Volatility, Sharpe Ratio, and Sortino Ratio (5% weight
+   each) were added to the L2 scoring system but no optimization run
+   has been executed with them. The TUNER must include these in the
+   next NSGA-II run. The hypothesis is that they will penalize
+   high-volatility gaming strategies and mitigate the consensus
+   degradation pattern.
+
+5. **V3-PF-007 is the current deployment recommendation**:
+   breach_rate=0.006, honest_score=0.93, score_variance=0.009,
+   score_separation=0.73. Alternative profiles available: V3-PF-004
+   (security), V3-PF-012 (performance), V3-PF-016 (consistency).
 
 ---
 
