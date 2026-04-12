@@ -22,9 +22,10 @@ Complete guide for deploying the Insignia subnet on a Bittensor testnet and runn
 The testnet emulator bridges the Insignia simulation framework with a real Bittensor subtensor chain. This enables:
 
 1. **Incentive mechanism validation** — Run simulated miners (honest + adversarial) against real Yuma consensus
-2. **Hyperparameter tuning** — Evolutionary optimization (NSGA-II) of all 41 tunable parameters
-3. **Attack resilience testing** — 9 documented attack vectors evaluated under realistic conditions
-4. **Pre-mainnet rehearsal** — Full pipeline demo before deploying to mainnet
+2. **Hyperparameter tuning** — Evolutionary optimization (NSGA-II) of all 55 tunable parameters
+3. **Attack resilience testing** — 19 documented attack vectors evaluated under realistic conditions, including commit-reveal validation
+4. **Commit-reveal validation** — Verify commit-reveal effectiveness exceeds 0.667 critical threshold before production deployment
+5. **Pre-mainnet rehearsal** — Full pipeline demo before deploying to mainnet
 
 The emulator supports two chain targets:
 
@@ -48,9 +49,14 @@ The emulator supports two chain targets:
 │       └──────────────┼──────────────┼──────────────┘         │
 │                      ▼                                       │
 │              ┌───────────────┐                               │
+│              │  Commit-Reveal │  ← SHA-256 + 128-bit nonce   │
+│              │  Manager       │  ← T-35s..T-5s commit window │
+│              └───────┬───────┘  ← T+5s..T+20s reveal window │
+│                      ▼                                       │
+│              ┌───────────────┐                               │
 │              │  L1 Validator  │  ← Composite scoring         │
 │              │  (7 metrics)   │  ← Anti-gaming checks        │
-│              └───────┬───────┘  ← Fingerprinting             │
+│              └───────┬───────┘  ← Commitment verification    │
 │                      │                                       │
 │              ┌───────▼───────┐                               │
 │              │   Promotion    │  → Top-N to Layer 2          │
@@ -343,6 +349,62 @@ For EVM-compatible operations:
 
 ---
 
+## Commit-Reveal Validation
+
+The commit-reveal mechanism must be validated on testnet before mainnet deployment. The sentinel analysis (session 69dab601) shows a projected severity of 0.047 for Vector 8 (post-hoc prediction manipulation), which clears the 0.05 target with only a 6% safety margin.
+
+### Running Commit-Reveal Validation
+
+```bash
+cd subnet
+
+# Run simulation with commit-reveal enabled (validates effectiveness threshold)
+python -m testnet.run_emulator \
+  --mode single \
+  --network local \
+  --netuid 1 \
+  --commit-reveal-enabled
+
+# Run targeted Vector 8 attack simulation with commit-reveal
+python -m tuning.orchestrator \
+  --mode attack \
+  --trials 20 \
+  --commit-reveal-enabled \
+  --target-vector 8
+```
+
+### Validation Criteria
+
+| Criterion | Target | Critical Threshold |
+|-----------|--------|-------------------|
+| Commit-reveal effectiveness | >= 0.70 | >= 0.667 |
+| Vector 8 projected severity | < 0.05 | < 0.05 |
+| Vector 11 projected severity | < 0.03 | < 0.05 |
+| Commit success rate | > 95% | > 90% |
+| Reveal success rate | > 95% | > 90% |
+| Validator attestation rate | > 90% | > 80% |
+
+### Deployment Phases
+
+1. **Testnet validation (current):** Validate effectiveness exceeds 0.667 critical threshold
+2. **Optional phase (Months 1-3):** Miners who commit-reveal get scoring bonus; non-committing miners scored normally
+3. **Mandatory phase (Month 3+):** All submissions require valid commit-reveal
+4. **Approach C migration (future):** Hybrid on-chain reveal for cryptographic guarantees
+
+### Commit-Reveal Configuration
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `commit_window_seconds` | `30` | Duration of commit window (T-35s to T-5s) |
+| `reveal_window_seconds` | `15` | Duration of reveal window (T+5s to T+20s) |
+| `hash_algorithm` | `sha256` | Commitment hash algorithm |
+| `nonce_bits` | `128` | Nonce size for commitment binding |
+| `max_reveal_attempts` | `3` | Maximum reveal retry attempts |
+| `late_reveal_penalty` | `1.0` | Penalty multiplier for late/missing reveals |
+| `grace_period_seconds` | `2` | Clock skew tolerance |
+
+---
+
 ## Configuration Reference
 
 ### EmulatorConfig
@@ -367,16 +429,20 @@ For EVM-compatible operations:
 | `max_validators` | `64` | Maximum validator count |
 | `min_allowed_weights` | `1` | Minimum weights per validator |
 
-### Insignia Scoring Parameters (41 Tunable)
+### Insignia Scoring Parameters (55 Tunable)
 
 See `tuning/parameter_space.py` for the full list. Key groups:
 
 - **L1 Scoring Weights** (7 params): directional accuracy, Sharpe, drawdown, stability, overfitting, feature efficiency, latency
-- **L2 Scoring Weights** (6 params): P&L, Omega ratio, drawdown, win rate, consistency, model attribution
+- **L2 Scoring Weights** (10 params): P&L, Omega ratio, drawdown, win rate, consistency, model attribution, execution quality, annualized volatility, Sharpe ratio, Sortino ratio
 - **Overfitting Detector** (2 params): gap threshold, decay rate
 - **Promotion Criteria** (5 params): top-N, min epochs, max overfitting, decay limit, expiry
 - **Anti-Gaming** (4 params): plagiarism threshold, copy-trade detection
 - **Trading Engine** (6 params): slippage model, position limits, drawdown kill switch
+- **Commit-Reveal** (3 params): commit window, reveal window, late reveal penalty
+- **Validation Timing** (3 params): min prediction lead time, latency penalty weight, high latency threshold
+- **Consensus Integrity** (5 params): weight entropy minimum, score variance max, rotation limits, agreement threshold, lookback epochs
+- **Cross-Layer Defense** (2 params): penalty strength, latency threshold
 
 ### Environment Variables
 

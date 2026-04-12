@@ -2,12 +2,12 @@
 
 ## Executive Summary
 
-The Insignia subnet's incentive mechanism involves **two composite scoring vectors** (L1: 7 metrics, L2: 7 metrics), **cross-layer feedback parameters**, **anti-gaming thresholds**, **emission distribution parameters**, and **subnet hyperparameters**. The full tuning landscape spans two distinct levels:
+The Insignia subnet's incentive mechanism involves **two composite scoring vectors** (L1: 7 metrics, L2: 10 metrics), **cross-layer feedback parameters**, **anti-gaming thresholds**, **commit-reveal parameters**, **emission distribution parameters**, and **subnet hyperparameters**. The full tuning landscape spans two distinct levels:
 
-- **42 Insignia application-level parameters** — scoring weights, thresholds, emission distribution, and mechanism knobs (tuned by the emulator)
+- **55 Insignia application-level parameters** — scoring weights, thresholds, commit-reveal timing, defense parameters, emission distribution, and mechanism knobs (tuned by the emulator)
 - **39 Bittensor on-chain subnet hyperparameters** — network-level parameters controlling registration, consensus, staking, and bonds (set via `btcli subnets hyperparameters`)
 
-Together these form an **81-parameter optimization surface**. Tuning by hand is infeasible because:
+Together these form a **94-parameter optimization surface**. Tuning by hand is infeasible because:
 
 1. The parameter space is high-dimensional (80 total parameters across two levels)
 2. Interactions between parameters are non-linear (e.g., changing L1 overfitting weight affects which models reach L2; changing `tempo` affects how frequently weights are set)
@@ -70,7 +70,7 @@ Together these form an **81-parameter optimization surface**. Tuning by hand is 
 | Category | Parameters | Count |
 |----------|-----------|-------|
 | L1 Scoring Weights | penalized_f1, penalized_sharpe, max_drawdown, variance_score, overfitting_penalty, feature_efficiency, latency | 7 |
-| L2 Scoring Weights | realized_pnl, omega, max_drawdown, win_rate, consistency, model_attribution, execution_quality | 7 |
+| L2 Scoring Weights | realized_pnl, omega, max_drawdown, win_rate, consistency, model_attribution, execution_quality, annualized_volatility, sharpe_ratio, sortino_ratio | 10 |
 | Overfitting Detector | gap_threshold, decay_rate | 2 |
 | Cross-Layer Promotion | top_n, min_consecutive_epochs, max_overfitting_score, max_score_decay_pct, expiry_epochs | 5 |
 | Cross-Layer Feedback | feedback_bonus_weight, feedback_penalty_weight | 2 |
@@ -80,7 +80,11 @@ Together these form an **81-parameter optimization surface**. Tuning by hand is 
 | Emission Distribution | sigmoid_midpoint, sigmoid_steepness, l1_l2_emission_split | 3 |
 | Rate Limiting | rate_limit_epoch_seconds | 1 |
 | Feedback Thresholds | feedback_min_l2_epochs, feedback_bonus_threshold, feedback_penalty_threshold | 3 |
-| **Subtotal** | | **42** |
+| Commit-Reveal Timing | commit_window_seconds, reveal_window_seconds, late_reveal_penalty | 3 |
+| Validation Timing | min_prediction_lead_time, validator_latency_penalty_weight, high_latency_threshold_ms | 3 |
+| Consensus Integrity | weight_entropy_minimum, cross_validator_score_variance_max, validator_rotation_max_consecutive_epochs, validator_agreement_threshold, collusion_detection_lookback_epochs | 5 |
+| Cross-Layer Defense | cross_layer_penalty_strength, cross_layer_latency | 2 |
+| **Subtotal** | | **55** |
 
 #### Bittensor On-Chain Subnet Hyperparameters (39 total, set via btcli)
 
@@ -102,9 +106,9 @@ Together these form an **81-parameter optimization surface**. Tuning by hand is 
 
 | Level | Parameters | Tuned By |
 |-------|-----------|----------|
-| Insignia application-level | 42 | Emulator (NSGA-II evolutionary optimization) |
+| Insignia application-level | 55 | Emulator (NSGA-II evolutionary optimization) |
 | Bittensor on-chain | 33+ | btcli / subnet owner configuration |
-| **Total** | **75+** | |
+| **Total** | **88+** | |
 
 **Constraints:**
 - L1 weights must sum to 1.0
@@ -142,23 +146,35 @@ Each agent type is parameterized so the optimizer can test different attack inte
 
 ### Phase 3: Attack Vector Detection
 
-**Goal:** Automatically detect whether each of the 9 documented attack vectors has been breached under a given parameter configuration.
+**Goal:** Automatically detect whether each of the 19 documented attack vectors has been breached under a given parameter configuration.
 
 For each attack vector, define a **breach condition** (boolean) and a **severity score** (0-1):
 
-| Attack | Breach Condition |
-|--------|-----------------|
-| Overfitting exploitation | Overfitting miner scores higher than honest miners |
-| Submission spam | Spammer gets >0 score despite rate limits |
-| Model plagiarism (L1) | Copycat miner is not detected and scores independently |
-| Copy-trading (L2) | Copy-trader is not detected and scores independently |
-| Single-metric gaming | Single-metric gamer ranks in top 50% |
-| Validator data leakage | (Structural check — no simulation needed) |
-| Paper trading manipulation | Inflated P&L not caught by slippage model |
-| Sybil attack | Sybil identities collectively earn >2x single miner share |
-| Regime-specific exploitation | Model that only works in 1 regime ranks in top 25% |
+| # | Attack | Breach Condition |
+|---|--------|-----------------|
+| 1 | Overfitting exploitation | Overfitting miner scores higher than honest miners |
+| 2 | Submission spam | Spammer gets >0 score despite rate limits |
+| 3 | Model plagiarism (L1) | Copycat miner is not detected and scores independently |
+| 4 | Copy-trading (L2) | Copy-trader is not detected and scores independently |
+| 5 | Single-metric gaming | Single-metric gamer ranks in top 50% |
+| 6 | Validator data leakage | (Structural check — no simulation needed) |
+| 7 | Paper trading manipulation | Inflated P&L not caught by slippage model |
+| 8 | Sybil attack | Sybil identities collectively earn >2x single miner share |
+| 9 | Regime-specific exploitation | Model that only works in 1 regime ranks in top 25% |
+| 10 | L1/L2 weight skew exploitation | Adversarial miner captures disproportionate rewards via emission split |
+| 11 | Cross-layer timing sync | Timing gaps between L1/L2 scoring windows exploited for feedback gaming |
+| 12 | Objective weight manipulation | NSGA-II objective weights manipulated to favor specific attack patterns |
+| 13 | GA parameter exploitation | Genetic algorithm parameters (crossover, mutation) tuned to exploit optimizer |
+| 14 | Governance parameter manipulation | On-chain hyperparameters manipulated to enable other attacks |
+| 15 | L1/L2 incentive misalignment | Emission split and weight ratios create cross-layer gaming opportunities |
+| 16 | Pareto front manipulation | Population diversity or elite preservation exploited to bias optimization |
+| 17 | Reward distribution manipulation | Sigmoid emission curve or buyback parameters gamed for disproportionate rewards |
+| 18 | Validator latency exploitation (Vector 8) | Miner accuracy correlated with validator latency; post-market submissions scored as predictions. **Commit-reveal validated: projected severity 0.047 < 0.05 target** |
+| 19 | Miner-validator collusion | Validator weight/score bias toward specific miners not justified by performance |
 
-**Implementation:** `tuning/attack_detector.py` — runs the simulation with adversarial agents and returns a breach report.
+**Implementation:** `tuning/attack_detector.py` — runs the simulation with adversarial agents and returns a breach report. Currently at v4.0 with 19 vectors and full detection methods.
+
+**Commit-reveal impact on Vector 18:** Sentinel validation (session 69dab601) confirmed that the commit-reveal scheme reduces Vector 18 severity from 0.09 to projected 0.047, clearing the 0.05 target. Companion Vector 11 (prediction timing manipulation) also drops from 0.06 to 0.025. The critical effectiveness threshold is 0.667 — this must be validated in simulation before production deployment.
 
 ---
 
