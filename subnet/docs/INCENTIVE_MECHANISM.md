@@ -378,6 +378,121 @@ This closes the simulation-to-reality gap: models are ultimately judged by deplo
 | **Defense** | Variance Score explicitly measures cross-regime consistency. Validation windows deliberately cover trending, ranging, high-vol, low-vol, and crisis periods. Penalized F1 and Penalized Sharpe also apply rolling-window variance penalties. |
 | **Why it fails** | Low Variance Score directly penalizes regime-specific models. The variance penalty in F1 and Sharpe provides a second layer of defense. |
 
+### 10. Post-Hoc Prediction Manipulation (Validator Latency Exploitation)
+
+| | |
+|---|---|
+| **Attack** | Miner submits trades using market data that has already materialized but not yet been validated by a slow validator, achieving artificially high accuracy during high-latency windows. |
+| **Defense** | Commit-reveal scheme requires miners to commit trade hashes before market data is available. `min_prediction_lead_time` rejects trades where submission is too close to data publication. `validator_latency_penalty_weight` discounts scores from high-latency validators. Three detection methods: per-validator latency correlation, submission vs market timestamp comparison, quartile-segmented accuracy analysis. |
+| **Why it fails** | Commit-reveal eliminates the information asymmetry: predictions are cryptographically bound before market data exists. Sentinel validation confirms projected severity drops from 0.09 to 0.047 with commit-reveal (below 0.05 target). |
+
+### 11. Prediction Timing Manipulation
+
+| | |
+|---|---|
+| **Attack** | Miner exploits timing gaps between prediction submission and validation to incorporate information that should not have been available at prediction time. |
+| **Defense** | Commit-reveal binds predictions to a specific point in time (commit window closes at T-5s before market data). Temporal correlation monitoring detects miners whose submission patterns change in lockstep with market movements. |
+| **Why it fails** | With commit-reveal, the prediction is locked before market data is published. Severity drops from 0.06 to projected 0.025. |
+
+### 12. Miner-Validator Collusion
+
+| | |
+|---|---|
+| **Attack** | A colluding validator inflates scores for cooperating miners via weight-setting manipulation, score inflation, or information leakage. |
+| **Defense** | Weight entropy minimum rejects concentrated weight distributions. Cross-validator score variance caps flag miners with inconsistent scores across validators. Validator rotation limits prevent repeated scoring of the same miner. Five detection methods: weight entropy analysis, cross-validator score comparison, weight-non-performance correlation, temporal coordination, network graph cluster analysis. |
+| **Why it fails** | Multi-validator consensus means a single colluding validator cannot unilaterally inflate scores. The 5-method detection approach catches different collusion strategies. |
+
+### 13. L1/L2 Weight Skew Exploitation
+
+| | |
+|---|---|
+| **Attack** | Adversarial miners exploit the emission split between L1 and L2 to capture disproportionate rewards by concentrating effort in the more rewarding layer. |
+| **Defense** | `cross_layer_penalty_strength` penalizes deviations from the configured `l1_l2_emission_split`. Cross-layer feedback ensures both layers must perform well. |
+| **Why it fails** | The penalty is proportional to the deviation, making exploitation unprofitable. |
+
+---
+
+## Commit-Reveal Mechanism
+
+### Overview
+
+The commit-reveal scheme prevents post-hoc prediction manipulation (Vector 8) and prediction timing manipulation (Vector 11) by requiring miners to cryptographically commit to their trade decisions before market data is available, then reveal after the validation window closes.
+
+**Implementation:** Approach B (off-chain with validator attestation), implemented in `CommitRevealManager` in `insignia/incentive.py`.
+
+### Protocol Flow
+
+```
+T-35s ──── Commit Window Opens ────────── T-5s
+                                            │
+  Miner: hash = SHA-256(trade_data ∥ nonce) │
+  Miner: submit commit_hash to validators   │
+  Validators: attest to receiving commit     │
+                                            │
+T-5s ────── Commit Window Closes ──────── T+0s
+                                            │
+  Market data published (T+0s)               │
+                                            │
+T+5s ────── Reveal Window Opens ──────── T+20s
+                                            │
+  Miner: reveal trade_data + nonce           │
+  Validator: recompute hash, verify match    │
+  Validator: score trade (or zero if invalid)│
+                                            │
+T+20s ───── Reveal Window Closes ─────────
+```
+
+### Technical Parameters
+
+| Parameter | Value | Purpose |
+|-----------|-------|---------|
+| Hash algorithm | SHA-256 | Commitment binding |
+| Nonce size | 128-bit (16 bytes) | Prevent rainbow table attacks |
+| Commit window | 30s (T-35s to T-5s) | Time for miners to commit |
+| Reveal window | 15s (T+5s to T+20s) | Time for miners to reveal |
+| Grace period | 2s | Clock skew tolerance |
+| Late reveal penalty | 1.0 (full score zeroed) | Enforce reveal discipline |
+
+### Sentinel Validation Results (2026-04-12)
+
+The sentinel agent validated that commit-reveal reduces Vector 8 severity below the 0.05 target:
+
+```
+projected_severity = base_severity × (1 - effectiveness) + residual
+                   = 0.09 × (1 - 0.70) + 0.02
+                   = 0.047  ✓  (< 0.05 target)
+```
+
+| Metric | Value |
+|--------|-------|
+| Vector 8 current severity | 0.09 |
+| Projected severity with commit-reveal | 0.047 |
+| Target | 0.05 |
+| Safety margin | 0.003 (6%) |
+| Attack surface eliminated | 0.063 |
+| Residual attack surface | 0.02 |
+
+**Sensitivity:** Commit-reveal effectiveness must exceed 0.667 to meet the target. The baseline assumption of 0.70 provides only 0.003 of headroom. This should be validated in simulation before production deployment.
+
+**Bonus:** Vector 11 (Prediction Timing Manipulation) drops from 0.06 to projected 0.025.
+
+### Deployment Strategy
+
+The commit-reveal mechanism uses a hybrid deployment:
+
+1. **Phase 1 (Months 1-3):** Optional for miners. Miners who use commit-reveal receive a small scoring bonus. Non-committing miners are still scored normally.
+2. **Phase 2 (Month 3+):** Mandatory for all miners. Submissions without valid commit-reveal are scored zero.
+3. **Future (Approach C):** Migrate to hybrid on-chain reveal where reveal hashes are anchored to chain state, providing cryptographic guarantees against selective revelation.
+
+### Residual Risks and Mitigations
+
+| Risk | Severity | Mitigation |
+|------|----------|------------|
+| Strategic commitment avoidance | 0.008 | `commitment_violation_score` in Vector 8 detection |
+| Pre-commit data snooping | 0.005 | Commit window closes at T-5s, before market data |
+| Selective revelation | 0.004 | No-reveal slashing: 3-consecutive penalty zeroes score |
+| Validator collusion on commits | 0.003 | Multi-validator attestation + hash binding |
+
 ---
 
 ## Buyback Mechanism

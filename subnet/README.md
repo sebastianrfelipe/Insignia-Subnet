@@ -99,9 +99,9 @@ All metrics use a **variance-penalized formulation** (`mean − λ·std`) across
 ```
 subnet/
 ├── insignia/               # Core protocol
-│   ├── protocol.py         # Synapse definitions (L1 + L2)
+│   ├── protocol.py         # Synapse definitions (L1 + L2 + commit/reveal)
 │   ├── scoring.py          # L1 (7-metric) + L2 (10-metric) composite scorer
-│   ├── incentive.py        # Anti-gaming mechanisms (19 attack defenses)
+│   ├── incentive.py        # Anti-gaming mechanisms (19 attack defenses) + commit-reveal
 │   └── cross_layer.py      # Model promotion + feedback loop
 ├── neurons/                # Neuron implementations
 │   ├── l1_miner.py         # L1 miner (model training)
