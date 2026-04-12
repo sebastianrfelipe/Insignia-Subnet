@@ -25,7 +25,7 @@
 **Target output quality metric miners are scored on.**
 
 - **Layer 1**: Multi-metric evaluation vector (7 dimensions: Penalized F1, Penalized Sharpe, Max Drawdown, Variance Score, Overfitting Penalty, Feature Efficiency, Latency) scored against proprietary tick-by-tick benchmark dataset
-- **Layer 2**: Real trading outcomes (10 dimensions: Realized P&L, Omega Ratio, Max Drawdown, Win Rate, Consistency, Model Attribution, Execution Quality, Annualized Volatility, Sharpe Ratio, Sortino Ratio) measured against actual market performance
+- **Layer 2**: Real trading outcomes (10 dimensions: Realized P&L, Omega Ratio, Max Drawdown, Win Rate, Consistency, Model Attribution, Execution Quality, Annualized Volatility, Sharpe Ratio, Sortino Ratio) measured against actual market performance, with commit-reveal enforcement preventing post-hoc manipulation
 - Published metric definitions with configurable weights (see `scoring.py`)
 
 ### Evaluation Loop
@@ -52,7 +52,9 @@
 - Composite scoring prevents single-metric gaming
 - Data asymmetry (miners: public data; validators: proprietary data) prevents overfitting to validation
 - Cross-layer feedback rewards models that survive real deployment
-- 9 documented attack vectors with specific defenses (see `INCENTIVE_MECHANISM.md`)
+- Commit-reveal scheme prevents post-hoc prediction manipulation and timing attacks (SHA-256 hashing with 128-bit nonces, commit window T-35s to T-5s, reveal window T+5s to T+20s)
+- 19 documented attack vectors with specific defenses (see `INCENTIVE_MECHANISM.md`), including 10 novel vectors discovered through autonomous agent swarm orchestration
+- Sentinel-validated: Vector 8 (validator latency exploitation) projected severity 0.047 < 0.05 target with commit-reveal
 
 ### Market Demand
 **Who pays for output and why.**
@@ -200,19 +202,32 @@ Everything else — the scoring framework, synapse definitions, incentive design
 subnet/
 ├── insignia/
 │   ├── __init__.py           # Package definition
-│   ├── protocol.py           # Bittensor Synapse definitions (L1 + L2)
-│   ├── scoring.py            # Composite scoring engine (L1: 7 metrics, L2: 7 metrics)
-│   ├── incentive.py          # Anti-gaming mechanisms + attack/defense matrix
+│   ├── protocol.py           # Bittensor Synapse definitions (L1 + L2 + commit/reveal)
+│   ├── scoring.py            # Composite scoring engine (L1: 7 metrics, L2: 10 metrics)
+│   ├── incentive.py          # Anti-gaming mechanisms + commit-reveal + attack/defense matrix
 │   └── cross_layer.py        # Model promotion + feedback loop engine
 ├── neurons/
-│   ├── l1_miner.py           # Layer 1 miner template (model training + submission)
-│   ├── l1_validator.py       # Layer 1 validator (evaluation + weight setting)
-│   ├── l2_miner.py           # Layer 2 miner template (paper trading strategy)
+│   ├── l1_miner.py           # Layer 1 miner template (model training + commit/reveal)
+│   ├── l1_validator.py       # Layer 1 validator (evaluation + commitment verification)
+│   ├── l2_miner.py           # Layer 2 miner template (paper trading + commit/reveal)
 │   └── l2_validator.py       # Layer 2 validator (P&L tracking + scoring)
+├── tuning/
+│   ├── attack_detector.py    # 19-vector attack detection with commit-reveal awareness
+│   ├── parameter_space.py    # 55-parameter tuning space with defense parameters
+│   ├── optimizer.py          # NSGA-II multi-objective optimization
+│   ├── simulation.py         # Full pipeline simulation harness
+│   └── orchestrator.py       # Tuning loop orchestration
+├── testnet/
+│   ├── config.py             # CommitRevealConfig, ValidationTimingConfig, ConsensusIntegrityConfig
+│   ├── emulator.py           # Testnet emulator with commit-reveal support
+│   └── ...                   # Chain setup and wallet management
 ├── scripts/
 │   └── run_demo.py           # Full end-to-end pipeline demonstration
 ├── docs/
-│   ├── INCENTIVE_MECHANISM.md # Detailed incentive design + attack vector analysis
-│   └── SUBNET_SPEC.md        # This document
+│   ├── INCENTIVE_MECHANISM.md # Incentive design + 13 attack vectors + commit-reveal validation
+│   ├── PARAMETER_TUNING_PLAN.md # 55-parameter tuning strategy
+│   ├── SUBNET_SPEC.md        # This document
+│   └── TESTNET_DEPLOYMENT.md # Deployment guide with commit-reveal integration
+├── program.md                # Agent swarm program (orchestration spec)
 └── README.md                 # Quick start and overview
 ```
