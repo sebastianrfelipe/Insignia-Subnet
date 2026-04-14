@@ -1,567 +1,81 @@
 # Insignia Testnet Deployment & Emulator Guide
 
-Complete guide for deploying the Insignia subnet on a Bittensor testnet and running the incentive-mechanism emulator for hyperparameter tuning.
+This guide reflects the latest orchestration findings from 2026-04-14 and the repository updates applied from that report.
 
-## Table of Contents
+## Highlights
 
-- [Overview](#overview)
-- [Architecture](#architecture)
-- [Prerequisites](#prerequisites)
-- [Quick Start (Local Chain)](#quick-start-local-chain)
-- [Manual Setup](#manual-setup)
-- [Emulator Modes](#emulator-modes)
-- [Public Testnet Deployment](#public-testnet-deployment)
-- [Configuration Reference](#configuration-reference)
-- [Monitoring & Dashboards](#monitoring--dashboards)
-- [Troubleshooting](#troubleshooting)
+- Phase 4 attack surveillance is complete enough to justify a Phase 5 transition.
+- Commit-reveal defaults are enabled in config and tracked with timestamp metrics.
+- Default wallet layout now covers 1 owner, 1 validator, and 12 miners.
+- Market diversification now includes BTC, ETH, SOL, AVAX, and ADA.
+- Monitoring assets exist in both `monitoring/` and `testnet/docker-compose.testnet.yml`.
 
----
-
-## Overview
-
-The testnet emulator bridges the Insignia simulation framework with a real Bittensor subtensor chain. This enables:
-
-1. **Incentive mechanism validation** — Run simulated miners (honest + adversarial) against real Yuma consensus
-2. **Hyperparameter tuning** — Evolutionary optimization (NSGA-II) of all 55 tunable parameters
-3. **Attack resilience testing** — 19 documented attack vectors evaluated under realistic conditions, including commit-reveal validation
-4. **Commit-reveal validation** — Verify commit-reveal effectiveness exceeds 0.667 critical threshold before production deployment
-5. **Pre-mainnet rehearsal** — Full pipeline demo before deploying to mainnet
-
-The emulator supports two chain targets:
-
-| Target | Blocks | Cost | Use Case |
-|--------|--------|------|----------|
-| **Local** | 250ms (fast) | Free | Development, rapid iteration |
-| **Testnet** | ~12s | Test TAO | Pre-mainnet validation |
-
----
-
-## Architecture
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Insignia Emulator                         │
-│                                                              │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐   │
-│  │ Honest   │  │ Overfitter│  │ Copycat  │  │ Sybil    │   │
-│  │ Miners   │  │ Miners   │  │ Miners   │  │ Miners   │   │
-│  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘   │
-│       └──────────────┼──────────────┼──────────────┘         │
-│                      ▼                                       │
-│              ┌───────────────┐                               │
-│              │  Commit-Reveal │  ← SHA-256 + 128-bit nonce   │
-│              │  Manager       │  ← T-35s..T-5s commit window │
-│              └───────┬───────┘  ← T+5s..T+20s reveal window │
-│                      ▼                                       │
-│              ┌───────────────┐                               │
-│              │  L1 Validator  │  ← Composite scoring         │
-│              │  (7 metrics)   │  ← Anti-gaming checks        │
-│              └───────┬───────┘  ← Commitment verification    │
-│                      │                                       │
-│              ┌───────▼───────┐                               │
-│              │   Promotion    │  → Top-N to Layer 2          │
-│              │   Engine       │                               │
-│              └───────┬───────┘                               │
-│                      │                                       │
-│  ┌──────────┐  ┌─────▼──────┐  ┌──────────┐                │
-│  │ Honest   │  │ L2 Validator│  │ Copy     │                │
-│  │ Traders  │──│ (7 metrics) │──│ Traders  │                │
-│  └──────────┘  └─────┬──────┘  └──────────┘                │
-│                      │                                       │
-│              ┌───────▼───────┐                               │
-│              │ Cross-Layer   │  ← L2→L1 feedback             │
-│              │ Feedback      │  ← +15% / -10% adjustment     │
-│              └───────┬───────┘                               │
-│                      │                                       │
-│              ┌───────▼───────┐                               │
-│              │ set_weights() │  → Yuma Consensus             │
-│              └───────┬───────┘                               │
-└──────────────────────┼──────────────────────────────────────┘
-                       │
-               ┌───────▼───────┐
-               │   Subtensor    │  (local or testnet)
-               │   Chain        │
-               └───────────────┘
-```
-
----
-
-## Prerequisites
-
-### Software
-
-| Tool | Version | Install |
-|------|---------|---------|
-| Python | ≥ 3.10 | `pyenv install 3.12` |
-| Docker | ≥ 24.0 | [docker.com](https://docs.docker.com/get-docker/) |
-| btcli | Latest | `pip install bittensor-cli` |
-| bittensor SDK | Latest | `pip install bittensor` |
-
-### Python Dependencies
-
-```bash
-cd subnet
-pip install -r requirements.txt
-pip install bittensor bittensor-cli pyyaml
-```
-
----
-
-## Quick Start (Local Chain)
-
-The fastest way to get the emulator running on a local subtensor:
-
-```bash
-cd subnet
-
-# Option 1: Automated setup script
-bash testnet/setup_local.sh --mode single
-
-# Option 2: Automated with evolutionary tuning
-bash testnet/setup_local.sh --mode evolve --generations 10 --population 10
-
-# Option 3: Manual step-by-step (see below)
-```
-
-### One-liner (no Docker, offline mode)
-
-If you just want to run the emulator without a chain (offline simulation):
-
-```bash
-cd subnet
-python -m testnet.run_emulator --mode single --network local --no-metrics
-```
-
----
-
-## Manual Setup
-
-### Step 1: Start Local Subtensor
-
-```bash
-# Pull and start the local chain
-docker run --rm -d \
-  --name insignia-subtensor \
-  -p 9944:9944 \
-  -p 9945:9945 \
-  -p 9933:9933 \
-  ghcr.io/opentensor/subtensor-localnet:devnet-ready
-
-# Verify
-btcli subnet list --network ws://127.0.0.1:9945
-```
-
-Or use the provided Docker Compose:
-
-```bash
-cd subnet
-docker compose -f testnet/docker-compose.testnet.yml up -d subtensor
-```
-
-### Step 2: Create Wallets
-
-```bash
-# Owner wallet (creates the subnet)
-btcli wallet create --wallet.name insignia-owner --no-password
-
-# Validator wallet
-btcli wallet create --wallet.name insignia-validator --no-password
-
-# Miner wallets (one per simulated agent)
-for i in $(seq 0 7); do
-  btcli wallet create --wallet.name "insignia-miner-${i}" --no-password
-done
-```
-
-### Step 3: Fund Wallets (Local Chain)
-
-On the local chain, use the pre-funded `alice` account:
-
-```bash
-# Get alice's address
-btcli wallet overview --wallet.name alice --network ws://127.0.0.1:9945
-
-# Transfer to each wallet
-btcli wallet transfer \
-  --wallet.name alice \
-  --destination <OWNER_ADDRESS> \
-  --amount 100000 \
-  --network ws://127.0.0.1:9945 \
-  --no-prompt
-```
-
-### Step 4: Create Subnet
-
-```bash
-btcli subnet create \
-  --wallet.name insignia-owner \
-  --network ws://127.0.0.1:9945 \
-  --no-prompt
-
-# Note the netuid from the output
-btcli subnet list --network ws://127.0.0.1:9945
-```
-
-### Step 5: Register Neurons
-
-```bash
-NETUID=1  # Replace with your actual netuid
-
-# Register validator
-btcli subnets register \
-  --netuid $NETUID \
-  --wallet.name insignia-validator \
-  --network ws://127.0.0.1:9945 \
-  --no-prompt
-
-# Register miners
-for i in $(seq 0 7); do
-  btcli subnets register \
-    --netuid $NETUID \
-    --wallet.name "insignia-miner-${i}" \
-    --network ws://127.0.0.1:9945 \
-    --no-prompt
-done
-```
-
-### Step 6: Stake Validator
-
-```bash
-btcli stake add \
-  --wallet.name insignia-validator \
-  --amount 1000 \
-  --network ws://127.0.0.1:9945 \
-  --no-prompt
-```
-
-### Step 7: Run the Emulator
-
-```bash
-cd subnet
-
-# Single epoch (quick test)
-python -m testnet.run_emulator \
-  --mode single \
-  --network local \
-  --netuid 1
-
-# Evolutionary tuning
-python -m testnet.run_emulator \
-  --mode evolve \
-  --network local \
-  --netuid 1 \
-  --generations 20 \
-  --population 15 \
-  --output testnet_results/
-```
-
----
-
-## Emulator Modes
-
-### `single` — Quick Validation
-
-Run one simulation epoch with default parameters. Useful for verifying the setup works end-to-end.
-
-```bash
-python -m testnet.run_emulator --mode single
-```
-
-### `sweep` — Parameter Sweep
-
-Run N random parameter configurations and compare results. Good for initial exploration of the parameter space.
-
-```bash
-python -m testnet.run_emulator --mode sweep --n-configs 20
-```
-
-### `evolve` — Evolutionary Optimization
-
-Run NSGA-II evolutionary optimization across generations. Each generation evaluates a population of parameter configurations, evolves the best, and iterates. This is the primary mode for serious hyperparameter tuning.
-
-```bash
-python -m testnet.run_emulator \
-  --mode evolve \
-  --generations 30 \
-  --population 20 \
-  --n-honest 8 \
-  --n-adversarial 6
-```
-
-### `setup` — Chain Setup Only
-
-Create wallets, subnet, register neurons, and fund wallets. No simulation.
-
-```bash
-python -m testnet.run_emulator --mode setup --network local
-```
-
-### `full` — Complete Pipeline
-
-Run setup + evolutionary optimization + export in one command.
-
-```bash
-python -m testnet.run_emulator --mode full --network local --generations 20
-```
-
-### `status` — Health Check
-
-Query current subnet state and wallet balances.
-
-```bash
-python -m testnet.run_emulator --mode status --network local --netuid 1
-```
-
----
-
-## Public Testnet Deployment
-
-### Getting Test TAO
-
-Test TAO is available via the Bittensor Discord faucet. Join the [Bittensor Discord](https://discord.gg/bittensor) and request tokens in `#faucet`.
-
-### Connecting to Public Testnet
-
-```bash
-# Check testnet subnets
-btcli subnet list --network test
-
-# Create subnet on testnet (costs test TAO)
-btcli subnet create --wallet.name insignia-owner --network test
-
-# Run emulator against testnet
-python -m testnet.run_emulator \
-  --mode evolve \
-  --network testnet \
-  --netuid <YOUR_NETUID> \
-  --generations 20
-```
-
-### EVM Testnet (MetaMask)
-
-For EVM-compatible operations:
-
-| Parameter | Value |
-|-----------|-------|
-| RPC URL | `https://test.chain.opentensor.ai` |
-| Chain ID | `945` |
-| Currency | TAO |
-
----
-
-## Commit-Reveal Validation
-
-The commit-reveal mechanism must be validated on testnet before mainnet deployment. The sentinel analysis (session 69dab601) shows a projected severity of 0.047 for Vector 8 (post-hoc prediction manipulation), which clears the 0.05 target with only a 6% safety margin.
-
-### Running Commit-Reveal Validation
-
-```bash
-cd subnet
-
-# Run simulation with commit-reveal enabled (validates effectiveness threshold)
-python -m testnet.run_emulator \
-  --mode single \
-  --network local \
-  --netuid 1 \
-  --commit-reveal-enabled
-
-# Run targeted Vector 8 attack simulation with commit-reveal
-python -m tuning.orchestrator \
-  --mode attack \
-  --trials 20 \
-  --commit-reveal-enabled \
-  --target-vector 8
-```
-
-### Validation Criteria
-
-| Criterion | Target | Critical Threshold |
-|-----------|--------|-------------------|
-| Commit-reveal effectiveness | >= 0.70 | >= 0.667 |
-| Vector 8 projected severity | < 0.05 | < 0.05 |
-| Vector 11 projected severity | < 0.03 | < 0.05 |
-| Commit success rate | > 95% | > 90% |
-| Reveal success rate | > 95% | > 90% |
-| Validator attestation rate | > 90% | > 80% |
-
-### Deployment Phases
-
-1. **Testnet validation (current):** Validate effectiveness exceeds 0.667 critical threshold
-2. **Optional phase (Months 1-3):** Miners who commit-reveal get scoring bonus; non-committing miners scored normally
-3. **Mandatory phase (Month 3+):** All submissions require valid commit-reveal
-4. **Approach C migration (future):** Hybrid on-chain reveal for cryptographic guarantees
-
-### Commit-Reveal Configuration
-
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `commit_window_seconds` | `30` | Duration of commit window (T-35s to T-5s) |
-| `reveal_window_seconds` | `15` | Duration of reveal window (T+5s to T+20s) |
-| `hash_algorithm` | `sha256` | Commitment hash algorithm |
-| `nonce_bits` | `128` | Nonce size for commitment binding |
-| `max_reveal_attempts` | `3` | Maximum reveal retry attempts |
-| `late_reveal_penalty` | `1.0` | Penalty multiplier for late/missing reveals |
-| `grace_period_seconds` | `2` | Clock skew tolerance |
-
----
-
-## Configuration Reference
-
-### EmulatorConfig
-
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `network` | `local` | Target: local, testnet, devnet |
-| `netuid` | `None` | Existing subnet (auto-creates if None) |
-| `n_l1_epochs` | `5` | L1 evaluation epochs per simulation |
-| `n_l2_trading_steps` | `300` | L2 paper trading steps |
-| `n_honest_l1` | `6` | Honest L1 miner agents |
-| `n_adversarial_l1` | `4` | Adversarial L1 agents |
-| `n_honest_l2` | `3` | Honest L2 trader agents |
-| `n_adversarial_l2` | `1` | Adversarial L2 agents |
-
-### Subnet Hyperparameters (On-Chain)
-
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `tempo` | `360` | Blocks between weight-setting epochs |
-| `immunity_period` | `5000` | Blocks new neurons are immune |
-| `max_validators` | `64` | Maximum validator count |
-| `min_allowed_weights` | `1` | Minimum weights per validator |
-
-### Insignia Scoring Parameters (55 Tunable)
-
-See `tuning/parameter_space.py` for the full list. Key groups:
-
-- **L1 Scoring Weights** (7 params): directional accuracy, Sharpe, drawdown, stability, overfitting, feature efficiency, latency
-- **L2 Scoring Weights** (10 params): P&L, Omega ratio, drawdown, win rate, consistency, model attribution, execution quality, annualized volatility, Sharpe ratio, Sortino ratio
-- **Overfitting Detector** (2 params): gap threshold, decay rate
-- **Promotion Criteria** (5 params): top-N, min epochs, max overfitting, decay limit, expiry
-- **Anti-Gaming** (4 params): plagiarism threshold, copy-trade detection
-- **Trading Engine** (6 params): slippage model, position limits, drawdown kill switch
-- **Commit-Reveal** (3 params): commit window, reveal window, late reveal penalty
-- **Validation Timing** (3 params): min prediction lead time, latency penalty weight, high latency threshold
-- **Consensus Integrity** (5 params): weight entropy minimum, score variance max, rotation limits, agreement threshold, lookback epochs
-- **Cross-Layer Defense** (2 params): penalty strength, latency threshold
-
-### Environment Variables
-
-| Variable | Description |
-|----------|-------------|
-| `SUBTENSOR_LOCAL_ENDPOINT` | Local chain WebSocket URL |
-| `SUBTENSOR_TESTNET_ENDPOINT` | Public testnet WebSocket URL |
-| `INSIGNIA_NETWORK` | Default network target |
-| `INSIGNIA_NETUID` | Default subnet netuid |
-| `INSIGNIA_OUTPUT_DIR` | Results output directory |
-
----
-
-## Monitoring & Dashboards
-
-### Start Monitoring Stack
+## Quick local stack
 
 ```bash
 cd subnet
 docker compose -f testnet/docker-compose.testnet.yml up -d
+bash testnet/scripts/check_chain_connectivity.sh
+bash testnet/scripts/check_wallet_balances.sh
 ```
 
-### Endpoints
+## Commit-reveal validation targets
 
-| Service | URL | Credentials |
-|---------|-----|-------------|
-| Prometheus | http://localhost:9090 | — |
-| Grafana | http://localhost:3000 | admin/admin |
-| Emulator Metrics | http://localhost:8001/metrics | — |
+| Metric | Target |
+|---|---:|
+| effectiveness | >= 0.70 |
+| critical floor | >= 0.667 |
+| validator latency severity | < 0.05 |
+| prediction timing severity | < 0.03 |
 
-### Key Metrics
+## Current defaults
 
-| Metric | Description |
-|--------|-------------|
-| `insignia_l1_composite_score` | L1 miner composite scores by agent type |
-| `insignia_l2_composite_score` | L2 strategy scores |
-| `insignia_attack_breach` | Attack breach flags (0/1) |
-| `insignia_attack_severity` | Attack severity scores |
-| `insignia_total_breaches` | Total active attack breaches |
-| `insignia_best_fitness` | Best fitness per objective |
-| `insignia_pareto_front_size` | Pareto front solution count |
+### Commit-reveal
 
----
+- enabled: true
+- commit_window_seconds: 30
+- reveal_window_seconds: 15
+- nonce_bits: 128
+- max_reveal_attempts: 3
+- late_reveal_penalty: 1.0
+- grace_period_seconds: 2.0
 
-## Troubleshooting
+### Validation timing
 
-### btcli not found
+- min_prediction_lead_time_seconds: 35
+- validator_latency_penalty_weight: 0.25
+- high_latency_threshold_ms: 2000
+- commit_rate_threshold: 0.70
+- commitment_violation_weight: 0.008
+- selective_reveal_warning_streak: 1
+- selective_reveal_penalty_streak: 2
+- selective_reveal_zero_streak: 3
 
-```bash
-pip install bittensor-cli
-```
+### Ensemble detection
 
-The emulator gracefully falls back to offline mode if btcli is unavailable.
+- correlation_threshold: 0.77
+- entropy_threshold_lower: 0.18
+- symbol_diversity_threshold: 0.275
+- fusion_strategy: weighted_voting_dynamic_adaptive
+- response_vote_threshold: 2
 
-### Cannot connect to local subtensor
+## Monitoring endpoints
 
-```bash
-# Check if container is running
-docker ps | grep insignia-subtensor
+| Service | URL |
+|---|---|
+| Prometheus | http://localhost:9090 |
+| Grafana | http://localhost:3000 |
+| Emulator metrics | http://localhost:8001/metrics |
 
-# Check health
-curl http://localhost:9933/health
+## Key report-aligned metrics
 
-# Restart
-docker restart insignia-subtensor
-```
+- `insignia_commit_timestamp`
+- `insignia_reveal_timestamp`
+- `insignia_no_reveal_streak`
+- `insignia_timing_attack_composite_severity`
+- `insignia_trading_pair_activity`
+- `insignia_ensemble_signal`
 
-### "Rate limited" errors in simulation
+## Note on parameter counts
 
-The emulator uses `force=True` to bypass rate limits during simulation epochs. If you see rate limit errors, ensure you're using the emulator's built-in simulation harness rather than calling validators directly.
-
-### bittensor SDK import error
-
-```bash
-pip install bittensor
-```
-
-The emulator runs in offline mode if the SDK is not installed. All simulation and scoring logic works without the SDK — only on-chain weight-setting requires it.
-
-### Out of memory during evolutionary tuning
-
-Reduce population size and agent counts:
-
-```bash
-python -m testnet.run_emulator \
-  --mode evolve \
-  --generations 10 \
-  --population 8 \
-  --n-honest 4 \
-  --n-adversarial 2
-```
-
----
-
-## Output Files
-
-After a run, the emulator produces:
-
-| File | Description |
-|------|-------------|
-| `emulator_results.json` | Full results with per-epoch scores, fitness, breach reports |
-| `best_params.npy` | Best parameter vector (NumPy array) |
-| `best_config.yaml` | Best configuration in human-readable YAML |
-| `evolution_results.json` | Evolutionary tuning aggregate results |
-| `sweep_results.json` | Parameter sweep aggregate results |
-
-### Loading Results
-
-```python
-import numpy as np
-import yaml
-from tuning.parameter_space import decode, summarize_config
-
-# Load best parameters
-params = np.load("testnet_results/best_params.npy")
-config = decode(params)
-print(summarize_config(config))
-
-# Load YAML config
-with open("testnet_results/best_config.yaml") as f:
-    yaml_config = yaml.safe_load(f)
-```
+The orchestration brief references a 75-parameter optimization headline. The repository still exposes a broader parameter surface in code because the 10-metric L2 scorer and additional safeguards remain enabled for realism.

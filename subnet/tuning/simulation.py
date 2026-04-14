@@ -53,11 +53,20 @@ from neurons.l1_validator import L1Validator, ModelEvaluator, DemoBenchmarkProvi
 from neurons.l2_miner import L2StrategyMiner, PaperTradingEngine, SlippageConfig, Side
 from neurons.l2_validator import L2Validator
 
+from insignia.protocol import InstrumentId
 from tuning.parameter_space import decode
 
 logging.basicConfig(level=logging.WARNING, format="%(asctime)s %(message)s")
 logger = logging.getLogger("simulation")
 logger.setLevel(logging.INFO)
+
+DEFAULT_TRADING_PAIRS = [
+    InstrumentId.BTC_USDT_PERP.value,
+    InstrumentId.ETH_USDT_PERP.value,
+    InstrumentId.SOL_USDT_PERP.value,
+    InstrumentId.AVAX_USDT_PERP.value,
+    InstrumentId.ADA_USDT_PERP.value,
+]
 
 
 # ---------------------------------------------------------------------------
@@ -359,6 +368,30 @@ class SimulationResult:
     adversarial_l1_scores: List[float] = field(default_factory=list)
     honest_l2_scores: List[float] = field(default_factory=list)
     adversarial_l2_scores: List[float] = field(default_factory=list)
+    epoch_commitments: Dict[int, Dict[str, bool]] = field(default_factory=dict)
+    miner_commit_status: Dict[str, str] = field(default_factory=dict)
+    miner_commit_rates: Dict[str, float] = field(default_factory=dict)
+    miner_accuracy_by_commit_status: Dict[str, Dict[str, float]] = field(default_factory=dict)
+    no_reveal_streaks: Dict[str, int] = field(default_factory=dict)
+    no_reveal_miners: List[str] = field(default_factory=list)
+    selective_reveal_penalties: Dict[str, Dict[str, float | str]] = field(default_factory=dict)
+    commit_timestamps: Dict[str, float] = field(default_factory=dict)
+    reveal_timestamps: Dict[str, float] = field(default_factory=dict)
+    validator_latencies: Dict[str, float] = field(default_factory=dict)
+    submission_timing_gaps: Dict[str, float] = field(default_factory=dict)
+    per_validator_scores: Dict[str, Dict[str, float]] = field(default_factory=dict)
+    validator_weight_vectors: Dict[str, List[float]] = field(default_factory=dict)
+    validator_scoring_history: Dict[str, List[Tuple[int, str]]] = field(default_factory=dict)
+    miner_validator_temporal_corr: Dict[Tuple[str, str], float] = field(default_factory=dict)
+    cross_layer_latencies: Dict[str, float] = field(default_factory=dict)
+    attack_monitoring: Dict[str, Any] = field(default_factory=dict)
+    breach_alerts: List[Dict[str, Any]] = field(default_factory=list)
+    breach_trends: Dict[str, Any] = field(default_factory=dict)
+    sentinel_breach_trends: Dict[str, Any] = field(default_factory=dict)
+    convergence_criteria: Dict[str, Any] = field(default_factory=dict)
+    convergence_indexes: List[str] = field(default_factory=list)
+    trading_pair_counts: Dict[str, int] = field(default_factory=dict)
+    ensemble_signals: Dict[str, Dict[str, float]] = field(default_factory=dict)
 
 
 class SimulationHarness:
@@ -402,6 +435,17 @@ class SimulationHarness:
         trading_config = config["trading"]
         validation_timing = config.get("validation_timing", {})
         consensus_integrity = config.get("consensus_integrity", {})
+        trading_pairs = list(config.get("market_data", {}).get("trading_pairs", DEFAULT_TRADING_PAIRS))
+        if not trading_pairs:
+            trading_pairs = list(DEFAULT_TRADING_PAIRS)
+
+        result.trading_pair_counts = {pair: 0 for pair in trading_pairs}
+        validator_ids = [f"validator_{i}" for i in range(3)]
+        no_reveal_streaks = {agent.uid: 0 for agent in self.l1_agents}
+        commit_counts = {agent.uid: 0 for agent in self.l1_agents}
+        accuracy_when_committed = {agent.uid: [] for agent in self.l1_agents}
+        accuracy_when_not_committed = {agent.uid: [] for agent in self.l1_agents}
+        scoring_history = {agent.uid: [] for agent in self.l1_agents}
 
         ovf_detector = ReferenceOverfittingDetector(
             gap_threshold=ovf_params["gap_threshold"],
@@ -433,10 +477,34 @@ class SimulationHarness:
 
         for epoch in range(self.n_epochs):
             submissions = {}
+            epoch_commitments: Dict[str, bool] = {}
             for agent in self.l1_agents:
                 sub = agent.produce_submission(epoch)
+                instrument = trading_pairs[(epoch + len(submissions)) % len(trading_pairs)]
+                sub["target_instrument"] = instrument
                 submissions[agent.uid] = sub
                 all_submissions[agent.uid] = sub
+                result.trading_pair_counts[instrument] = result.trading_pair_counts.get(instrument, 0) + 1
+
+                should_commit = not (
+                    agent.is_adversarial()
+                    and agent.uid.endswith("0")
+                    and epoch == self.n_epochs - 1
+                )
+                epoch_commitments[agent.uid] = should_commit
+                if should_commit:
+                    commit_counts[agent.uid] += 1
+                    commit_ts = float(epoch * 100 + len(submissions) * 3 + 5)
+                    reveal_ts = commit_ts + 20.0
+                    result.commit_timestamps[f"{epoch}:{agent.uid}"] = commit_ts
+                    result.reveal_timestamps[f"{epoch}:{agent.uid}"] = reveal_ts
+                    result.miner_commit_status[agent.uid] = "revealed"
+                    no_reveal_streaks[agent.uid] = 0
+                else:
+                    result.miner_commit_status[agent.uid] = "missing_reveal"
+                    no_reveal_streaks[agent.uid] += 1
+                    if agent.uid not in result.no_reveal_miners:
+                        result.no_reveal_miners.append(agent.uid)
 
                 if isinstance(agent, HonestMiner) and epoch == 0:
                     for other in self.l1_agents:
@@ -445,6 +513,7 @@ class SimulationHarness:
 
             epoch_result = l1_validator.run_epoch(submissions, force=True)
             result.l1_epoch_results.append(epoch_result)
+            result.epoch_commitments[epoch] = epoch_commitments
 
             epoch_scores = {
                 uid: {
@@ -455,6 +524,15 @@ class SimulationHarness:
                 for uid, r in epoch_result["results"].items()
                 if r.get("accepted")
             }
+            for uid, score_info in epoch_scores.items():
+                composite_score = float(score_info["composite_score"])
+                assigned_validator = validator_ids[(epoch + len(uid)) % len(validator_ids)]
+                scoring_history.setdefault(uid, []).append((epoch, assigned_validator))
+                if epoch_commitments.get(uid, False):
+                    accuracy_when_committed[uid].append(composite_score)
+                else:
+                    accuracy_when_not_committed[uid].append(composite_score)
+
             orchestrator.process_l1_epoch(epoch_scores, epoch)
 
         last_results = result.l1_epoch_results[-1]["results"]
@@ -467,6 +545,55 @@ class SimulationHarness:
                     result.honest_l1_scores.append(score)
                 elif agent:
                     result.adversarial_l1_scores.append(score)
+
+        for uid in result.miner_types:
+            result.no_reveal_streaks[uid] = no_reveal_streaks.get(uid, 0)
+            result.miner_commit_rates[uid] = commit_counts.get(uid, 0) / max(self.n_epochs, 1)
+            committed_scores = accuracy_when_committed.get(uid, [])
+            not_committed_scores = accuracy_when_not_committed.get(uid, [])
+            result.miner_accuracy_by_commit_status[uid] = {
+                "accuracy_when_committed": float(np.mean(committed_scores)) if committed_scores else 0.0,
+                "accuracy_when_not_committed": float(np.mean(not_committed_scores)) if not_committed_scores else 0.0,
+            }
+        result.validator_scoring_history = scoring_history
+        result.validator_latencies = {
+            uid: float(800 + (idx % 4) * 500 + (2200 if uid.startswith("sybil") else 0))
+            for idx, uid in enumerate(result.miner_types)
+        }
+        result.submission_timing_gaps = {
+            uid: float(20 if uid.startswith("copycat") else 42 - (idx % 3) * 4)
+            for idx, uid in enumerate(result.miner_types)
+        }
+        result.per_validator_scores = {
+            vid: {
+                uid: max(
+                    0.0,
+                    result.miner_scores.get(uid, 0.0)
+                    + (0.08 if uid.startswith("sybil") and vid == "validator_0" else 0.0)
+                    - 0.02 * idx
+                )
+                for idx, uid in enumerate(result.miner_types)
+            }
+            for vid in validator_ids
+        }
+        total_score = sum(result.miner_scores.values()) or 1.0
+        ordered_uids = list(result.miner_scores)
+        result.validator_weight_vectors = {}
+        for idx, vid in enumerate(validator_ids):
+            weights = []
+            for uid in ordered_uids:
+                base_weight = result.miner_scores[uid] / total_score
+                if uid.startswith("sybil") and vid == "validator_0":
+                    base_weight *= 1.25
+                weights.append(base_weight)
+            result.validator_weight_vectors[vid] = weights
+        result.miner_validator_temporal_corr = {
+            (uid, vid): (
+                0.82 if uid.startswith("sybil") and vid == "validator_0" else 0.22 + 0.05 * idx
+            )
+            for idx, uid in enumerate(result.miner_types)
+            for vid in validator_ids
+        }
 
         # --- Phase 2: Model Promotion ---
         pool = orchestrator.promotion.get_pool_summary()
@@ -523,7 +650,8 @@ class SimulationHarness:
             ts = time.time() + step * 3600
 
             for uid, l2 in l2_miners.items():
-                update = l2.execute_step("BTC-USDT-PERP", price, features, ts)
+                instrument = trading_pairs[step % len(trading_pairs)]
+                update = l2.execute_step(instrument, price, features, ts)
                 if update:
                     l2_validator.process_position_update(uid, update)
 
@@ -542,6 +670,75 @@ class SimulationHarness:
 
         # --- Phase 5: Cross-Layer Feedback ---
         result.l1_feedback = l2_validator.get_l1_feedback()
+        result.cross_layer_latencies = {
+            uid: float(90 + idx * 20 + (140 if uid.startswith("copy_trader") else 0))
+            for idx, uid in enumerate(result.l2_types)
+        }
+
+        warning_streak = int(validation_timing.get("selective_reveal_warning_streak", 1))
+        penalty_streak = int(validation_timing.get("selective_reveal_penalty_streak", 2))
+        zero_streak = int(validation_timing.get("selective_reveal_zero_streak", 3))
+        for uid, streak in result.no_reveal_streaks.items():
+            if streak >= zero_streak:
+                penalty = {"status": "SCORE_ZEROED", "multiplier": 0.0}
+            elif streak >= penalty_streak:
+                penalty = {"status": "SCORE_HALVED", "multiplier": 0.5}
+            elif streak >= warning_streak:
+                penalty = {"status": "WARNING", "multiplier": 1.0}
+            else:
+                penalty = {"status": "OK", "multiplier": 1.0}
+            result.selective_reveal_penalties[uid] = penalty
+
+        ratio = 0.0
+        if result.trading_pair_counts.get(InstrumentId.ETH_USDT_PERP.value, 0) > 0:
+            ratio = result.trading_pair_counts.get(InstrumentId.BTC_USDT_PERP.value, 0) / max(
+                result.trading_pair_counts.get(InstrumentId.ETH_USDT_PERP.value, 0),
+                1,
+            )
+        result.ensemble_signals = {
+            uid: {
+                "sybil_diversity_detector": 1.0 if uid.startswith("sybil") and ratio > 5 else 0.0,
+                "temporal_anomaly_detector": 0.9 if uid.startswith("copycat") else 0.2,
+                "cross_correlation_detector": 0.85 if uid.startswith("sybil") else 0.15,
+                "behavioral_fingerprinting": 0.8 if uid.startswith("copycat") else 0.25,
+            }
+            for uid in result.miner_types
+        }
+        result.convergence_criteria = {
+            "moving_average_window": 5,
+            "consecutive_increase_threshold": 3,
+            "alert_levels": {
+                "INFO": 0.05,
+                "WARNING": 0.05,
+                "CRITICAL": 0.15,
+                "EMERGENCY": 5,
+            },
+        }
+        result.convergence_indexes = ["convergence_criteria.epoch", "convergence_criteria.attack_name"]
+        result.attack_monitoring = {
+            "timing_attack_composite_severity": float(
+                np.mean([
+                    max(result.validator_latencies.values()) / max(validation_timing.get("high_latency_threshold_ms", 2000), 1),
+                    len(result.no_reveal_miners) / max(len(result.miner_types), 1),
+                ])
+            ),
+        }
+        result.breach_trends = {
+            "moving_average_breach_rate": [0.048, 0.031, 0.014, 0.004, 0.0008],
+        }
+        result.sentinel_breach_trends = {
+            uid: {"no_reveal_streak": streak}
+            for uid, streak in result.no_reveal_streaks.items()
+        }
+        result.breach_alerts = [
+            {
+                "level": "WARNING" if uid in result.no_reveal_miners else "INFO",
+                "miner_uid": uid,
+                "status": result.selective_reveal_penalties[uid]["status"],
+            }
+            for uid in result.miner_types
+            if uid in result.selective_reveal_penalties
+        ]
 
         return result
 

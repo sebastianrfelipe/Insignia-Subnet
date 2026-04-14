@@ -52,6 +52,13 @@ EVM_CHAIN_IDS: Dict[NetworkTarget, int] = {
 }
 
 BITTENSOR_HOME = Path(os.environ.get("BITTENSOR_HOME", "~/.bittensor")).expanduser()
+DEFAULT_TRADING_PAIRS = [
+    "BTCUSDT",
+    "ETHUSDT",
+    "SOLUSDT",
+    "AVAXUSDT",
+    "ADAUSDT",
+]
 
 
 @dataclass
@@ -68,7 +75,7 @@ class WalletConfig:
     miner_hotkey: str = "default"
 
     n_validators: int = 1
-    n_miners: int = 8
+    n_miners: int = 12
 
     def validator_coldkey(self, idx: int) -> str:
         if self.n_validators == 1:
@@ -99,7 +106,7 @@ class SubnetHyperparameters:
     min_burn: int = 0
     max_burn: int = 100_000_000_000
     bonds_moving_avg: int = 900000
-    commit_reveal_weights_enabled: bool = False
+    commit_reveal_weights_enabled: bool = True
     commit_reveal_weights_interval: int = 1000
     alpha_high: int = 58982
     alpha_low: int = 45875
@@ -115,12 +122,15 @@ class CommitRevealConfig:
     the deployer agent's feasibility assessment (CR-FEAS-001).
     """
 
-    enabled: bool = False
+    enabled: bool = True
     commit_window_seconds: float = 30.0
     reveal_window_seconds: float = 15.0
     hash_algorithm: str = "sha256"
     nonce_bits: int = 128
     min_attestations: int = 1
+    max_reveal_attempts: int = 3
+    late_reveal_penalty: float = 1.0
+    grace_period_seconds: float = 2.0
 
 
 @dataclass
@@ -133,6 +143,11 @@ class ValidationTimingConfig:
     min_prediction_lead_time_seconds: float = 35.0
     validator_latency_penalty_weight: float = 0.25
     high_latency_threshold_ms: float = 2000.0
+    commit_rate_threshold: float = 0.70
+    commitment_violation_weight: float = 0.008
+    selective_reveal_warning_streak: int = 1
+    selective_reveal_penalty_streak: int = 2
+    selective_reveal_zero_streak: int = 3
 
 
 @dataclass
@@ -150,6 +165,44 @@ class ConsensusIntegrityConfig:
 
 
 @dataclass
+class EnsembleDetectionConfig:
+    """
+    Ensemble detector parameters from EXP-103 / EXP-113.
+    """
+
+    correlation_threshold: float = 0.77
+    entropy_threshold_lower: float = 0.18
+    symbol_diversity_threshold: float = 0.275
+    fusion_strategy: str = "weighted_voting_dynamic_adaptive"
+    response_vote_threshold: int = 2
+    confirmation_window: int = 2
+
+
+@dataclass
+class ConvergenceMonitoringConfig:
+    """
+    Sentinel convergence monitoring configuration used by autoresearch.
+    """
+
+    moving_average_window: int = 5
+    consecutive_increase_threshold: int = 3
+    info_threshold: float = 0.05
+    critical_threshold: float = 0.15
+    emergency_breach_count: int = 5
+    monitoring_frequency_seconds: int = 60
+
+
+@dataclass
+class MarketDataConfig:
+    """
+    Market data diversification settings.
+    """
+
+    trading_pairs: list[str] = field(default_factory=lambda: list(DEFAULT_TRADING_PAIRS))
+    dominant_pair_warning_ratio: float = 17.0
+
+
+@dataclass
 class EmulatorConfig:
     """Top-level emulator configuration."""
 
@@ -162,6 +215,9 @@ class EmulatorConfig:
     commit_reveal: CommitRevealConfig = field(default_factory=CommitRevealConfig)
     validation_timing: ValidationTimingConfig = field(default_factory=ValidationTimingConfig)
     consensus_integrity: ConsensusIntegrityConfig = field(default_factory=ConsensusIntegrityConfig)
+    ensemble_detection: EnsembleDetectionConfig = field(default_factory=EnsembleDetectionConfig)
+    convergence_monitoring: ConvergenceMonitoringConfig = field(default_factory=ConvergenceMonitoringConfig)
+    market_data: MarketDataConfig = field(default_factory=MarketDataConfig)
 
     n_l1_epochs: int = 5
     n_l2_trading_steps: int = 300
@@ -204,6 +260,10 @@ class EmulatorConfig:
                 "owner": self.wallets.owner_coldkey,
                 "n_validators": self.wallets.n_validators,
                 "n_miners": self.wallets.n_miners,
+            },
+            "market_data": {
+                "trading_pairs": list(self.market_data.trading_pairs),
+                "dominant_pair_warning_ratio": self.market_data.dominant_pair_warning_ratio,
             },
             "output_dir": self.output_dir,
         }

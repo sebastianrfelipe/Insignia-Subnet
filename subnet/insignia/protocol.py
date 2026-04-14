@@ -41,6 +41,8 @@ class InstrumentId(str, Enum):
     BTC_USDT_PERP = "BTC-USDT-PERP"
     ETH_USDT_PERP = "ETH-USDT-PERP"
     SOL_USDT_PERP = "SOL-USDT-PERP"
+    AVAX_USDT_PERP = "AVAX-USDT-PERP"
+    ADA_USDT_PERP = "ADA-USDT-PERP"
 
 
 # ---------------------------------------------------------------------------

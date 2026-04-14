@@ -123,6 +123,232 @@ class AttackDetector:
     def __init__(self, config: dict | None = None):
         self.config = config or {}
 
+    def _validation_config(self) -> Dict[str, float]:
+        return self.config.get("validation_timing", {})
+
+    def _consensus_config(self) -> Dict[str, float]:
+        return self.config.get("consensus_integrity", {})
+
+    def _ensemble_vote_count(self, signals: Dict[str, float]) -> int:
+        return sum(1 for score in signals.values() if score >= 0.7)
+
+    def _compute_commitment_violation_scores(self, result: SimulationResult) -> Dict[str, Dict[str, float | bool]]:
+        cfg = self._validation_config()
+        commit_rate_threshold = float(cfg.get("commit_rate_threshold", 0.7))
+        violation_weight = float(cfg.get("commitment_violation_weight", 0.008))
+
+        scores: Dict[str, Dict[str, float | bool]] = {}
+        for uid in result.miner_types:
+            commit_rate = float(result.miner_commit_rates.get(uid, 0.0))
+            accuracy = result.miner_accuracy_by_commit_status.get(uid, {})
+            accuracy_when_committed = float(accuracy.get("accuracy_when_committed", 0.0))
+            accuracy_when_not_committed = float(accuracy.get("accuracy_when_not_committed", 0.0))
+            disparity = max(0.0, accuracy_when_not_committed - accuracy_when_committed)
+            flagged = (
+                accuracy_when_not_committed > accuracy_when_committed
+                and commit_rate < commit_rate_threshold
+            )
+            weighted_score = min(1.0, disparity / max(violation_weight, 1e-12)) if flagged else 0.0
+            scores[uid] = {
+                "commit_rate": commit_rate,
+                "accuracy_when_committed": accuracy_when_committed,
+                "accuracy_when_not_committed": accuracy_when_not_committed,
+                "accuracy_disparity": disparity,
+                "flagged": flagged,
+                "weighted_score": weighted_score,
+            }
+        return scores
+
+    def _check_selective_revelation(self, result: SimulationResult) -> AttackBreach:
+        cfg = self._validation_config()
+        warning_streak = int(cfg.get("selective_reveal_warning_streak", 1))
+        penalty_streak = int(cfg.get("selective_reveal_penalty_streak", 2))
+        zero_streak = int(cfg.get("selective_reveal_zero_streak", 3))
+
+        streaks = getattr(result, "no_reveal_streaks", {})
+        if not streaks:
+            return AttackBreach(
+                "selective_revelation",
+                False,
+                0.0,
+                "No selective revelation telemetry available",
+            )
+
+        warned = []
+        halved = []
+        zeroed = []
+        for uid, streak in streaks.items():
+            if streak >= zero_streak:
+                zeroed.append(uid)
+            elif streak >= penalty_streak:
+                halved.append(uid)
+            elif streak >= warning_streak:
+                warned.append(uid)
+
+        severity = min(
+            1.0,
+            (
+                len(warned) * 0.2
+                + len(halved) * 0.5
+                + len(zeroed) * 1.0
+            ) / max(len(streaks), 1),
+        )
+        breached = bool(halved or zeroed)
+        return AttackBreach(
+            "selective_revelation",
+            breached,
+            severity,
+            f"warned={len(warned)} halved={len(halved)} zeroed={len(zeroed)}",
+            {
+                "warning_streak": warning_streak,
+                "penalty_streak": penalty_streak,
+                "zero_streak": zero_streak,
+                "warned": warned,
+                "halved": halved,
+                "zeroed": zeroed,
+            },
+        )
+
+    def _check_statistical_anomaly(self, result: SimulationResult) -> AttackBreach:
+        scores = np.array(list(result.miner_scores.values()), dtype=float)
+        if len(scores) < 4:
+            return AttackBreach(
+                "statistical_anomaly",
+                False,
+                0.0,
+                "Not enough miner scores for anomaly detection",
+            )
+
+        mean = float(np.mean(scores))
+        std = float(np.std(scores))
+        q1 = float(np.percentile(scores, 25))
+        q3 = float(np.percentile(scores, 75))
+        iqr = q3 - q1
+        z_flags = []
+        iqr_flags = []
+        for uid, score in result.miner_scores.items():
+            z = abs(score - mean) / max(std, 1e-12)
+            if z > 2.5:
+                z_flags.append(uid)
+            if score > q3 + 1.5 * iqr or score < q1 - 1.5 * iqr:
+                iqr_flags.append(uid)
+
+        flagged = sorted(set(z_flags + iqr_flags))
+        severity = min(1.0, len(flagged) / max(len(scores), 1))
+        return AttackBreach(
+            "statistical_anomaly",
+            bool(flagged),
+            severity,
+            f"flagged={len(flagged)} zscore_outliers={len(z_flags)} iqr_outliers={len(iqr_flags)}",
+            {"flagged_miners": flagged},
+        )
+
+    def _check_behavioral_anomaly(self, result: SimulationResult) -> AttackBreach:
+        signals = getattr(result, "ensemble_signals", {})
+        if not signals:
+            return AttackBreach(
+                "behavioral_anomaly",
+                False,
+                0.0,
+                "No behavioral fingerprints available",
+            )
+
+        flagged = [
+            uid
+            for uid, miner_signals in signals.items()
+            if miner_signals.get("behavioral_fingerprinting", 0.0) >= 0.7
+        ]
+        severity = min(1.0, len(flagged) / max(len(signals), 1))
+        return AttackBreach(
+            "behavioral_anomaly",
+            bool(flagged),
+            severity,
+            f"behavioral anomalies on {len(flagged)} miners",
+            {"flagged_miners": flagged},
+        )
+
+    def _check_temporal_attack_pattern(self, result: SimulationResult) -> AttackBreach:
+        signals = getattr(result, "ensemble_signals", {})
+        if not signals:
+            return AttackBreach(
+                "temporal_attack_pattern",
+                False,
+                0.0,
+                "No temporal anomaly signals available",
+            )
+
+        flagged = [
+            uid
+            for uid, miner_signals in signals.items()
+            if miner_signals.get("temporal_anomaly_detector", 0.0) >= 0.7
+        ]
+        severity = min(1.0, len(flagged) / max(len(signals), 1))
+        return AttackBreach(
+            "temporal_attack_pattern",
+            bool(flagged),
+            severity,
+            f"temporal anomaly detector flagged {len(flagged)} miners",
+            {"flagged_miners": flagged},
+        )
+
+    def _check_sybil_collusion_graph(self, result: SimulationResult) -> AttackBreach:
+        signals = getattr(result, "ensemble_signals", {})
+        if not signals:
+            return AttackBreach(
+                "sybil_collusion_graph",
+                False,
+                0.0,
+                "No graph detector signals available",
+            )
+
+        cluster = [
+            uid
+            for uid, miner_signals in signals.items()
+            if miner_signals.get("cross_correlation_detector", 0.0) >= 0.7
+        ]
+        severity = min(1.0, len(cluster) / max(len(signals), 1))
+        return AttackBreach(
+            "sybil_collusion_graph",
+            len(cluster) >= 2,
+            severity,
+            f"suspicious cluster size={len(cluster)}",
+            {"cluster_members": cluster},
+        )
+
+    def _check_cross_layer_correlation(self, result: SimulationResult) -> AttackBreach:
+        signals = getattr(result, "ensemble_signals", {})
+        if not signals or not result.cross_layer_latencies:
+            return AttackBreach(
+                "cross_layer_correlation",
+                False,
+                0.0,
+                "No cross-layer correlation telemetry available",
+            )
+
+        average_vote = 0.0
+        vote_details = {}
+        for uid, miner_signals in signals.items():
+            vote_count = self._ensemble_vote_count(miner_signals)
+            normalized_vote = vote_count / max(len(miner_signals), 1)
+            vote_details[uid] = normalized_vote
+            average_vote = max(average_vote, normalized_vote)
+
+        latency_violation_rate = float(
+            np.mean(
+                np.array(list(result.cross_layer_latencies.values()), dtype=float)
+                > float(self.config.get("cross_layer_timing", {}).get("max_latency_ms", 200))
+            )
+        )
+        severity = min(1.0, 0.6 * average_vote + 0.4 * latency_violation_rate)
+        breached = severity >= 0.5
+        return AttackBreach(
+            "cross_layer_correlation",
+            breached,
+            severity,
+            f"max ensemble vote={average_vote:.2f} latency_violation_rate={latency_violation_rate:.2f}",
+            {"votes": vote_details, "latency_violation_rate": latency_violation_rate},
+        )
+
     def evaluate(self, result: SimulationResult) -> BreachReport:
         report = BreachReport()
         # Original 9 vectors
@@ -146,6 +372,12 @@ class AttackDetector:
         report.breaches.append(self._check_collusion_temporal_pattern(result))
         report.breaches.append(self._check_weight_manipulation(result))
         report.breaches.append(self._check_cross_layer_attack(result))
+        report.breaches.append(self._check_selective_revelation(result))
+        report.breaches.append(self._check_statistical_anomaly(result))
+        report.breaches.append(self._check_behavioral_anomaly(result))
+        report.breaches.append(self._check_temporal_attack_pattern(result))
+        report.breaches.append(self._check_sybil_collusion_graph(result))
+        report.breaches.append(self._check_cross_layer_correlation(result))
         return report
 
     def _check_overfitting(self, result: SimulationResult) -> AttackBreach:
@@ -458,14 +690,47 @@ class AttackDetector:
         corr = 0.0 if np.isnan(corr) else corr
 
         high_frac = float(np.mean(latencies > high_thresh))
-        severity = max(0.0, min(1.0, abs(corr) * high_frac))
-        breached = abs(corr) > 0.5 and high_frac > 0.3
+        commitment_scores = self._compute_commitment_violation_scores(result)
+        commitment_violation_score = max(
+            (
+                float(details["weighted_score"])
+                for details in commitment_scores.values()
+            ),
+            default=0.0,
+        )
+        accuracy_disparity = max(
+            (
+                float(details["accuracy_disparity"])
+                for details in commitment_scores.values()
+            ),
+            default=0.0,
+        )
+        latency_score = max(0.0, min(1.0, abs(corr) * high_frac))
+        severity = max(
+            0.0,
+            min(
+                1.0,
+                latency_score * 0.15
+                + accuracy_disparity * 0.12
+                + commitment_violation_score * float(
+                    self._validation_config().get("commitment_violation_weight", 0.008)
+                ),
+            ),
+        )
+        breached = severity >= 0.05
 
         return AttackBreach(
             "validator_latency_exploitation", breached, severity,
-            f"corr(score,latency)={corr:.3f}, high_latency_frac={high_frac:.2f}",
-            {"correlation": corr, "high_latency_fraction": high_frac,
-             "min_lead_time": min_lead},
+            f"corr(score,latency)={corr:.3f}, high_latency_frac={high_frac:.2f}, commitment_violation={commitment_violation_score:.3f}",
+            {
+                "correlation": corr,
+                "high_latency_fraction": high_frac,
+                "min_lead_time": min_lead,
+                "latency_score": latency_score,
+                "accuracy_disparity": accuracy_disparity,
+                "commitment_violation_score": commitment_violation_score,
+                "per_miner_commitment_scores": commitment_scores,
+            },
         )
 
     def _check_prediction_timing_manipulation(self, result: SimulationResult) -> AttackBreach:
@@ -489,13 +754,23 @@ class AttackDetector:
         violations = [uid for uid, gap in submission_gaps.items() if gap < min_lead]
         total = max(len(submission_gaps), 1)
         violation_rate = len(violations) / total
-        severity = max(0.0, min(1.0, violation_rate * 2))
-        breached = violation_rate > 0.2
+        reveal_gaps = []
+        for key, commit_ts in getattr(result, "commit_timestamps", {}).items():
+            reveal_ts = getattr(result, "reveal_timestamps", {}).get(key)
+            if reveal_ts is not None:
+                reveal_gaps.append(reveal_ts - commit_ts)
+        average_reveal_delay = float(np.mean(reveal_gaps)) if reveal_gaps else 0.0
+        severity = max(0.0, min(1.0, violation_rate * 1.5 + average_reveal_delay / 120.0))
+        breached = severity > 0.05
 
         return AttackBreach(
             "prediction_timing_manipulation", breached, severity,
             f"{len(violations)}/{total} miners below {min_lead}s lead time",
-            {"violations": violations, "min_lead_time": min_lead},
+            {
+                "violations": violations,
+                "min_lead_time": min_lead,
+                "average_reveal_delay": average_reveal_delay,
+            },
         )
 
     def _check_miner_validator_collusion(self, result: SimulationResult) -> AttackBreach:
@@ -516,6 +791,9 @@ class AttackDetector:
 
         max_z = 0.0
         flagged_pairs = []
+        confirmation_window = 2
+        vote_threshold = 2
+        ensemble_signals = getattr(result, "ensemble_signals", {})
         for miner_uid in result.miner_scores:
             v_scores = []
             for vid, scores_map in per_validator_scores.items():
@@ -532,15 +810,21 @@ class AttackDetector:
                 if z > max_z:
                     max_z = z
                 if z > 2.0:
-                    flagged_pairs.append((miner_uid, vid, float(z)))
+                    if self._ensemble_vote_count(ensemble_signals.get(miner_uid, {})) >= vote_threshold:
+                        flagged_pairs.append((miner_uid, vid, float(z)))
 
         severity = max(0.0, min(1.0, (max_z - 1.0) / 3.0))
-        breached = max_z > 2.0
+        breached = bool(flagged_pairs)
 
         return AttackBreach(
             "miner_validator_collusion", breached, severity,
             f"Max z-score={max_z:.2f}, flagged pairs={len(flagged_pairs)}",
-            {"max_z_score": max_z, "flagged_pairs": flagged_pairs},
+            {
+                "max_z_score": max_z,
+                "flagged_pairs": flagged_pairs,
+                "confirmation_window": confirmation_window,
+                "vote_threshold": vote_threshold,
+            },
         )
 
     def _check_weight_entropy_violation(self, result: SimulationResult) -> AttackBreach:
