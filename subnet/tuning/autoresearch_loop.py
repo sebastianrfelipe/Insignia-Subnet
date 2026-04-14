@@ -114,6 +114,7 @@ ATTACK_PARAM_MAP: Dict[str, List[str]] = {
 
 @dataclass
 class ExperimentResult:
+    commit: str
     config_hash: str
     breach_rate: float
     honest_score: float
@@ -130,8 +131,9 @@ class ExperimentResult:
 class ExperimentIdea:
     description: str
     param_modifications: Dict[str, float]
-    idea_type: str  # nudge, group, sweep, structural
+    idea_type: str  # parameter_boundary_expansion, scoring_function_modification, detection_heuristic_innovation, architecture_redesign, ensemble_methods, temporal_pattern_analysis
     target_attack: Optional[str] = None
+    radical_level: int = 1
 
 
 def scalarize_fitness(fitness: np.ndarray, breach_weight: float = 2.0) -> float:
@@ -186,12 +188,12 @@ class ExperimentIdeaGenerator:
                 target = self._rng.choice(breached)
                 return self._attack_focused_idea(current_vector, target)
 
-        if consecutive_discards >= 15:
-            return self._radical_idea(current_vector)
-        elif consecutive_discards >= 10:
-            return self._group_idea(current_vector)
-        elif consecutive_discards >= 5:
-            return self._larger_nudge(current_vector)
+        if consecutive_discards >= 9:
+            return self._radical_idea(current_vector, radical_level=4)
+        elif consecutive_discards >= 6:
+            return self._radical_idea(current_vector, radical_level=3)
+        elif consecutive_discards >= 3:
+            return self._radical_idea(current_vector, radical_level=2)
 
         if self._nudge_queue:
             return self._nudge_queue.pop(0)
@@ -221,7 +223,8 @@ class ExperimentIdeaGenerator:
         return ExperimentIdea(
             description=f"{param_name}: {current_val:.4f} -> {new_val:.4f} ({direction:+d}{magnitude*100:.0f}%)",
             param_modifications={param_name: float(new_val)},
-            idea_type="nudge",
+            idea_type="parameter_boundary_expansion",
+            radical_level=1,
         )
 
     def _larger_nudge(self, current: np.ndarray) -> ExperimentIdea:
@@ -244,13 +247,21 @@ class ExperimentIdeaGenerator:
         return ExperimentIdea(
             description=f"scale {group_name} group by {factor:.2f}x",
             param_modifications=mods,
-            idea_type="group",
+            idea_type="scoring_function_modification",
+            radical_level=2,
         )
 
-    def _radical_idea(self, current: np.ndarray) -> ExperimentIdea:
+    def _radical_idea(self, current: np.ndarray, radical_level: int = 3) -> ExperimentIdea:
         strategy = self._rng.choice(
             ["random_restart", "invert_weights", "extreme_param", "swap_priorities"]
         )
+        idea_type_by_level = {
+            1: "parameter_boundary_expansion",
+            2: "scoring_function_modification",
+            3: "detection_heuristic_innovation",
+            4: "architecture_redesign",
+        }
+        idea_type = idea_type_by_level.get(radical_level, "architecture_redesign")
 
         if strategy == "random_restart":
             new_vec = np.random.uniform(self._lower, self._upper)
@@ -259,7 +270,8 @@ class ExperimentIdeaGenerator:
             return ExperimentIdea(
                 description="RADICAL: full random restart",
                 param_modifications=mods,
-                idea_type="structural",
+                idea_type=idea_type,
+                radical_level=radical_level,
             )
 
         elif strategy == "invert_weights":
@@ -275,7 +287,8 @@ class ExperimentIdeaGenerator:
             return ExperimentIdea(
                 description="RADICAL: invert L1 weight priorities",
                 param_modifications=mods,
-                idea_type="structural",
+                idea_type=idea_type,
+                radical_level=radical_level,
             )
 
         elif strategy == "extreme_param":
@@ -285,7 +298,8 @@ class ExperimentIdeaGenerator:
             return ExperimentIdea(
                 description=f"RADICAL: {param_name} to extreme {extreme:.4f}",
                 param_modifications={param_name: float(extreme)},
-                idea_type="structural",
+                idea_type=idea_type,
+                radical_level=radical_level,
             )
 
         else:  # swap_priorities
@@ -301,7 +315,8 @@ class ExperimentIdeaGenerator:
             return ExperimentIdea(
                 description="RADICAL: shuffle L1 weight assignments",
                 param_modifications=mods,
-                idea_type="structural",
+                idea_type=idea_type,
+                radical_level=radical_level,
             )
 
     def _attack_focused_idea(
@@ -376,6 +391,7 @@ class AutoresearchLoop:
         self._tsv_path = self.output_dir / "experiments.tsv"
         self._state_path = self.output_dir / "researcher_state.json"
         self._best_config_path = self.output_dir / "best_config.yaml"
+        self._experiment_counter = 10
 
     def _init_tsv(self):
         if not self._tsv_path.exists():
@@ -383,6 +399,7 @@ class AutoresearchLoop:
                 writer = csv.writer(f, delimiter="\t")
                 writer.writerow(
                     [
+                        "commit",
                         "config_hash",
                         "breach_rate",
                         "honest_score",
@@ -398,6 +415,7 @@ class AutoresearchLoop:
             writer = csv.writer(f, delimiter="\t")
             writer.writerow(
                 [
+                    result.commit,
                     result.config_hash,
                     f"{result.breach_rate:.4f}",
                     f"{result.honest_score:.4f}",
@@ -421,6 +439,7 @@ class AutoresearchLoop:
                 self.total_keeps / max(self.total_experiments, 1)
             ),
             "history_length": len(self.history),
+            "last_experiment_id": self._experiment_counter,
         }
         with open(self._state_path, "w") as f:
             json.dump(state, f, indent=2)
@@ -547,8 +566,11 @@ class AutoresearchLoop:
             breach_details = {
                 b.attack_name: b.breached for b in breach_report.breaches
             }
+            experiment_id = f"EXP-{self._experiment_counter:03d}"
+            self._experiment_counter += 1
 
             result = ExperimentResult(
+                commit=experiment_id,
                 config_hash=config_hash(modified_vector),
                 breach_rate=breach_rate,
                 honest_score=honest_score,
@@ -564,7 +586,10 @@ class AutoresearchLoop:
         except Exception as e:
             elapsed = time.time() - t0
             logger.warning("Experiment crashed: %s", e)
+            experiment_id = f"EXP-{self._experiment_counter:03d}"
+            self._experiment_counter += 1
             result = ExperimentResult(
+                commit=experiment_id,
                 config_hash=config_hash(modified_vector),
                 breach_rate=1.0,
                 honest_score=0.0,
@@ -623,6 +648,7 @@ class AutoresearchLoop:
         self._save_best_config()
 
         baseline = ExperimentResult(
+            commit="BASELINE",
             config_hash=config_hash(self.current_vector),
             breach_rate=float(fitness[1]),
             honest_score=float(-fitness[0]),

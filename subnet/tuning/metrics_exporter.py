@@ -97,6 +97,12 @@ L2_PNL = REGISTRY.gauge("insignia_l2_realized_pnl", "L2 strategy realized P&L")
 L2_DRAWDOWN = REGISTRY.gauge("insignia_l2_max_drawdown", "L2 strategy max drawdown")
 PROMOTION_COUNT = REGISTRY.gauge("insignia_promotion_active_count", "Active models in L2 pool")
 FEEDBACK_ADJ = REGISTRY.gauge("insignia_feedback_adjustment", "Cross-layer feedback adjustment")
+COMMIT_TIMESTAMP = REGISTRY.gauge("insignia_commit_timestamp", "Commit timestamp by miner and epoch")
+REVEAL_TIMESTAMP = REGISTRY.gauge("insignia_reveal_timestamp", "Reveal timestamp by miner and epoch")
+NO_REVEAL_STREAK = REGISTRY.gauge("insignia_no_reveal_streak", "Consecutive no-reveal streak by miner")
+TIMING_ATTACK_COMPOSITE = REGISTRY.gauge("insignia_timing_attack_composite_severity", "Composite severity for timing-related attacks")
+TRADING_PAIR_ACTIVITY = REGISTRY.gauge("insignia_trading_pair_activity", "Observed activity count by trading pair")
+ENSEMBLE_SIGNAL = REGISTRY.gauge("insignia_ensemble_signal", "Ensemble detector signal by miner and detector")
 
 ATTACK_BREACH = REGISTRY.gauge("insignia_attack_breach", "Attack breach flag (0/1)")
 ATTACK_SEVERITY = REGISTRY.gauge("insignia_attack_severity", "Attack severity score 0-1")
@@ -126,6 +132,9 @@ def export_simulation_metrics(
         ltype = sim_result.l2_types.get(uid, "unknown")
         L2_SCORE.set(score, miner=uid, agent_type=ltype, generation=gen_label)
 
+    for pair, count in getattr(sim_result, "trading_pair_counts", {}).items():
+        TRADING_PAIR_ACTIVITY.set(float(count), pair=pair, generation=gen_label)
+
     if sim_result.promotion_summary:
         PROMOTION_COUNT.set(
             sim_result.promotion_summary.get("active_models", 0),
@@ -134,6 +143,38 @@ def export_simulation_metrics(
 
     for mid, adj in sim_result.l1_feedback.items():
         FEEDBACK_ADJ.set(adj, model=mid, generation=gen_label)
+
+    for key, ts in getattr(sim_result, "commit_timestamps", {}).items():
+        if ":" in key:
+            epoch, miner = key.split(":", 1)
+        else:
+            epoch, miner = "0", key
+        COMMIT_TIMESTAMP.set(float(ts), miner=miner, epoch=epoch, generation=gen_label)
+
+    for key, ts in getattr(sim_result, "reveal_timestamps", {}).items():
+        if ":" in key:
+            epoch, miner = key.split(":", 1)
+        else:
+            epoch, miner = "0", key
+        REVEAL_TIMESTAMP.set(float(ts), miner=miner, epoch=epoch, generation=gen_label)
+
+    for miner, streak in getattr(sim_result, "no_reveal_streaks", {}).items():
+        NO_REVEAL_STREAK.set(float(streak), miner=miner, generation=gen_label)
+
+    timing_attack = getattr(sim_result, "attack_monitoring", {}).get(
+        "timing_attack_composite_severity"
+    )
+    if timing_attack is not None:
+        TIMING_ATTACK_COMPOSITE.set(float(timing_attack), generation=gen_label)
+
+    for miner, detectors in getattr(sim_result, "ensemble_signals", {}).items():
+        for detector_name, score in detectors.items():
+            ENSEMBLE_SIGNAL.set(
+                float(score),
+                miner=miner,
+                detector=detector_name,
+                generation=gen_label,
+            )
 
     if breach_report:
         for b in breach_report.breaches:
