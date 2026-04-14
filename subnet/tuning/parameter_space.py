@@ -114,6 +114,11 @@ PARAMETER_DEFINITIONS: List[ParameterBounds] = [
     ParameterBounds("min_prediction_lead_time",            5,    60,   "validation_timing", "Min seconds between data publication and trade submission"),
     ParameterBounds("validator_latency_penalty_weight",    0.0,  0.5,  "validation_timing", "Weight applied to penalize high-latency validator scores"),
     ParameterBounds("high_latency_threshold_ms",           500,  5000, "validation_timing", "Latency (ms) above which validator scores are penalized"),
+    ParameterBounds("commit_rate_threshold",                0.50, 0.95, "validation_timing", "Minimum acceptable commit participation rate"),
+    ParameterBounds("commitment_violation_weight",          0.001, 0.05, "validation_timing", "Weight for strategic non-commitment detection"),
+    ParameterBounds("selective_reveal_warning_streak",      1,    3,    "validation_timing", "Consecutive no-reveals before warning only"),
+    ParameterBounds("selective_reveal_penalty_streak",      2,    5,    "validation_timing", "Consecutive no-reveals before halving score"),
+    ParameterBounds("selective_reveal_zero_streak",         3,    6,    "validation_timing", "Consecutive no-reveals before zeroing score"),
 
     # Consensus Integrity (defend against miner-validator collusion)
     ParameterBounds("weight_entropy_minimum",              0.5,  2.0,  "consensus_integrity", "Min entropy of validator weight distribution"),
@@ -249,6 +254,11 @@ def decode(x: np.ndarray) -> Dict[str, Any]:
             "min_prediction_lead_time": p["min_prediction_lead_time"],
             "validator_latency_penalty_weight": p["validator_latency_penalty_weight"],
             "high_latency_threshold_ms": p["high_latency_threshold_ms"],
+            "commit_rate_threshold": p["commit_rate_threshold"],
+            "commitment_violation_weight": p["commitment_violation_weight"],
+            "selective_reveal_warning_streak": int(round(p["selective_reveal_warning_streak"])),
+            "selective_reveal_penalty_streak": int(round(p["selective_reveal_penalty_streak"])),
+            "selective_reveal_zero_streak": int(round(p["selective_reveal_zero_streak"])),
         },
         "consensus_integrity": {
             "weight_entropy_minimum": p["weight_entropy_minimum"],
@@ -272,9 +282,9 @@ def encode_defaults() -> np.ndarray:
         "l1_penalized_f1": 0.22, "l1_penalized_sharpe": 0.18, "l1_max_drawdown": 0.14,
         "l1_variance_score": 0.16, "l1_overfitting_penalty": 0.14, "l1_feature_efficiency": 0.06,
         "l1_latency": 0.10,
-        "l2_realized_pnl": 0.17, "l2_omega": 0.13, "l2_max_drawdown": 0.13,
-        "l2_win_rate": 0.08, "l2_consistency": 0.13, "l2_model_attribution": 0.08,
-        "l2_execution_quality": 0.13,
+        "l2_realized_pnl": 0.21, "l2_omega": 0.15, "l2_max_drawdown": 0.12,
+        "l2_win_rate": 0.07, "l2_consistency": 0.17, "l2_model_attribution": 0.08,
+        "l2_execution_quality": 0.05,
         "l2_annualized_volatility": 0.05, "l2_sharpe_ratio": 0.05, "l2_sortino_ratio": 0.05,
         "overfit_gap_threshold": 0.15, "overfit_decay_rate": 5.0,
         "promotion_top_n": 10, "promotion_min_consecutive_epochs": 2,
@@ -296,6 +306,11 @@ def encode_defaults() -> np.ndarray:
         "min_prediction_lead_time": 35,
         "validator_latency_penalty_weight": 0.25,
         "high_latency_threshold_ms": 2000,
+        "commit_rate_threshold": 0.70,
+        "commitment_violation_weight": 0.008,
+        "selective_reveal_warning_streak": 1,
+        "selective_reveal_penalty_streak": 2,
+        "selective_reveal_zero_streak": 3,
         # Consensus integrity (V3-PF-007 / autoresearch optimal)
         "weight_entropy_minimum": 1.3,
         "cross_validator_score_variance_max": 0.22,
@@ -343,6 +358,11 @@ def summarize_config(config: Dict[str, Any]) -> str:
     lines.append(f"  min_prediction_lead_time: {p['min_prediction_lead_time']:.1f}s")
     lines.append(f"  validator_latency_penalty_weight: {p['validator_latency_penalty_weight']:.4f}")
     lines.append(f"  high_latency_threshold_ms: {p['high_latency_threshold_ms']:.0f}")
+    lines.append(f"  commit_rate_threshold: {p['commit_rate_threshold']:.2f}")
+    lines.append(f"  commitment_violation_weight: {p['commitment_violation_weight']:.4f}")
+    lines.append(f"  selective_reveal_warning_streak: {int(p['selective_reveal_warning_streak'])}")
+    lines.append(f"  selective_reveal_penalty_streak: {int(p['selective_reveal_penalty_streak'])}")
+    lines.append(f"  selective_reveal_zero_streak: {int(p['selective_reveal_zero_streak'])}")
 
     lines.append("=== Consensus Integrity ===")
     lines.append(f"  weight_entropy_minimum: {p['weight_entropy_minimum']:.4f}")
