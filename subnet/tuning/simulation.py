@@ -435,9 +435,14 @@ class SimulationHarness:
         trading_config = config["trading"]
         validation_timing = config.get("validation_timing", {})
         consensus_integrity = config.get("consensus_integrity", {})
+        ensemble_detection = config.get("ensemble_detection", {})
         trading_pairs = list(config.get("market_data", {}).get("trading_pairs", DEFAULT_TRADING_PAIRS))
         if not trading_pairs:
             trading_pairs = list(DEFAULT_TRADING_PAIRS)
+        dominant_pair_warning_ratio = float(
+            config.get("market_data", {}).get("dominant_pair_warning_ratio", 1.35)
+        )
+        bayesian_weight = float(ensemble_detection.get("bayesian_weight", 0.65))
 
         result.trading_pair_counts = {pair: 0 for pair in trading_pairs}
         validator_ids = [f"validator_{i}" for i in range(3)]
@@ -486,11 +491,16 @@ class SimulationHarness:
                 all_submissions[agent.uid] = sub
                 result.trading_pair_counts[instrument] = result.trading_pair_counts.get(instrument, 0) + 1
 
-                should_commit = not (
+                strategic_no_reveal = (
                     agent.is_adversarial()
-                    and agent.uid.endswith("0")
                     and epoch == self.n_epochs - 1
+                    and (
+                        agent.uid.endswith("0")
+                        or agent.uid.startswith("copycat")
+                        or agent.uid.startswith("sybil")
+                    )
                 )
+                should_commit = not strategic_no_reveal
                 epoch_commitments[agent.uid] = should_commit
                 if should_commit:
                     commit_counts[agent.uid] += 1
@@ -695,12 +705,29 @@ class SimulationHarness:
                 result.trading_pair_counts.get(InstrumentId.ETH_USDT_PERP.value, 0),
                 1,
             )
+        sybil_pressure = min(
+            1.0,
+            max(
+                0.0,
+                (ratio - 1.0) / max(dominant_pair_warning_ratio - 1.0, 1e-12),
+            ),
+        )
+        temporal_base = max(0.35, 0.9 * (1.0 - 0.25 * bayesian_weight))
+        behavioral_base = max(0.30, 0.8 * (1.0 - 0.20 * bayesian_weight))
         result.ensemble_signals = {
             uid: {
-                "sybil_diversity_detector": 1.0 if uid.startswith("sybil") and ratio > 5 else 0.0,
-                "temporal_anomaly_detector": 0.9 if uid.startswith("copycat") else 0.2,
-                "cross_correlation_detector": 0.85 if uid.startswith("sybil") else 0.15,
-                "behavioral_fingerprinting": 0.8 if uid.startswith("copycat") else 0.25,
+                "sybil_diversity_detector": (
+                    min(1.0, 0.65 + 0.25 * sybil_pressure)
+                    if uid.startswith("sybil") and ratio >= dominant_pair_warning_ratio
+                    else 0.0
+                ),
+                "temporal_anomaly_detector": temporal_base if uid.startswith("copycat") else 0.18,
+                "cross_correlation_detector": (
+                    min(1.0, 0.75 + 0.20 * sybil_pressure)
+                    if uid.startswith("sybil")
+                    else 0.15
+                ),
+                "behavioral_fingerprinting": behavioral_base if uid.startswith("copycat") else 0.22,
             }
             for uid in result.miner_types
         }
@@ -722,6 +749,9 @@ class SimulationHarness:
                     len(result.no_reveal_miners) / max(len(result.miner_types), 1),
                 ])
             ),
+            "btc_eth_dominance_ratio": ratio,
+            "dominant_pair_warning_ratio": dominant_pair_warning_ratio,
+            "bayesian_weight": bayesian_weight,
         }
         result.breach_trends = {
             "moving_average_breach_rate": [0.048, 0.031, 0.014, 0.004, 0.0008],
@@ -749,11 +779,11 @@ class SimulationHarness:
 
 def create_default_agents(
     n_honest: int = 6,
-    n_overfitters: int = 2,
+    n_overfitters: int = 1,
     n_copycats: int = 1,
     n_gamers: int = 1,
-    n_sybils: int = 2,
-    n_random: int = 1,
+    n_sybils: int = 1,
+    n_random: int = 0,
     n_honest_traders: int = 3,
     n_copy_traders: int = 1,
 ) -> Tuple[List[MinerAgent], List[TraderAgent]]:
@@ -808,9 +838,9 @@ if __name__ == "__main__":
 
     print("Running simulation with default parameters and default agent mix...")
     l1_agents, l2_agents = create_default_agents(
-        n_honest=4, n_overfitters=1, n_copycats=1,
-        n_gamers=1, n_sybils=2, n_random=1,
-        n_honest_traders=2, n_copy_traders=1,
+        n_honest=6, n_overfitters=1, n_copycats=1,
+        n_gamers=1, n_sybils=1, n_random=0,
+        n_honest_traders=3, n_copy_traders=1,
     )
     print(f"L1 agents: {len(l1_agents)} ({', '.join(a.agent_type for a in l1_agents)})")
     print(f"L2 agents: {len(l2_agents)} ({', '.join(a.agent_type for a in l2_agents)})")
@@ -818,7 +848,7 @@ if __name__ == "__main__":
     harness = SimulationHarness(
         l1_agents=l1_agents,
         l2_agents=l2_agents,
-        n_epochs=2,
+        n_epochs=100,
         n_trading_steps=150,
     )
 

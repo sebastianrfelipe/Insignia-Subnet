@@ -44,20 +44,20 @@ Top-performing L1 miners earn alpha token emissions via Yuma consensus. Weights 
 
 | Metric | Weight | Purpose |
 |--------|--------|---------|
-| Realized P&L | 17% | Absolute returns from actual trading outcomes |
-| Omega Ratio | 13% | Full-distribution risk measure (captures tail behavior) |
-| Max Drawdown | 13% | Hard ceiling — breach eliminates the strategy entirely |
-| Win Rate | 8% | Signal precision — penalizes low-conviction noise trading |
-| Consistency | 13% | Rolling 7-day sub-window analysis — penalizes spike-then-collapse |
+| Realized P&L | 21% | Absolute returns from actual trading outcomes |
+| Omega Ratio | 15% | Full-distribution risk measure (captures tail behavior) |
+| Max Drawdown | 12% | Hard ceiling — breach eliminates the strategy entirely |
+| Win Rate | 7% | Signal precision — penalizes low-conviction noise trading |
+| Consistency | 17% | Rolling 7-day sub-window analysis — penalizes spike-then-collapse |
 | Model Attribution | 8% | Credit to miners using models with strong L2 track records |
-| Execution Quality | 13% | Latency, reliability, and slippage — infrastructure health |
+| Execution Quality | 5% | Latency, reliability, and slippage — infrastructure health |
 | Annualized Volatility | 5% | Cumulative realized volatility — lower = better score |
 | Sharpe Ratio | 5% | Risk-adjusted return per unit of total volatility |
 | Sortino Ratio | 5% | Risk-adjusted return per unit of downside volatility |
 
 ### Metric Definitions
 
-#### 1. Realized P&L (20%)
+#### 1. Realized P&L (21%)
 
 Measures the strategy's raw profitability relative to a baseline (typically buy-and-hold or zero). This is the most direct measure of whether a strategy generates economic value.
 
@@ -85,7 +85,7 @@ Omega = sum(max(r_i - threshold, 0)) / sum(max(threshold - r_i, 0))
 
 **Normalization**: Divided by 3.0, so Omega >= 3.0 maps to a perfect normalized score of 1.0. This threshold reflects that an Omega of 3+ is exceptional for crypto trading strategies.
 
-#### 3. Max Drawdown (15%)
+#### 3. Max Drawdown (12%)
 
 The peak-to-trough loss of the strategy's equity curve. This metric has a unique dual role:
 
@@ -99,7 +99,7 @@ normalized = 1.0 - drawdown
 
 **Normalization**: Inverted so that lower drawdown = higher score. A 0% drawdown yields 1.0; a 100% drawdown yields 0.0.
 
-#### 4. Win Rate (10%)
+#### 4. Win Rate (7%)
 
 The fraction of trades that were profitable. A straightforward measure of signal precision.
 
@@ -112,7 +112,7 @@ win_rate = count(trade_pnl > 0) / total_trades
 
 **Normalization**: Already in [0, 1] from the scoring function.
 
-#### 5. Consistency (15%)
+#### 5. Consistency (17%)
 
 Rolling sub-window analysis that penalizes "spike-then-collapse" strategies. This is the strongest predictor of a strategy's viability in live deployment.
 
@@ -148,7 +148,7 @@ This metric creates incentive alignment between L1 and L2 miners: L2 miners bene
 
 **Normalization**: Already in [0, 1] from the `ModelAttributionEngine`.
 
-#### 7. Execution Quality (15%)
+#### 7. Execution Quality (5%)
 
 Evaluates the strategy's infrastructure health — how cleanly and efficiently it interacts with the exchange. A strategy with strong theoretical returns but poor execution (high latency, frequent rejects, excessive slippage) will degrade under real market conditions, so execution quality gates deployment readiness.
 
@@ -258,13 +258,13 @@ sortino = (mean(daily_excess_returns) / downside_dev) * sqrt(365)
 The L2 composite score is a weighted sum of all ten normalized metrics:
 
 ```
-composite = 0.17 * realized_pnl
-          + 0.13 * omega
-          + 0.13 * max_drawdown
-          + 0.08 * win_rate
-          + 0.13 * consistency
+composite = 0.21 * realized_pnl
+          + 0.15 * omega
+          + 0.12 * max_drawdown
+          + 0.07 * win_rate
+          + 0.17 * consistency
           + 0.08 * model_attribution
-          + 0.13 * execution_quality
+          + 0.05 * execution_quality
           + 0.05 * annualized_volatility
           + 0.05 * sharpe_ratio
           + 0.05 * sortino_ratio
@@ -472,7 +472,7 @@ projected_severity = base_severity × (1 - effectiveness) + residual
 | Attack surface eliminated | 0.063 |
 | Residual attack surface | 0.02 |
 
-**Sensitivity:** Commit-reveal effectiveness must exceed 0.667 to meet the target. The baseline assumption of 0.70 provides only 0.003 of headroom. This should be validated in simulation before production deployment.
+**Sensitivity:** Commit-reveal effectiveness must exceed 0.667 to meet the target. The latest orchestration run observed `0.723`, so the defense is currently above the floor, but only with limited operational margin in a harsher 14-agent / 5-pair adversarial environment. This should remain a recurring simulation gate before production deployment.
 
 **Bonus:** Vector 11 (Prediction Timing Manipulation) drops from 0.06 to projected 0.025.
 

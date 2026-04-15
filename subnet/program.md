@@ -7,21 +7,26 @@ This document is the MCP swarm prompt for the Insignia subnet repository.
 ## 1. Current system state
 
 - Current phase: **Phase 4 - Attack Surveillance**
-- Transition status: **Phase 5 transition viable**
-- Latest reported generation: **58**
-- Latest checkpoint metrics:
-  - breach_rate: `0.0008`
-  - honest_score: `0.935`
-  - score_separation: `0.75`
-  - hypervolume: `0.875`
-  - Pareto front size: `49`
-- Best reported experiment: **EXP-116**
-  - breach_rate: `0.000049`
-  - honest_score: `0.9705`
-- Commit-reveal validation status: **validated**
-  - effectiveness: `0.72`
-  - validator latency severity: `0.043` headline / `0.033-0.043` observed band
-  - prediction timing severity: `0.016-0.025`
+- Transition status: **Phase 5 transition viable, but target gap remains open**
+- Latest simulation benchmark from the orchestration report:
+  - epochs: `100`
+  - population: `14 agents` (`6 honest + 4 adversarial` in L1, `3 honest + 1 adversarial` in L2)
+  - trading pairs: `BTCUSDT`, `ETHUSDT`, `SOLUSDT`, `AVAXUSDT`, `ADAUSDT`
+  - breach_rate: `0.124`
+  - honest_score: `0.847`
+  - commit_reveal_effectiveness: `0.723`
+- Interpretation:
+  - the simulation layer is materially harsher than the researcher loop and should be treated as the harder operating environment
+  - commit-reveal remains above the acceptance floor of `0.667`
+- Best reported experiment series:
+  - baseline checkpoint: **EXP-116** — breach_rate `0.000049`, honest_score `0.9705`, separation `0.903`, variance `0.0030`
+  - Phase 5 seed checkpoint: **EXP-118** — breach_rate `0.000048`, honest_score `0.9720`, separation `0.907`, variance `0.0029`
+  - current best overall: **EXP-140** — breach_rate `0.000025`, honest_score `0.9748`, separation `0.929`, variance `0.0016`
+  - runner-up: **EXP-141** — breach_rate `0.000028`, honest_score `0.9750`, separation `0.922`, variance `0.0017`
+- Optimization status:
+  - NSGA-II operating spec: `20 generations`, `30 population`, `4 objectives`, `SBX prob=0.9 eta=15`, `PM eta=20`
+  - seed lineage for active tuning: `EXP-116`, `EXP-118`
+  - target breach_rate remains `5e-6`, leaving roughly a **5x gap** from the best researcher result
 - Persistent warning: **Sybil pressure from BTCUSDT:ETHUSDT imbalance**
 
 ### Important compatibility note
@@ -136,6 +141,7 @@ Default operational mix in the repository:
 - 4 adversarial L1 aggregate pressure
 - 3 honest L2
 - 1 adversarial L2
+- total active benchmark population: 14 agents
 
 The testnet wallet layout now assumes:
 - 1 owner wallet
@@ -175,14 +181,32 @@ The codebase preserves a 10-metric L2 scorer. Current compatible defaults are:
 
 ### Validation timing defaults
 
-- `min_prediction_lead_time = 35`
-- `validator_latency_penalty_weight = 0.25`
-- `high_latency_threshold_ms = 2000`
-- `commit_rate_threshold = 0.70`
-- `commitment_violation_weight = 0.008`
+- `min_prediction_lead_time = 40`
+- `validator_latency_penalty_weight = 0.28`
+- `high_latency_threshold_ms = 1800`
+- `commit_rate_threshold = 0.75`
+- `commitment_violation_weight = 0.012`
 - `selective_reveal_warning_streak = 1`
 - `selective_reveal_penalty_streak = 2`
 - `selective_reveal_zero_streak = 3`
+
+### Consensus integrity defaults
+
+- `weight_entropy_minimum = 1.45`
+- `cross_validator_score_variance_max = 0.18`
+- `validator_rotation_max_consecutive_epochs = 4`
+- `validator_agreement_threshold = 0.16`
+- `collusion_detection_lookback_epochs = 12`
+
+### Economic mechanism defaults
+
+- `identity_bond_weight = 0.22`
+- `identity_bond_threshold = 0.72`
+- `stake_weight_consensus = 0.38`
+- `stake_consensus_min = 0.35`
+- `bayesian_ensemble_weight = 0.14`
+- `bayesian_confidence_floor = 0.62`
+- these knobs encode the strongest report-backed directions from `EXP-140`, `EXP-141`, `EXP-134`, and `EXP-133`
 
 ### Ensemble detection defaults
 
@@ -195,11 +219,11 @@ The codebase preserves a 10-metric L2 scorer. Current compatible defaults are:
 ### NSGA-II defaults
 
 - population: `30`
-- generations: `50`
+- generations: `20`
 - objectives: `4`
 - SBX crossover: `prob=0.9`, `eta=15`
 - polynomial mutation: `eta=20`
-- seed lineage: `PF-02`, `V3-PF-007`, `EXP-029`
+- seed lineage: `EXP-116`, `EXP-118`
 
 ---
 
@@ -239,8 +263,14 @@ The codebase preserves a 10-metric L2 scorer. Current compatible defaults are:
 ### Highest-priority persistent risk
 
 The main unresolved structural warning remains Sybil pressure caused by market
-concentration. Swarm agents should treat pair diversification as a permanent
-defense objective, not a one-off patch.
+concentration. The orchestration report ranked:
+
+- `sybil_collusion_graph = 0.63` (**high**, primary threat)
+- `temporal_attack_pattern = 0.51` (**high**)
+- `selective_revelation = 0.45`, `wash_trading = 0.42`, `cross_layer_correlation = 0.39`, `pump_dump = 0.38`, `mev_extraction = 0.35`, and `timing_attack = 0.33` as the main moderate band
+
+Swarm agents should treat pair diversification and identity-bonding defenses as
+permanent objectives, not one-off patches.
 
 ---
 
@@ -363,6 +393,9 @@ Keep when:
 - breach rate decreases, or
 - breach rate is stable and honest score improves
 
+Operational gate:
+- researcher acceptance should still be checked against **both** primary and secondary metrics (`breach_rate` and `honest_score`) before promoting a result as an operating reference
+
 Discard when:
 - breach rate increases materially, or
 - scalarized fitness regresses
@@ -372,6 +405,7 @@ Discard when:
 The researcher writes TSV rows with:
 
 - `commit`
+- `config_hash`
 - `breach_rate`
 - `honest_score`
 - `status`
@@ -386,8 +420,12 @@ The researcher writes TSV rows with:
 - `EXP-050` - baseline stabilization
 - `EXP-103` - ensemble breakthrough
 - `EXP-113` - weighted voting adaptive configuration
-- `EXP-116` - current best overall
+- `EXP-116` - baseline for the current orchestration cycle
 - `EXP-118` - Phase 5 transition checkpoint
+- `EXP-133` - commit-reveal scheme improvement
+- `EXP-134` - stake-based consensus improvement
+- `EXP-140` - decentralized identity verification with bonding, current best overall
+- `EXP-141` - Bayesian model averaging, strongest ensemble runner-up
 
 ---
 
@@ -443,8 +481,10 @@ python3 -m unittest discover -s tests -p "test_*.py"
 
 1. validate commit-reveal effectiveness above the `0.667` floor under repeated simulation
 2. continue reducing the persistent Sybil warning tied to pair imbalance
-3. use `EXP-116` and `EXP-118` as the main operating references for next-cycle tuning
-4. keep `program.md` synchronized with actual repo behavior
+3. use `EXP-116` and `EXP-118` as the optimizer seed lineage, while treating `EXP-140` and `EXP-141` as the main design references
+4. close the remaining `~5x` breach-rate gap from `2.5e-5` to the `5e-6` target
+5. prioritize economic mechanism innovations: identity bonding, stake-aware consensus, and commit-reveal
+6. keep `program.md` synchronized with actual repo behavior
 
 ---
 

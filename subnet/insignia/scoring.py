@@ -266,13 +266,13 @@ class ReferenceOverfittingDetector(OverfittingDetector):
 # predictions. The seven metrics below capture complementary dimensions
 # of strategy quality:
 #
-#   1. Realized P&L (20%)        — raw profitability vs. baseline
-#   2. Omega Ratio (15%)         — full-distribution risk (tail behavior)
-#   3. Max Drawdown (15%)        — peak-to-trough loss; hard elimination threshold
-#   4. Win Rate (10%)            — signal precision
-#   5. Consistency (15%)         — rolling sub-window steadiness
-#   6. Model Attribution (10%)   — credit for using strong L1 models
-#   7. Execution Quality (15%)   — latency, reliability, and slippage
+#   1. Realized P&L (18%)        — raw profitability vs. baseline
+#   2. Omega Ratio (12%)         — full-distribution risk (tail behavior)
+#   3. Max Drawdown (12%)        — peak-to-trough loss; hard elimination threshold
+#   4. Win Rate (5%)             — signal precision
+#   5. Consistency (18%)         — rolling sub-window steadiness
+#   6. Model Attribution (11%)   — credit for using strong L1 models
+#   7. Execution Quality (9%)    — latency, reliability, and slippage
 #
 # Max Drawdown reuses the L1 `max_drawdown_score` function applied to the
 # L2 equity curve. In L2 scoring it additionally serves as a hard ceiling:
@@ -319,7 +319,7 @@ def realized_pnl_score(pnl: float, baseline: float = 0.0) -> float:
         Float in [0, 1] where 0 = at or below baseline, 1 = strong
         outperformance.
 
-    Weight: 20% of L2 composite score (highest single weight).
+    Weight: 18% of L2 composite score (highest single weight).
     """
     if pnl <= baseline:
         return 0.0
@@ -358,7 +358,7 @@ def omega_ratio(returns: np.ndarray, threshold: float = 0.0) -> float:
         During normalization, this is scaled to [0, 1] by dividing by 3.0
         (so Omega >= 3.0 maps to a perfect normalized score).
 
-    Weight: 15% of L2 composite score.
+    Weight: 12% of L2 composite score.
     """
     gains = returns[returns > threshold] - threshold
     losses = threshold - returns[returns <= threshold]
@@ -379,7 +379,7 @@ def win_rate(trades: List[float]) -> float:
     meaningful directional skill.
 
     In the composite score, win rate carries a deliberately lower weight
-    (10%) because profitable strategies can legitimately have moderate
+    (5%) because profitable strategies can legitimately have moderate
     win rates (e.g., trend-following with ~40% wins but large risk/reward).
     Its primary role is to filter out strategies that generate excessive
     churn without directional edge.
@@ -395,7 +395,7 @@ def win_rate(trades: List[float]) -> float:
         Float in [0, 1] where 0 = no winning trades, 1 = all trades
         profitable.
 
-    Weight: 10% of L2 composite score.
+    Weight: 5% of L2 composite score.
     """
     if not trades:
         return 0.0
@@ -410,8 +410,8 @@ def consistency_score(
     Consistency Score — rolling sub-window analysis penalizing spike-then-collapse.
 
     Measures whether a strategy performs *steadily* over time rather than
-    generating returns through a single lucky streak. This is the second-
-    highest weighted L2 metric (20%) because consistency is the strongest
+    generating returns through a single lucky streak. This is one of the
+    highest weighted L2 metrics (18%) because consistency is the strongest
     predictor of a strategy's viability in live deployment.
 
     The metric divides the return history into non-overlapping weekly
@@ -440,7 +440,7 @@ def consistency_score(
         Float in [0, 1] where 0 = inconsistent/insufficient data,
         1 = perfectly consistent positive returns across all windows.
 
-    Weight: 15% of L2 composite score.
+    Weight: 18% of L2 composite score.
     """
     if len(daily_returns) < window_days * 2:
         return 0.0
@@ -667,7 +667,7 @@ def execution_quality_score(metrics: ExecutionMetrics) -> float:
         Float in [0, 1] where 0 = poor execution infrastructure,
         1 = clean, fast, reliable execution.
 
-    Weight: 15% of L2 composite score.
+    Weight: 9% of L2 composite score.
     """
     e2e = metrics.end_to_end_intent_ms
     target_latency_ms = 200.0
@@ -721,13 +721,15 @@ class WeightConfig:
     l1_latency: float = 0.10
 
     # Layer 2 weights (must sum to 1.0)
-    l2_realized_pnl: float = 0.17
-    l2_omega: float = 0.13
-    l2_max_drawdown: float = 0.13
-    l2_win_rate: float = 0.08
-    l2_consistency: float = 0.13
-    l2_model_attribution: float = 0.08
-    l2_execution_quality: float = 0.13
+    # 2026-04-15 report update: shift emphasis toward consistency,
+    # attribution, and execution safety after EXP-140/141.
+    l2_realized_pnl: float = 0.18
+    l2_omega: float = 0.12
+    l2_max_drawdown: float = 0.12
+    l2_win_rate: float = 0.05
+    l2_consistency: float = 0.18
+    l2_model_attribution: float = 0.11
+    l2_execution_quality: float = 0.09
     l2_annualized_volatility: float = 0.05
     l2_sharpe_ratio: float = 0.05
     l2_sortino_ratio: float = 0.05
@@ -817,13 +819,13 @@ class CompositeScorer:
 
         The composite score is a weighted sum of ten normalized metrics:
 
-            composite = 0.17 * realized_pnl
-                      + 0.13 * omega
-                      + 0.13 * max_drawdown
-                      + 0.08 * win_rate
-                      + 0.13 * consistency
-                      + 0.08 * model_attribution
-                      + 0.13 * execution_quality
+            composite = 0.18 * realized_pnl
+                      + 0.12 * omega
+                      + 0.12 * max_drawdown
+                      + 0.05 * win_rate
+                      + 0.18 * consistency
+                      + 0.11 * model_attribution
+                      + 0.09 * execution_quality
                       + 0.05 * annualized_volatility
                       + 0.05 * sharpe_ratio
                       + 0.05 * sortino_ratio

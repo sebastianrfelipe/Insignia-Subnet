@@ -65,7 +65,7 @@ Together these form a **94-parameter optimization surface**. Tuning by hand is i
 
 **Goal:** Enumerate every tunable parameter, define its bounds, and categorize by layer.
 
-#### Insignia Application-Level Parameters (41 total, tuned by emulator)
+#### Insignia Application-Level Parameters (60 total, tuned by emulator)
 
 | Category | Parameters | Count |
 |----------|-----------|-------|
@@ -81,10 +81,11 @@ Together these form a **94-parameter optimization surface**. Tuning by hand is i
 | Rate Limiting | rate_limit_epoch_seconds | 1 |
 | Feedback Thresholds | feedback_min_l2_epochs, feedback_bonus_threshold, feedback_penalty_threshold | 3 |
 | Commit-Reveal Timing | commit_window_seconds, reveal_window_seconds, late_reveal_penalty | 3 |
-| Validation Timing | min_prediction_lead_time, validator_latency_penalty_weight, high_latency_threshold_ms | 3 |
+| Validation Timing | min_prediction_lead_time, validator_latency_penalty_weight, high_latency_threshold_ms, commit_rate_threshold, commitment_violation_weight, selective_reveal_warning_streak, selective_reveal_penalty_streak, selective_reveal_zero_streak | 8 |
 | Consensus Integrity | weight_entropy_minimum, cross_validator_score_variance_max, validator_rotation_max_consecutive_epochs, validator_agreement_threshold, collusion_detection_lookback_epochs | 5 |
+| Economic Mechanisms | identity_bond_threshold, stake_weight_consensus, bayesian_model_weight | 3 |
 | Cross-Layer Defense | cross_layer_penalty_strength, cross_layer_latency | 2 |
-| **Subtotal** | | **55** |
+| **Subtotal** | | **60** |
 
 #### Bittensor On-Chain Subnet Hyperparameters (39 total, set via btcli)
 
@@ -106,7 +107,7 @@ Together these form a **94-parameter optimization surface**. Tuning by hand is i
 
 | Level | Parameters | Tuned By |
 |-------|-----------|----------|
-| Insignia application-level | 55 | Emulator (NSGA-II evolutionary optimization) |
+| Insignia application-level | 60 | Emulator (NSGA-II evolutionary optimization) |
 | Bittensor on-chain | 33+ | btcli / subnet owner configuration |
 | **Total** | **88+** | |
 
@@ -233,11 +234,27 @@ Pre-configured dashboard with panels for:
 
 #### Algorithm: NSGA-II (pymoo)
 
-- **Population size:** 50
-- **Generations:** 100 (configurable)
+- **Population size:** 30
+- **Generations:** 20 (configurable)
 - **Crossover:** Simulated Binary Crossover (SBX)
 - **Mutation:** Polynomial Mutation
 - **Constraint handling:** L1/L2 weight sum = 1.0 (repair operator)
+
+#### Current report-aligned operating note
+
+The latest orchestration run shows that the simulator is intentionally operating
+in a harder adversarial regime than the autoresearch loop:
+
+- simulation environment: 100 epochs, 14 agents, 5 trading pairs
+- headline simulation metrics: breach_rate `0.124`, honest_score `0.847`
+- commit-reveal effectiveness: `0.723` (passes the `0.667` floor)
+- top risks: `sybil_collusion_graph = 0.63`, `temporal_attack_pattern = 0.51`
+- best autoresearch result: `EXP-140`, breach_rate `2.5e-05`, honest_score `0.9748`
+- remaining target gap: about `5x` to reach breach_rate `5e-6`
+
+That asymmetry matters operationally: the optimizer should continue to use the
+harder 14-agent mixed environment as the primary search target rather than
+assuming the autoresearch loop is a drop-in proxy for production hardness.
 
 #### Fitness Evaluation Pipeline
 
@@ -261,12 +278,14 @@ For each individual in population:
 **Goal:** Tie everything together into a single entry point that runs the full automated tuning loop.
 
 ```bash
-python tuning/orchestrator.py \
-  --generations 100 \
-  --population 50 \
-  --n-honest-miners 10 \
-  --n-adversarial-miners 6 \
-  --n-epochs 3 \
+python -m tuning.orchestrator \
+  --mode optimize \
+  --generations 20 \
+  --population 30 \
+  --n-honest 6 \
+  --n-adversarial 1 \
+  --n-epochs 100 \
+  --n-steps 150 \
   --output results/
 ```
 

@@ -57,6 +57,14 @@ class AttackBreach:
     description: str
     details: Dict = field(default_factory=dict)
 
+    @property
+    def risk_tier(self) -> str:
+        if self.severity >= 0.5:
+            return "high"
+        if self.severity >= 0.3:
+            return "moderate"
+        return "low"
+
 
 @dataclass
 class BreachReport:
@@ -100,6 +108,7 @@ class BreachReport:
                     "attack": b.attack_name,
                     "breached": bool(b.breached),
                     "severity": round(float(b.severity), 4),
+                    "risk_tier": b.risk_tier,
                     "description": b.description,
                 }
                 for b in self.breaches
@@ -110,7 +119,10 @@ class BreachReport:
         lines = [f"Breach Report: {self.n_breached}/{self.total_attacks} attacks breached"]
         for b in self.breaches:
             status = "BREACHED" if b.breached else "DEFENDED"
-            lines.append(f"  [{status}] {b.attack_name}: severity={b.severity:.2f} — {b.description}")
+            lines.append(
+                f"  [{status}] {b.attack_name}: severity={b.severity:.2f} "
+                f"tier={b.risk_tier} — {b.description}"
+            )
         return "\n".join(lines)
 
 
@@ -128,6 +140,20 @@ class AttackDetector:
 
     def _consensus_config(self) -> Dict[str, float]:
         return self.config.get("consensus_integrity", {})
+
+    def _market_config(self) -> Dict[str, float]:
+        return self.config.get("market_data", {})
+
+    def _ensemble_config(self) -> Dict[str, float]:
+        return self.config.get("ensemble_detection", {})
+
+    def _pair_imbalance_ratio(self, result: SimulationResult) -> float:
+        counts = getattr(result, "trading_pair_counts", {})
+        btc = float(counts.get("BTC-USDT-PERP", counts.get("BTCUSDT", 0.0)))
+        eth = float(counts.get("ETH-USDT-PERP", counts.get("ETHUSDT", 0.0)))
+        if eth <= 0:
+            return 0.0
+        return btc / eth
 
     def _ensemble_vote_count(self, signals: Dict[str, float]) -> int:
         return sum(1 for score in signals.values() if score >= 0.7)
@@ -277,18 +303,52 @@ class AttackDetector:
                 "No temporal anomaly signals available",
             )
 
-        flagged = [
-            uid
+        temporal_scores = {
+            uid: float(miner_signals.get("temporal_anomaly_detector", 0.0))
             for uid, miner_signals in signals.items()
-            if miner_signals.get("temporal_anomaly_detector", 0.0) >= 0.7
-        ]
-        severity = min(1.0, len(flagged) / max(len(signals), 1))
+        }
+        flagged = [uid for uid, score in temporal_scores.items() if score >= 0.7]
+        lead_time = float(self._validation_config().get("min_prediction_lead_time", 35))
+        timing_gaps = getattr(result, "submission_timing_gaps", {})
+        timing_violation_rate = (
+            float(np.mean([gap < lead_time for gap in timing_gaps.values()]))
+            if timing_gaps
+            else 0.0
+        )
+        reveal_gaps = []
+        for key, commit_ts in getattr(result, "commit_timestamps", {}).items():
+            reveal_ts = getattr(result, "reveal_timestamps", {}).get(key)
+            if reveal_ts is not None:
+                reveal_gaps.append(reveal_ts - commit_ts)
+        average_reveal_delay = float(np.mean(reveal_gaps)) if reveal_gaps else 0.0
+        bayesian_weight = float(self._ensemble_config().get("bayesian_weight", 0.65))
+        ensemble_component = float(np.mean(list(temporal_scores.values()))) if temporal_scores else 0.0
+        peak_component = max(temporal_scores.values(), default=0.0)
+        flagged_fraction = len(flagged) / max(len(signals), 1)
+        severity = min(
+            1.0,
+            (
+                0.40 * peak_component
+                + 0.20 * ensemble_component
+                + 0.10 * flagged_fraction
+                + 0.15 * timing_violation_rate
+                + 0.15 * min(1.0, average_reveal_delay / 20.0)
+            )
+            * (1.0 - 0.15 * bayesian_weight),
+        )
         return AttackBreach(
             "temporal_attack_pattern",
-            bool(flagged),
+            severity >= 0.5,
             severity,
-            f"temporal anomaly detector flagged {len(flagged)} miners",
-            {"flagged_miners": flagged},
+            f"flagged={len(flagged)} timing_violation_rate={timing_violation_rate:.2f} "
+            f"reveal_delay={average_reveal_delay:.1f}s",
+            {
+                "flagged_miners": flagged,
+                "timing_violation_rate": timing_violation_rate,
+                "average_reveal_delay": average_reveal_delay,
+                "lead_time_threshold": lead_time,
+                "bayesian_weight": bayesian_weight,
+            },
         )
 
     def _check_sybil_collusion_graph(self, result: SimulationResult) -> AttackBreach:
@@ -301,18 +361,55 @@ class AttackDetector:
                 "No graph detector signals available",
             )
 
+        correlation_threshold = float(self._ensemble_config().get("correlation_threshold", 0.77))
         cluster = [
             uid
             for uid, miner_signals in signals.items()
-            if miner_signals.get("cross_correlation_detector", 0.0) >= 0.7
+            if miner_signals.get("cross_correlation_detector", 0.0) >= correlation_threshold
         ]
-        severity = min(1.0, len(cluster) / max(len(signals), 1))
+        cluster_fraction = len(cluster) / max(len(signals), 1)
+        pair_ratio = self._pair_imbalance_ratio(result)
+        dominant_pair_warning_ratio = float(
+            self._market_config().get("dominant_pair_warning_ratio", 1.35)
+        )
+        pair_pressure = min(
+            1.0,
+            max(
+                0.0,
+                (pair_ratio - 1.0) / max(dominant_pair_warning_ratio - 1.0, 1e-12),
+            ),
+        )
+        min_entropy = float(self._consensus_config().get("weight_entropy_minimum", 1.45))
+        entropy_deficit = 0.0
+        for weights in getattr(result, "validator_weight_vectors", {}).values():
+            w = np.array(weights, dtype=float)
+            total = max(float(np.sum(w)), 1e-12)
+            w = (w / total)[w > 1e-12]
+            entropy = -float(np.sum(w * np.log(w))) if len(w) else 0.0
+            entropy_deficit = max(entropy_deficit, max(0.0, min_entropy - entropy) / max(min_entropy, 1e-12))
+        temporal_alignment = 0.0
+        for (miner_uid, _), corr in getattr(result, "miner_validator_temporal_corr", {}).items():
+            if miner_uid in cluster:
+                temporal_alignment = max(temporal_alignment, abs(float(corr)))
+        severity = min(
+            1.0,
+            0.45 * cluster_fraction
+            + 0.20 * pair_pressure
+            + 0.20 * min(1.0, entropy_deficit)
+            + 0.15 * temporal_alignment,
+        )
         return AttackBreach(
             "sybil_collusion_graph",
-            len(cluster) >= 2,
+            severity >= 0.5,
             severity,
-            f"suspicious cluster size={len(cluster)}",
-            {"cluster_members": cluster},
+            f"cluster={len(cluster)} pair_ratio={pair_ratio:.2f} entropy_deficit={entropy_deficit:.2f}",
+            {
+                "cluster_members": cluster,
+                "pair_ratio": pair_ratio,
+                "dominant_pair_warning_ratio": dominant_pair_warning_ratio,
+                "entropy_deficit": entropy_deficit,
+                "temporal_alignment": temporal_alignment,
+            },
         )
 
     def _check_cross_layer_correlation(self, result: SimulationResult) -> AttackBreach:
@@ -1126,17 +1223,22 @@ if __name__ == "__main__":
     from tuning.parameter_space import encode_defaults
     from tuning.simulation import SimulationHarness, create_default_agents
 
-    print("Running attack detection with default parameters...\n")
+    print("Running attack detection with report-aligned default parameters...\n")
 
     l1_agents, l2_agents = create_default_agents(
-        n_honest=4, n_overfitters=1, n_copycats=1,
-        n_gamers=1, n_sybils=2, n_random=1,
-        n_honest_traders=2, n_copy_traders=1,
+        n_honest=6,
+        n_overfitters=1,
+        n_copycats=1,
+        n_gamers=1,
+        n_sybils=2,
+        n_random=0,
+        n_honest_traders=3,
+        n_copy_traders=1,
     )
 
     harness = SimulationHarness(
         l1_agents=l1_agents, l2_agents=l2_agents,
-        n_epochs=2, n_trading_steps=150,
+        n_epochs=100, n_trading_steps=150,
     )
 
     defaults = encode_defaults()

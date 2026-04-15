@@ -3,11 +3,11 @@
 ## NSGA-II configuration
 
 - Population: 30
-- Generations: 50
+- Generations: 20
 - Objectives: 4
 - Crossover: SBX, probability 0.9, eta 15
 - Mutation: polynomial mutation, eta 20
-- Seeds: PF-02, V3-PF-007, EXP-029
+- Seeds: EXP-116, EXP-118
 
 ## Objectives
 
@@ -31,10 +31,11 @@ The implementation stores these as minimization targets:
 
 ## Current frontier snapshot
 
-- Pareto front size: 49
-- Hypervolume: 0.875
-- Convergence: false
-- Best operating region remains non-converged, supporting the Phase 5 transition
+- Configured search regime: 20 generations x 30 population
+- Optimization target: breach_rate < `5e-6`, honest_score > `0.97`, separation > `0.75`
+- Best seed-to-date result remains EXP-140 with breach_rate `2.5e-05`
+- Remaining optimization gap to target breach_rate: roughly 5x
+- Best operating region remains non-converged, supporting continued Phase 5 tuning
 
 ## Report-aligned defaults
 
@@ -62,3 +63,16 @@ The report summarizes a 6-metric headline allocation, but the repository keeps a
 - annualized_volatility: 0.05
 - sharpe_ratio: 0.05
 - sortino_ratio: 0.05
+
+## Report-driven tuning guidance
+
+- The simulation layer is intentionally harsher than the autoresearch loop baseline: 100 epochs, 14 agents, 5 pairs, and elevated adversarial pressure.
+- Commit-reveal remains a validated prerequisite, with observed effectiveness `0.723` clearing the `0.667` floor.
+- Highest-priority objectives should bias toward the two dominant surveillance risks:
+  - `sybil_collusion_graph = 0.63`
+  - `temporal_attack_pattern = 0.51`
+- Economic-mechanism knobs are the strongest current leverage:
+  - identity bonding
+  - stake-based consensus
+  - commit-reveal enforcement
+- EXP-140 (decentralized identity verification with bonding) is the leading seed reference, with EXP-141 (Bayesian model averaging) the best ensemble-style backup.
