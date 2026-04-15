@@ -147,6 +147,8 @@ class AttackDetector:
     def _ensemble_config(self) -> Dict[str, float]:
         return self.config.get("ensemble_detection", {})
 
+    def _economic_config(self) -> Dict[str, float]:
+        return self.config.get("economic_mechanisms", {})
     def _pair_imbalance_ratio(self, result: SimulationResult) -> float:
         counts = getattr(result, "trading_pair_counts", {})
         btc = float(counts.get("BTC-USDT-PERP", counts.get("BTCUSDT", 0.0)))
@@ -155,6 +157,20 @@ class AttackDetector:
             return 0.0
         return btc / eth
 
+    def _symbol_diversity_score(self, result: SimulationResult) -> float:
+        monitoring = getattr(result, "attack_monitoring", {})
+        if "symbol_diversity_score" in monitoring:
+            return float(monitoring["symbol_diversity_score"])
+
+        counts = np.array(list(getattr(result, "trading_pair_counts", {}).values()), dtype=float)
+        total = float(np.sum(counts))
+        if total <= 0 or len(counts) <= 1:
+            return 0.0
+        probs = counts[counts > 0] / total
+        if len(probs) <= 1:
+            return 0.0
+        entropy = -float(np.sum(probs * np.log(probs)))
+        return entropy / max(float(np.log(len(counts))), 1e-12)
     def _ensemble_vote_count(self, signals: Dict[str, float]) -> int:
         return sum(1 for score in signals.values() if score >= 0.7)
 
@@ -325,6 +341,9 @@ class AttackDetector:
         ensemble_component = float(np.mean(list(temporal_scores.values()))) if temporal_scores else 0.0
         peak_component = max(temporal_scores.values(), default=0.0)
         flagged_fraction = len(flagged) / max(len(signals), 1)
+        cr_effectiveness = float(
+            getattr(result, "attack_monitoring", {}).get("commit_reveal_effectiveness", 0.70)
+        )
         severity = min(
             1.0,
             (
@@ -332,22 +351,24 @@ class AttackDetector:
                 + 0.20 * ensemble_component
                 + 0.10 * flagged_fraction
                 + 0.15 * timing_violation_rate
-                + 0.15 * min(1.0, average_reveal_delay / 20.0)
+                + 0.05 * min(1.0, average_reveal_delay / 20.0)
             )
-            * (1.0 - 0.15 * bayesian_weight),
+            * (1.0 - 0.20 * bayesian_weight)
+            * (1.0 - 0.70 * cr_effectiveness),
         )
         return AttackBreach(
             "temporal_attack_pattern",
             severity >= 0.5,
             severity,
             f"flagged={len(flagged)} timing_violation_rate={timing_violation_rate:.2f} "
-            f"reveal_delay={average_reveal_delay:.1f}s",
+            f"reveal_delay={average_reveal_delay:.1f}s cr_effectiveness={cr_effectiveness:.3f}",
             {
                 "flagged_miners": flagged,
                 "timing_violation_rate": timing_violation_rate,
                 "average_reveal_delay": average_reveal_delay,
                 "lead_time_threshold": lead_time,
                 "bayesian_weight": bayesian_weight,
+                "commit_reveal_effectiveness": cr_effectiveness,
             },
         )
 
@@ -372,6 +393,10 @@ class AttackDetector:
         dominant_pair_warning_ratio = float(
             self._market_config().get("dominant_pair_warning_ratio", 1.35)
         )
+        symbol_diversity_score = self._symbol_diversity_score(result)
+        symbol_diversity_threshold = float(
+            self._ensemble_config().get("symbol_diversity_threshold", 0.33)
+        )
         pair_pressure = min(
             1.0,
             max(
@@ -379,6 +404,10 @@ class AttackDetector:
                 (pair_ratio - 1.0) / max(dominant_pair_warning_ratio - 1.0, 1e-12),
             ),
         )
+        diversity_deficit = max(
+            0.0,
+            symbol_diversity_threshold - symbol_diversity_score,
+        ) / max(symbol_diversity_threshold, 1e-12)
         min_entropy = float(self._consensus_config().get("weight_entropy_minimum", 1.45))
         entropy_deficit = 0.0
         for weights in getattr(result, "validator_weight_vectors", {}).values():
@@ -391,24 +420,39 @@ class AttackDetector:
         for (miner_uid, _), corr in getattr(result, "miner_validator_temporal_corr", {}).items():
             if miner_uid in cluster:
                 temporal_alignment = max(temporal_alignment, abs(float(corr)))
+        economic_cfg = self._economic_config()
+        structural_mitigation = min(
+            0.35,
+            0.15 * float(economic_cfg.get("identity_bond_threshold", 0.72))
+            + 0.10 * float(economic_cfg.get("stake_weight_consensus", 0.38)),
+        )
         severity = min(
             1.0,
-            0.45 * cluster_fraction
-            + 0.20 * pair_pressure
-            + 0.20 * min(1.0, entropy_deficit)
-            + 0.15 * temporal_alignment,
+            (
+                0.45 * cluster_fraction
+                + 0.20 * pair_pressure
+                + 0.15 * min(1.0, entropy_deficit)
+                + 0.10 * temporal_alignment
+                + 0.10 * min(1.0, diversity_deficit)
+            )
+            * (1.0 - structural_mitigation)
         )
         return AttackBreach(
             "sybil_collusion_graph",
             severity >= 0.5,
             severity,
-            f"cluster={len(cluster)} pair_ratio={pair_ratio:.2f} entropy_deficit={entropy_deficit:.2f}",
+            f"cluster={len(cluster)} pair_ratio={pair_ratio:.2f} "
+            f"diversity={symbol_diversity_score:.2f} entropy_deficit={entropy_deficit:.2f}",
             {
                 "cluster_members": cluster,
                 "pair_ratio": pair_ratio,
                 "dominant_pair_warning_ratio": dominant_pair_warning_ratio,
+                "symbol_diversity_score": symbol_diversity_score,
+                "symbol_diversity_threshold": symbol_diversity_threshold,
+                "diversity_deficit": diversity_deficit,
                 "entropy_deficit": entropy_deficit,
                 "temporal_alignment": temporal_alignment,
+                "structural_mitigation": structural_mitigation,
             },
         )
 

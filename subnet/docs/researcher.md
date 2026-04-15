@@ -56,11 +56,30 @@ The loop writes TSV rows to `results/experiments.tsv` with these columns:
 - EXP-140: breach_rate 0.000025, honest_score 0.9748, decentralized identity verification with bonding, current best overall
 - EXP-141: breach_rate 0.000028, honest_score 0.9750, Bayesian model averaging runner-up
 
+## Phase 5 queued experiment tranche
+
+The second orchestration run queued a new economic-security-heavy researcher
+batch spanning `EXP-142` through `EXP-166`. The queue is centered on:
+
+- identity bond enhancement
+- dynamic bonding curves
+- stake slashing
+- quadratic staking
+- commit-reveal v2 with penalties
+- combined identity plus stake defense
+- time-locked staking
+- VDF-based commit-reveal
+- multi-tier identity systems
+- reputation bonding
+- economic security scoring
+- symbol diversity enforcement variants
+
 ## Best practices from orchestration
 
 - The latest 25-experiment orchestration run kept 17 experiments and discarded 8.
 - Architecture redesign was the most productive family: 7 tried, 5 kept.
 - Temporal pattern analysis had the weakest yield: 3 tried, 1 kept.
 - Radical levels 3-4 produced the biggest gains, but also the highest discard rate.
-- Economic mechanisms are the strongest frontier: identity bonding, stake-based consensus, and commit-reveal produced the best improvements.
+- Economic mechanisms are the strongest frontier: identity bonding, stake-based consensus, commit-reveal, and Bayesian averaging produced the best improvements.
 - The keep/discard gate is strict: both breach rate and honest score matter, with scalarized regressions treated as discards.
+- The next execution priority is the queued `EXP-142+` tranche; these experiments were designed in the second run but not yet executed there.
