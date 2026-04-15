@@ -28,6 +28,7 @@ Insignia is a two-layer competitive network for producing high-quality ML models
 - 14-agent benchmark simulation mix: 9 honest, 5 adversarial across L1/L2
 - Active sentinel posture: breach_rate `0.0005`, honest_score `0.94`, score_separation `0.758`
 - No convergence detected and no reset triggers fired (`SOFT`, `HARD`, `FULL` all false)
+- 75-parameter orchestration headline, with the repository retaining a broader 10-metric L2 implementation and expanded parameter space in code
 - 41-variable NSGA-II v13 surrogate profile runs on top of the repository's broader 64-parameter surface
 - Current optimization spec: 20 generations, population 30, 4 objectives, 93 empirical surrogate points
 - Open optimization gap: best autoresearch result `2.5e-05` vs target `5e-06`

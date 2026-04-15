@@ -149,7 +149,6 @@ class AttackDetector:
 
     def _economic_config(self) -> Dict[str, float]:
         return self.config.get("economic_mechanisms", {})
-
     def _pair_imbalance_ratio(self, result: SimulationResult) -> float:
         counts = getattr(result, "trading_pair_counts", {})
         btc = float(counts.get("BTC-USDT-PERP", counts.get("BTCUSDT", 0.0)))
@@ -172,7 +171,6 @@ class AttackDetector:
             return 0.0
         entropy = -float(np.sum(probs * np.log(probs)))
         return entropy / max(float(np.log(len(counts))), 1e-12)
-
     def _ensemble_vote_count(self, signals: Dict[str, float]) -> int:
         return sum(1 for score in signals.values() if score >= 0.7)
 

@@ -82,4 +82,5 @@ The report summarizes a 6-metric headline allocation, but the repository keeps a
   - stake-based consensus
   - commit-reveal enforcement
   - Bayesian model averaging
+- EXP-140 (decentralized identity verification with bonding) remains the leading seed reference, with EXP-141 (Bayesian model averaging) the strongest ensemble backup.
 - Deploy `PC-VH-006` (Symbol Diversity Enforcement) to close the last structural Sybil gap while NSGA-II searches the residual 5x breach-rate gap.
