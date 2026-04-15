@@ -53,8 +53,9 @@
 - Data asymmetry (miners: public data; validators: proprietary data) prevents overfitting to validation
 - Cross-layer feedback rewards models that survive real deployment
 - Commit-reveal scheme prevents post-hoc prediction manipulation and timing attacks (SHA-256 hashing with 128-bit nonces, commit window T-35s to T-5s, reveal window T+5s to T+20s)
-- 25 active attack vectors are tracked in the repository: the legacy 19-vector catalog plus 6 report-driven surveillance extensions
-- The latest orchestration run validated commit-reveal effectiveness at 0.723, above the 0.667 acceptance floor
+- The core post-commit-reveal operating model is evaluated against 19 active surveillance vectors
+- The latest orchestration run validated commit-reveal effectiveness at 0.700, above the 0.667 acceptance floor, with 6 consecutive successful validations
+- Sentinel classified the system as `SECURE_AND_IMPROVING`, with breach_rate `0.0005`, honest_score `0.94`, and separation `0.758`
 
 ### Market Demand
 **Who pays for output and why.**
@@ -212,7 +213,7 @@ subnet/
 │   ├── l2_miner.py           # Layer 2 miner template (paper trading + commit/reveal)
 │   └── l2_validator.py       # Layer 2 validator (P&L tracking + scoring)
 ├── tuning/
-│   ├── attack_detector.py    # 25-vector attack detection with commit-reveal awareness
+│   ├── attack_detector.py    # 19-vector post-commit-reveal attack detection
 │   ├── parameter_space.py    # 60-parameter tuning space with defense parameters
 │   ├── optimizer.py          # NSGA-II multi-objective optimization
 │   ├── simulation.py         # Full pipeline simulation harness

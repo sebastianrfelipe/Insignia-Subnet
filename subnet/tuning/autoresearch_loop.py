@@ -111,6 +111,34 @@ ATTACK_PARAM_MAP: Dict[str, List[str]] = {
     ],
 }
 
+PHASE5_EXPERIMENT_QUEUE: List[Dict[str, str | int]] = [
+    {"experiment_id": "EXP-142", "theme": "economic_mechanism_innovation", "description": "Identity bond enhancement"},
+    {"experiment_id": "EXP-143", "theme": "economic_mechanism_innovation", "description": "Dynamic bonding curve"},
+    {"experiment_id": "EXP-144", "theme": "economic_mechanism_innovation", "description": "Stake slashing for collusion"},
+    {"experiment_id": "EXP-145", "theme": "economic_mechanism_innovation", "description": "Quadratic staking defense"},
+    {"experiment_id": "EXP-146", "theme": "economic_mechanism_innovation", "description": "Commit-reveal v2 with penalties"},
+    {"experiment_id": "EXP-147", "theme": "economic_mechanism_innovation", "description": "Combined identity plus stake defense"},
+    {"experiment_id": "EXP-148", "theme": "economic_mechanism_innovation", "description": "Time-locked staking"},
+    {"experiment_id": "EXP-149", "theme": "economic_mechanism_innovation", "description": "VDF-based commit-reveal"},
+    {"experiment_id": "EXP-150", "theme": "economic_mechanism_innovation", "description": "Multi-tier identity system"},
+    {"experiment_id": "EXP-151", "theme": "economic_mechanism_innovation", "description": "Reputation bonding"},
+    {"experiment_id": "EXP-152", "theme": "economic_mechanism_innovation", "description": "Economic security scoring"},
+    {"experiment_id": "EXP-153", "theme": "economic_mechanism_innovation", "description": "Identity bond plus symbol diversity enforcement"},
+    {"experiment_id": "EXP-154", "theme": "economic_mechanism_innovation", "description": "Stake-aware validator rotation"},
+    {"experiment_id": "EXP-155", "theme": "economic_mechanism_innovation", "description": "Dynamic slashing recovery"},
+    {"experiment_id": "EXP-156", "theme": "economic_mechanism_innovation", "description": "Identity attestations with decay"},
+    {"experiment_id": "EXP-157", "theme": "economic_mechanism_innovation", "description": "Sybil cluster deposit multiplier"},
+    {"experiment_id": "EXP-158", "theme": "economic_mechanism_innovation", "description": "Commit escrow with partial refunds"},
+    {"experiment_id": "EXP-159", "theme": "economic_mechanism_innovation", "description": "Cross-layer stake escrow"},
+    {"experiment_id": "EXP-160", "theme": "economic_mechanism_innovation", "description": "Bayesian ensemble with security priors"},
+    {"experiment_id": "EXP-161", "theme": "economic_mechanism_innovation", "description": "Validator bond reputation blend"},
+    {"experiment_id": "EXP-162", "theme": "economic_mechanism_innovation", "description": "Adaptive identity floor by pair concentration"},
+    {"experiment_id": "EXP-163", "theme": "economic_mechanism_innovation", "description": "Stake-weighted reveal penalties"},
+    {"experiment_id": "EXP-164", "theme": "economic_mechanism_innovation", "description": "Delayed unlock anti-collusion staking"},
+    {"experiment_id": "EXP-165", "theme": "economic_mechanism_innovation", "description": "Pair-diversity rebates"},
+    {"experiment_id": "EXP-166", "theme": "economic_mechanism_innovation", "description": "Economic firewall composite"},
+]
+
 
 @dataclass
 class ExperimentResult:
@@ -442,6 +470,7 @@ class AutoresearchLoop:
             ),
             "history_length": len(self.history),
             "last_experiment_id": self._experiment_counter,
+            "phase5_experiment_queue": PHASE5_EXPERIMENT_QUEUE,
         }
         with open(self._state_path, "w") as f:
             json.dump(state, f, indent=2)
@@ -711,6 +740,7 @@ class AutoresearchLoop:
                 else None
             ),
             "best_config_summary": summarize_config(decode(self.best_vector)),
+            "phase5_experiment_queue": PHASE5_EXPERIMENT_QUEUE,
         }
 
         logger.info("\n%s", "=" * 70)
