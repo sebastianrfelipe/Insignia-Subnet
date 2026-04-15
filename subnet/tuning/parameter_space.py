@@ -285,8 +285,10 @@ def decode(x: np.ndarray) -> Dict[str, Any]:
         },
         "ensemble_detection": {
             "fusion_strategy": "bayesian_model_averaging",
-            "correlation_threshold": 0.77,
-            "response_vote_threshold": 2,
+            "correlation_threshold": 0.80,
+            "entropy_threshold_lower": 0.20,
+            "symbol_diversity_threshold": 0.33,
+            "response_vote_threshold": 3,
             "bayesian_weight": p["bayesian_model_weight"],
         },
         "market_data": {
@@ -300,7 +302,7 @@ def decode(x: np.ndarray) -> Dict[str, Any]:
             "dominant_pair_warning_ratio": p["dominant_pair_warning_ratio"],
         },
         "research_targets": {
-            "seed_lineage": ["EXP-116", "EXP-118"],
+            "seed_lineage": ["EXP-116", "EXP-118", "EXP-140", "EXP-141"],
             "best_experiment": "EXP-140",
             "runner_up_experiment": "EXP-141",
             "target_breach_rate": 5e-6,
@@ -334,20 +336,20 @@ def encode_defaults() -> np.ndarray:
         "rate_limit_epoch_seconds": 86400,
         "feedback_min_l2_epochs": 3, "feedback_bonus_threshold": 0.62,
         "feedback_penalty_threshold": 0.28,
-        # Validation timing (commit-reveal validated at 0.723 effectiveness)
+        # Validation timing (Phase 5 secure-and-improving run held CR effectiveness at 0.700)
         "min_prediction_lead_time": 35,
-        "validator_latency_penalty_weight": 0.30,
-        "high_latency_threshold_ms": 1750,
+        "validator_latency_penalty_weight": 0.28,
+        "high_latency_threshold_ms": 1800,
         "commit_rate_threshold": 0.75,
         "commitment_violation_weight": 0.012,
         "selective_reveal_warning_streak": 1,
         "selective_reveal_penalty_streak": 2,
         "selective_reveal_zero_streak": 3,
-        # Consensus integrity (tightened after the 2026-04-15 orchestration report)
+        # Consensus integrity (Phase 5 secure-and-improving profile)
         "weight_entropy_minimum": 1.45,
         "cross_validator_score_variance_max": 0.18,
         "validator_rotation_max_consecutive_epochs": 4,
-        "validator_agreement_threshold": 0.16,
+        "validator_agreement_threshold": 0.17,
         "collusion_detection_lookback_epochs": 12,
         # Economic mechanisms (strongest signal from EXP-140/141 family)
         "identity_bond_threshold": 0.72,
