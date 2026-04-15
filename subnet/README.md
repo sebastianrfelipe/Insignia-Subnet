@@ -5,6 +5,7 @@
 Built on [Bittensor](https://bittensor.com) for the Sovereign Infrastructure Hackathon (March 2026).
 
 **Status:** Phase 4 (Attack Surveillance) - Phase 5 transition viable  
+**System posture:** `SECURE_AND_IMPROVING`  
 **Best reported checkpoint:** EXP-140 with breach_rate `0.000025`, honest_score `0.9748`
 
 ---
@@ -16,7 +17,7 @@ Insignia is a two-layer competitive network for producing high-quality ML models
 - **Layer 1 (Model Competition):** miners train predictive models and are scored across 7 weighted metrics.
 - **Layer 2 (Deployment Validation):** promoted models are wrapped into strategies and scored with the repository's 10-metric L2 risk stack.
 - **Cross-Layer Feedback:** Layer 2 outcomes feed back into Layer 1 rankings.
-- **Commit-Reveal Validation:** the timing defense path has been validated with effectiveness `0.723`, above the `0.667` acceptance floor.
+- **Commit-Reveal Validation:** the timing defense path now holds at composite effectiveness `0.700`, above the `0.667` acceptance floor for 6 consecutive validations.
 
 ---
 
@@ -25,11 +26,14 @@ Insignia is a two-layer competitive network for producing high-quality ML models
 - 6-agent architecture: deployer, simulator, sentinel, tuner, researcher, coder
 - 8 implemented agent archetypes in simulation: Honest, Overfitter, Copycat, SingleMetricGamer, Sybil, Random, HonestTrader, CopyTrader
 - 14-agent benchmark simulation mix: 9 honest, 5 adversarial across L1/L2
+- Active sentinel posture: breach_rate `0.0005`, honest_score `0.94`, score_separation `0.758`
+- No convergence detected and no reset triggers fired (`SOFT`, `HARD`, `FULL` all false)
 - 75-parameter orchestration headline, with the repository retaining a broader 10-metric L2 implementation and expanded parameter space in code
-- Hard-environment simulation headline: breach_rate `0.124`, honest_score `0.847`
-- Current optimization spec: 20 generations, population 30, 4 objectives
+- 41-variable NSGA-II v13 surrogate profile runs on top of the repository's broader 64-parameter surface
+- Current optimization spec: 20 generations, population 30, 4 objectives, 93 empirical surrogate points
 - Open optimization gap: best autoresearch result `2.5e-05` vs target `5e-06`
 - Persistent warning: Sybil pressure driven by BTCUSDT:ETHUSDT imbalance
+- Historical hard-environment simulation headline remains useful context: breach_rate `0.124`, honest_score `0.847`
 
 ## L1 weights
 
@@ -49,13 +53,13 @@ The orchestration report summarizes a 6-metric headline split, but the codebase 
 
 | Metric | Weight |
 |---|---:|
-| realized_pnl | 0.21 |
-| omega_ratio | 0.15 |
+| realized_pnl | 0.18 |
+| omega_ratio | 0.12 |
 | max_drawdown | 0.12 |
-| win_rate | 0.07 |
-| consistency | 0.17 |
-| model_attribution | 0.08 |
-| execution_quality | 0.05 |
+| win_rate | 0.05 |
+| consistency | 0.18 |
+| model_attribution | 0.11 |
+| execution_quality | 0.09 |
 | annualized_volatility | 0.05 |
 | sharpe_ratio | 0.05 |
 | sortino_ratio | 0.05 |
@@ -63,6 +67,13 @@ The orchestration report summarizes a 6-metric headline split, but the codebase 
 ---
 
 ## Attack surveillance
+
+### Active post-commit-reveal security gate
+
+The current sentinel operating model treats **19 post-commit-reveal vectors** as
+the Phase 5 security gate. The repository still keeps richer telemetry for
+additional extensions, but the active transition decision is based on the
+19-vector post-CR posture.
 
 ### Legacy 19-vector catalog retained in code
 
@@ -86,7 +97,7 @@ The orchestration report summarizes a 6-metric headline split, but the codebase 
 18. weight_manipulation
 19. cross_layer_attack
 
-### Report-driven surveillance extensions
+### Rich telemetry extensions retained in the repository
 
 - selective_revelation
 - statistical_anomaly
@@ -95,11 +106,12 @@ The orchestration report summarizes a 6-metric headline split, but the codebase 
 - sybil_collusion_graph
 - cross_layer_correlation
 
-### Highest-risk vectors from the latest orchestration run
+### Current warning vectors from the second orchestration run
 
-- `sybil_collusion_graph`: `0.63` (primary threat)
-- `temporal_attack_pattern`: `0.51`
-- Moderate follow-ons: `selective_revelation` `0.45`, `wash_trading` `0.42`, `cross_layer_correlation` `0.39`, `mev_extraction` `0.35`
+- `V3 Sybil Attack`: `0.268` (structural warning, not solved by commit-reveal alone)
+- `V8 Commitment Violation / Front-Running`: `0.0402` (below the 0.05 breach line and trending down)
+- 17 of 19 post-CR vectors are already in the `INFO` band
+- Recommended next deployment: `PC-VH-006` (Symbol Diversity Enforcement)
 
 See `docs/sentinel.md` for the full alert and reset workflow.
 
@@ -115,7 +127,9 @@ The repository now treats these as first-class trading pairs for simulation and 
 - AVAXUSDT / AVAX-USDT-PERP
 - ADAUSDT / ADA-USDT-PERP
 
-This diversification is the primary mitigation for the persistent Sybil warning tied to BTC/ETH dominance. The benchmark orchestration run exercised all five pairs and recorded the heaviest activity in BTCUSDT and ETHUSDT, so imbalance monitoring remains a first-class defense.
+This diversification is the primary mitigation for the persistent Sybil warning
+tied to BTC/ETH dominance. The latest sentinel report specifically recommends
+deploying `PC-VH-006` (Symbol Diversity Enforcement) to close 19/19 coverage.
 
 ---
 
@@ -128,6 +142,9 @@ This diversification is the primary mitigation for the persistent Sybil warning 
 - Best-performing family: architecture redesign (7 experiments, 5 kept)
 - Weakest family: temporal pattern analysis (3 experiments, 1 kept)
 - Higher radical levels (3-4) produced the largest gains, but also the most discards
+- Next queued tranche: `EXP-142` through `EXP-166`, focused on economic security
+  mechanisms such as dynamic bonding, stake slashing, quadratic staking,
+  commit-reveal v2, VDF-based commit-reveal, and reputation bonding
 
 ---
 

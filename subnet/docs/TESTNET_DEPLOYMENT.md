@@ -1,14 +1,15 @@
 # Insignia Testnet Deployment & Emulator Guide
 
-This guide reflects the latest orchestration findings from 2026-04-14 and the repository updates applied from that report.
+This guide reflects the latest orchestration findings from 2026-04-15 and the repository updates applied from the second post-commit-reveal run.
 
 ## Highlights
 
-- Phase 4 attack surveillance is complete enough to justify a Phase 5 transition.
+- Sentinel status is `SECURE_AND_IMPROVING`, with Phase 5 transition viability confirmed.
 - Commit-reveal defaults are enabled in config and tracked with timestamp metrics.
 - Default wallet layout now covers 1 owner, 1 validator, and 12 miners.
 - Market diversification now includes BTC, ETH, SOL, AVAX, and ADA.
 - Monitoring assets exist in both `monitoring/` and `testnet/docker-compose.testnet.yml`.
+- Remaining structural gap is Sybil resistance; deploy PC-VH-006 (symbol diversity enforcement) to pursue full 19/19 post-CR coverage.
 
 ## Quick local stack
 
@@ -27,6 +28,7 @@ bash testnet/scripts/check_wallet_balances.sh
 | critical floor | >= 0.667 |
 | validator latency severity | < 0.05 |
 | prediction timing severity | < 0.03 |
+| consecutive validations | >= 6 |
 
 ## Current defaults
 
@@ -42,22 +44,30 @@ bash testnet/scripts/check_wallet_balances.sh
 
 ### Validation timing
 
-- min_prediction_lead_time_seconds: 35
-- validator_latency_penalty_weight: 0.25
-- high_latency_threshold_ms: 2000
-- commit_rate_threshold: 0.70
-- commitment_violation_weight: 0.008
+- min_prediction_lead_time_seconds: 40
+- validator_latency_penalty_weight: 0.28
+- high_latency_threshold_ms: 1800
+- commit_rate_threshold: 0.75
+- commitment_violation_weight: 0.012
 - selective_reveal_warning_streak: 1
 - selective_reveal_penalty_streak: 2
 - selective_reveal_zero_streak: 3
 
 ### Ensemble detection
 
-- correlation_threshold: 0.77
-- entropy_threshold_lower: 0.18
-- symbol_diversity_threshold: 0.275
-- fusion_strategy: weighted_voting_dynamic_adaptive
-- response_vote_threshold: 2
+- correlation_threshold: 0.80
+- entropy_threshold_lower: 0.20
+- symbol_diversity_threshold: 0.33
+- fusion_strategy: bayesian_model_averaging
+- response_vote_threshold: 3
+
+### Consensus integrity
+
+- weight_entropy_minimum: 1.45
+- cross_validator_score_variance_max: 0.18
+- validator_rotation_max_consecutive_epochs: 4
+- validator_agreement_threshold: 0.17
+- collusion_detection_lookback_epochs: 12
 
 ## Monitoring endpoints
 
@@ -75,6 +85,8 @@ bash testnet/scripts/check_wallet_balances.sh
 - `insignia_timing_attack_composite_severity`
 - `insignia_trading_pair_activity`
 - `insignia_ensemble_signal`
+- `insignia_btc_eth_dominance_ratio`
+- `insignia_symbol_diversity_enforcement`
 
 ## Note on parameter counts
 

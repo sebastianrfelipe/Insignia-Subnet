@@ -65,7 +65,7 @@ Together these form a **94-parameter optimization surface**. Tuning by hand is i
 
 **Goal:** Enumerate every tunable parameter, define its bounds, and categorize by layer.
 
-#### Insignia Application-Level Parameters (60 total, tuned by emulator)
+#### Insignia Application-Level Parameters (64 total, tuned by emulator)
 
 | Category | Parameters | Count |
 |----------|-----------|-------|
@@ -83,9 +83,11 @@ Together these form a **94-parameter optimization surface**. Tuning by hand is i
 | Commit-Reveal Timing | commit_window_seconds, reveal_window_seconds, late_reveal_penalty | 3 |
 | Validation Timing | min_prediction_lead_time, validator_latency_penalty_weight, high_latency_threshold_ms, commit_rate_threshold, commitment_violation_weight, selective_reveal_warning_streak, selective_reveal_penalty_streak, selective_reveal_zero_streak | 8 |
 | Consensus Integrity | weight_entropy_minimum, cross_validator_score_variance_max, validator_rotation_max_consecutive_epochs, validator_agreement_threshold, collusion_detection_lookback_epochs | 5 |
-| Economic Mechanisms | identity_bond_threshold, stake_weight_consensus, bayesian_model_weight | 3 |
+| Economic Mechanisms | identity_bond_threshold, stake_weight_consensus | 2 |
+| Ensemble Detection | bayesian_model_weight | 1 |
+| Market Data | dominant_pair_warning_ratio | 1 |
 | Cross-Layer Defense | cross_layer_penalty_strength, cross_layer_latency | 2 |
-| **Subtotal** | | **60** |
+| **Subtotal** | | **64** |
 
 #### Bittensor On-Chain Subnet Hyperparameters (39 total, set via btcli)
 
@@ -107,9 +109,9 @@ Together these form a **94-parameter optimization surface**. Tuning by hand is i
 
 | Level | Parameters | Tuned By |
 |-------|-----------|----------|
-| Insignia application-level | 60 | Emulator (NSGA-II evolutionary optimization) |
+| Insignia application-level | 64 | Emulator (NSGA-II evolutionary optimization) |
 | Bittensor on-chain | 33+ | btcli / subnet owner configuration |
-| **Total** | **88+** | |
+| **Total** | **92+** | |
 
 **Constraints:**
 - L1 weights must sum to 1.0
@@ -173,7 +175,7 @@ For each attack vector, define a **breach condition** (boolean) and a **severity
 | 18 | Validator latency exploitation (Vector 8) | Miner accuracy correlated with validator latency; post-market submissions scored as predictions. **Commit-reveal validated: projected severity 0.047 < 0.05 target** |
 | 19 | Miner-validator collusion | Validator weight/score bias toward specific miners not justified by performance |
 
-**Implementation:** `tuning/attack_detector.py` — runs the simulation with adversarial agents and returns a breach report. Currently at v4.0 with 19 vectors and full detection methods.
+**Implementation:** `tuning/attack_detector.py` — runs the simulation with adversarial agents and returns a breach report. The active detector is modeled around the 19 post-commit-reveal vectors used by the second orchestration run.
 
 **Commit-reveal impact on Vector 18:** Sentinel validation (session 69dab601) confirmed that the commit-reveal scheme reduces Vector 18 severity from 0.09 to projected 0.047, clearing the 0.05 target. Companion Vector 11 (prediction timing manipulation) also drops from 0.06 to 0.025. The critical effectiveness threshold is 0.667 — this must be validated in simulation before production deployment.
 
@@ -242,19 +244,20 @@ Pre-configured dashboard with panels for:
 
 #### Current report-aligned operating note
 
-The latest orchestration run shows that the simulator is intentionally operating
-in a harder adversarial regime than the autoresearch loop:
+The second orchestration run supersedes the earlier harder-environment snapshot
+as the active system-level operating reference:
 
-- simulation environment: 100 epochs, 14 agents, 5 trading pairs
-- headline simulation metrics: breach_rate `0.124`, honest_score `0.847`
-- commit-reveal effectiveness: `0.723` (passes the `0.667` floor)
-- top risks: `sybil_collusion_graph = 0.63`, `temporal_attack_pattern = 0.51`
-- best autoresearch result: `EXP-140`, breach_rate `2.5e-05`, honest_score `0.9748`
-- remaining target gap: about `5x` to reach breach_rate `5e-6`
+- sentinel status: `SECURE_AND_IMPROVING`
+- system breach_rate: `0.0005`
+- honest_score: `0.94`
+- separation: `0.758`
+- commit-reveal effectiveness: `0.700` with 6 consecutive validations
+- 17 of 19 post-CR vectors at INFO; only V3 Sybil and V8 commitment violation remain at WARNING
+- no convergence detected and no reset triggers fired
 
-That asymmetry matters operationally: the optimizer should continue to use the
-harder 14-agent mixed environment as the primary search target rather than
-assuming the autoresearch loop is a drop-in proxy for production hardness.
+The simulation-layer `0.124` / `0.847` benchmark is still useful as a stress
+environment, but Phase 5 decisions should now be narrated primarily through the
+sentinel's secured post-commit-reveal state.
 
 #### Fitness Evaluation Pipeline
 

@@ -3,10 +3,12 @@
 ## Current status
 
 - Phase: 4 - Attack Surveillance
+- System posture: `SECURE_AND_IMPROVING`
 - Transition: Phase 5 transition viable
-- Latest simulation benchmark: 100 epochs, 14 agents, 5 trading pairs
-- Headline simulation metrics: breach rate `0.124`, honest score `0.847`
-- Commit-reveal effectiveness: `0.723` (passes the `0.667` floor)
+- Active sentinel metrics: breach rate `0.0005`, honest score `0.94`, score separation `0.758`
+- Commit-reveal effectiveness: `0.700` (passes the `0.667` floor with 6 consecutive validations)
+- Convergence detected: false
+- Reset triggers: `SOFT=false`, `HARD=false`, `FULL=false`
 - Persistent warning: Sybil pressure from BTCUSDT:ETHUSDT imbalance
 
 ## Alert levels
@@ -28,7 +30,11 @@
 
 ## Attack catalog
 
-The simulator and detector now track the legacy 19-vector catalog plus the report-driven expansion used for ensemble surveillance.
+The current Phase 5 gate evaluates **19 post-commit-reveal vectors**. The
+repository still keeps richer detector telemetry for extensions like
+`sybil_collusion_graph`, `temporal_attack_pattern`, and
+`cross_layer_correlation`, but the sentinel transition decision is based on the
+post-CR 19-vector posture.
 
 ### Legacy vectors retained in code
 
@@ -52,7 +58,7 @@ The simulator and detector now track the legacy 19-vector catalog plus the repor
 18. weight_manipulation
 19. cross_layer_attack
 
-### Report-driven surveillance extensions
+### Rich telemetry extensions retained in the repository
 
 20. selective_revelation
 21. statistical_anomaly
@@ -65,16 +71,20 @@ The simulator and detector now track the legacy 19-vector catalog plus the repor
 
 | Vector | Severity | Tier | Notes |
 |---|---:|---|---|
-| sybil_collusion_graph | 0.63 | high | primary unresolved risk; tied to cluster coordination and pair imbalance |
-| temporal_attack_pattern | 0.51 | high | second-highest risk in the orchestration run |
-| selective_revelation | 0.45 | moderate | contained by commit/reveal streak penalties but still visible |
-| wash_trading | 0.42 | moderate | still part of the middle attack band |
-| cross_layer_correlation | 0.39 | moderate | elevated when timing and ensemble votes align |
-| mev_extraction | 0.35 | moderate | remains a live execution-layer concern |
-| statistical_anomaly | 0.32 | moderate | now treated as part of the monitored middle band |
-| behavioral_anomaly | 0.28 | low-moderate | tracked, but not a top-tier issue in this run |
-| validator_latency_exploitation | < 0.05 target band | controlled | commit/reveal remains validated |
-| prediction_timing_manipulation | < 0.05 target band | controlled | co-benefit from commit/reveal remains intact |
+| V3 Sybil Attack | 0.268 | warning | structural gap; commit-reveal is not meant to solve Sybil pressure |
+| V8 Commitment Violation / Front-Running | 0.0402 | warning but below breach line | trending downward under sustained commit-reveal enforcement |
+| Temporal attack pattern | 0.01 | info | down ~98% from the earlier 0.51 persistent-risk benchmark |
+| Selective revelation | 0.004 | info | sharply reduced by post-CR enforcement |
+| Wash trading | 0.003 | info | effectively neutralized in the current sentinel posture |
+| Pump / dump | 0.003 | info | effectively neutralized in the current sentinel posture |
+| Remaining post-CR vectors | < 0.05 | info | 17 of 19 vectors now sit in the info band |
+
+## Program risk mapping
+
+The sentinel mapped all 8 `program.md` persistent risks to current post-CR
+severities. Seven are already at `INFO`; the only remaining structural gap is
+Sybil pressure, which should be addressed by deploying `PC-VH-006` (Symbol
+Diversity Enforcement).
 
 ## Reset protocols
 
@@ -101,5 +111,6 @@ The simulator and detector now track the legacy 19-vector catalog plus the repor
 ## Known issues
 
 - The dominant BTCUSDT:ETHUSDT ratio remains the main warning-level weakness.
-- The simulation layer is materially harsher than the autoresearch loop; do not compare the `0.124` simulation breach rate directly to the `2.5e-05` experiment optimum without noting the environment mismatch.
-- Historical docs may use older vector numbering; repository docs should prefer the detector naming above.
+- `PC-VH-006` (Symbol Diversity Enforcement) is the recommended next mitigation to close 19/19 vector coverage.
+- The earlier harsh simulation benchmark (`0.124` breach rate, `0.847` honest score) should now be treated as calibration context, not the current system-level security posture.
+- Historical docs may use older vector numbering or the richer telemetry catalog; repository docs should prefer the post-CR sentinel framing when discussing transition readiness.

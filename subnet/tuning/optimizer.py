@@ -54,6 +54,16 @@ logger = logging.getLogger("optimizer")
 logger.setLevel(logging.INFO)
 
 N_OBJECTIVES = 4
+NSGA2_V13_PROFILE = {
+    "version": "13.0",
+    "surrogate_empirical_points": 93,
+    "active_surrogate_variables": 41,
+    "elite_seed_lineage": ["EXP-140", "EXP-141", "EXP-134", "EXP-132", "EXP-133", "EXP-135"],
+    "sampling": "LatinHypercube + Elite Seeding",
+    "selection": "Tournament(pressure=2)",
+    "status": "SECURE_AND_IMPROVING",
+    "target_breach_rate": 5e-6,
+}
 
 
 def compute_fitness(
@@ -331,8 +341,15 @@ def run_nsga2(
         period=5,
     )
 
-    logger.info("Starting NSGA-II: pop=%d, gen=%d, params=%d, objectives=%d",
-                population_size, n_generations, N_PARAMS, N_OBJECTIVES)
+    logger.info(
+        "Starting NSGA-II v%s: pop=%d, gen=%d, params=%d, active_profile=%d, objectives=%d",
+        NSGA2_V13_PROFILE["version"],
+        population_size,
+        n_generations,
+        N_PARAMS,
+        NSGA2_V13_PROFILE["active_surrogate_variables"],
+        N_OBJECTIVES,
+    )
     t0 = time.time()
 
     res = pymoo_minimize(
@@ -384,6 +401,8 @@ def run_nsga2(
     result = {
         "n_generations": n_generations,
         "population_size": population_size,
+        "parameter_surface_size": N_PARAMS,
+        "active_surrogate_variables": NSGA2_V13_PROFILE["active_surrogate_variables"],
         "n_evaluations": problem._eval_count,
         "elapsed_seconds": round(elapsed, 1),
         "pareto_front_size": len(pareto_front),
@@ -391,6 +410,7 @@ def run_nsga2(
         "best_fitness": pareto_front[best_idx].tolist() if len(pareto_front) > 0 else [],
         "best_config_summary": summarize_config(best_config),
         "objective_names": OBJECTIVE_NAMES,
+        "nsga2_v13_profile": NSGA2_V13_PROFILE,
     }
 
     with open(out_path / "optimization_result.json", "w") as f:
