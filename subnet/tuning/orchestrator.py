@@ -54,7 +54,7 @@ logger = logging.getLogger("orchestrator")
 def run_single_simulation(
     output_dir: str = "results",
     n_honest: int = 6,
-    n_epochs: int = 2,
+    n_epochs: int = 100,
     n_trading_steps: int = 200,
 ) -> Dict[str, Any]:
     """Run a single simulation with default parameters and full reporting."""
@@ -65,8 +65,8 @@ def run_single_simulation(
 
     l1_agents, l2_agents = create_default_agents(
         n_honest=n_honest,
-        n_overfitters=2, n_copycats=1, n_gamers=1,
-        n_sybils=2, n_random=1,
+        n_overfitters=1, n_copycats=1, n_gamers=1,
+        n_sybils=1, n_random=0,
         n_honest_traders=3, n_copy_traders=1,
     )
 
@@ -137,7 +137,7 @@ def run_single_simulation(
 def run_attack_analysis(
     output_dir: str = "results",
     n_trials: int = 5,
-    n_honest: int = 4,
+    n_honest: int = 6,
 ) -> Dict[str, Any]:
     """Run multiple attack detection trials for statistical robustness."""
     logger.info("Running attack analysis (%d trials)...", n_trials)
@@ -152,13 +152,13 @@ def run_attack_analysis(
         l1_agents, l2_agents = create_default_agents(
             n_honest=n_honest,
             n_overfitters=1, n_copycats=1, n_gamers=1,
-            n_sybils=2, n_random=1,
-            n_honest_traders=2, n_copy_traders=1,
+            n_sybils=1, n_random=0,
+            n_honest_traders=3, n_copy_traders=1,
         )
 
         harness = SimulationHarness(
             l1_agents=l1_agents, l2_agents=l2_agents,
-            n_epochs=2, n_trading_steps=150,
+            n_epochs=100, n_trading_steps=150,
         )
 
         sim_result = harness.run(defaults)
@@ -203,11 +203,11 @@ def run_attack_analysis(
 
 def run_optimization(
     output_dir: str = "results",
-    n_generations: int = 50,
+    n_generations: int = 20,
     population_size: int = 30,
-    n_honest: int = 4,
+    n_honest: int = 6,
     n_adversarial: int = 1,
-    n_epochs: int = 2,
+    n_epochs: int = 100,
     n_trading_steps: int = 150,
     seed: int = 42,
     metrics_port: int = 8000,
@@ -275,7 +275,7 @@ Modes:
 Examples:
   python -m tuning.orchestrator --mode single
   python -m tuning.orchestrator --mode attack --trials 10
-  python -m tuning.orchestrator --mode optimize --generations 50 --population 30
+  python -m tuning.orchestrator --mode optimize --generations 20 --population 30
   python -m tuning.orchestrator --mode testnet --network local
         """,
     )
@@ -283,10 +283,10 @@ Examples:
                         default="single")
     parser.add_argument("--output", type=str, default="results")
     parser.add_argument("--generations", type=int, default=20)
-    parser.add_argument("--population", type=int, default=20)
-    parser.add_argument("--n-honest", type=int, default=4)
+    parser.add_argument("--population", type=int, default=30)
+    parser.add_argument("--n-honest", type=int, default=6)
     parser.add_argument("--n-adversarial", type=int, default=1)
-    parser.add_argument("--n-epochs", type=int, default=2)
+    parser.add_argument("--n-epochs", type=int, default=100)
     parser.add_argument("--n-steps", type=int, default=150)
     parser.add_argument("--trials", type=int, default=5)
     parser.add_argument("--seed", type=int, default=42)

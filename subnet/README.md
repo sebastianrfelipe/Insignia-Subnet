@@ -5,7 +5,7 @@
 Built on [Bittensor](https://bittensor.com) for the Sovereign Infrastructure Hackathon (March 2026).
 
 **Status:** Phase 4 (Attack Surveillance) - Phase 5 transition viable  
-**Best reported checkpoint:** EXP-116 with breach_rate `0.000049`, honest_score `0.9705`
+**Best reported checkpoint:** EXP-140 with breach_rate `0.000025`, honest_score `0.9748`
 
 ---
 
@@ -16,7 +16,7 @@ Insignia is a two-layer competitive network for producing high-quality ML models
 - **Layer 1 (Model Competition):** miners train predictive models and are scored across 7 weighted metrics.
 - **Layer 2 (Deployment Validation):** promoted models are wrapped into strategies and scored with the repository's 10-metric L2 risk stack.
 - **Cross-Layer Feedback:** Layer 2 outcomes feed back into Layer 1 rankings.
-- **Commit-Reveal Validation:** the timing defense path has been validated with effectiveness `0.72`, with validator latency severity reduced to the `0.033-0.043` range.
+- **Commit-Reveal Validation:** the timing defense path has been validated with effectiveness `0.723`, above the `0.667` acceptance floor.
 
 ---
 
@@ -24,10 +24,11 @@ Insignia is a two-layer competitive network for producing high-quality ML models
 
 - 6-agent architecture: deployer, simulator, sentinel, tuner, researcher, coder
 - 8 implemented agent archetypes in simulation: Honest, Overfitter, Copycat, SingleMetricGamer, Sybil, Random, HonestTrader, CopyTrader
+- 14-agent benchmark simulation mix: 9 honest, 5 adversarial across L1/L2
 - 75-parameter orchestration headline, with the repository retaining a broader 10-metric L2 implementation and expanded parameter space in code
-- Pareto front size: 49 solutions
-- Hypervolume: 0.875
-- Convergence detected: false
+- Hard-environment simulation headline: breach_rate `0.124`, honest_score `0.847`
+- Current optimization spec: 20 generations, population 30, 4 objectives
+- Open optimization gap: best autoresearch result `2.5e-05` vs target `5e-06`
 - Persistent warning: Sybil pressure driven by BTCUSDT:ETHUSDT imbalance
 
 ## L1 weights
@@ -85,7 +86,7 @@ The orchestration report summarizes a 6-metric headline split, but the codebase 
 18. weight_manipulation
 19. cross_layer_attack
 
-### Ensemble extensions used by the report-driven update
+### Report-driven surveillance extensions
 
 - selective_revelation
 - statistical_anomaly
@@ -93,6 +94,12 @@ The orchestration report summarizes a 6-metric headline split, but the codebase 
 - temporal_attack_pattern
 - sybil_collusion_graph
 - cross_layer_correlation
+
+### Highest-risk vectors from the latest orchestration run
+
+- `sybil_collusion_graph`: `0.63` (primary threat)
+- `temporal_attack_pattern`: `0.51`
+- Moderate follow-ons: `selective_revelation` `0.45`, `wash_trading` `0.42`, `cross_layer_correlation` `0.39`, `mev_extraction` `0.35`
 
 See `docs/sentinel.md` for the full alert and reset workflow.
 
@@ -108,7 +115,19 @@ The repository now treats these as first-class trading pairs for simulation and 
 - AVAXUSDT / AVAX-USDT-PERP
 - ADAUSDT / ADA-USDT-PERP
 
-This diversification is the primary mitigation for the persistent Sybil warning tied to BTC/ETH dominance.
+This diversification is the primary mitigation for the persistent Sybil warning tied to BTC/ETH dominance. The benchmark orchestration run exercised all five pairs and recorded the heaviest activity in BTCUSDT and ETHUSDT, so imbalance monitoring remains a first-class defense.
+
+---
+
+## Autoresearch highlights
+
+- 25 experiments executed from baseline `EXP-116`
+- 17 kept, 8 discarded
+- Best result: `EXP-140` (decentralized identity verification with bonding)
+- Runner-up: `EXP-141` (Bayesian Model Averaging)
+- Best-performing family: architecture redesign (7 experiments, 5 kept)
+- Weakest family: temporal pattern analysis (3 experiments, 1 kept)
+- Higher radical levels (3-4) produced the largest gains, but also the most discards
 
 ---
 

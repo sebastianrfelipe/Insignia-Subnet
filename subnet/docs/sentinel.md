@@ -4,10 +4,9 @@
 
 - Phase: 4 - Attack Surveillance
 - Transition: Phase 5 transition viable
-- Latest generation: 58
-- Breach rate: 0.0008
-- Honest score: 0.935
-- Score separation: 0.75
+- Latest simulation benchmark: 100 epochs, 14 agents, 5 trading pairs
+- Headline simulation metrics: breach rate `0.124`, honest score `0.847`
+- Commit-reveal effectiveness: `0.723` (passes the `0.667` floor)
 - Persistent warning: Sybil pressure from BTCUSDT:ETHUSDT imbalance
 
 ## Alert levels
@@ -64,13 +63,18 @@ The simulator and detector now track the legacy 19-vector catalog plus the repor
 
 ## Current notable severities
 
-| Vector | Severity | Trend | Notes |
+| Vector | Severity | Tier | Notes |
 |---|---:|---|---|
-| sybil_attack | 0.35 | warning, persistent | tied to pair imbalance |
-| data poisoning proxy | 0.21 | decreasing | correlated with Sybil pressure |
-| backdoor proxy | 0.17 | decreasing | monitored through anomaly ensemble |
-| validator_latency_exploitation | 0.033-0.043 | decreasing | commit/reveal validated |
-| prediction_timing_manipulation | 0.016-0.025 | decreasing | co-benefit from commit/reveal |
+| sybil_collusion_graph | 0.63 | high | primary unresolved risk; tied to cluster coordination and pair imbalance |
+| temporal_attack_pattern | 0.51 | high | second-highest risk in the orchestration run |
+| selective_revelation | 0.45 | moderate | contained by commit/reveal streak penalties but still visible |
+| wash_trading | 0.42 | moderate | still part of the middle attack band |
+| cross_layer_correlation | 0.39 | moderate | elevated when timing and ensemble votes align |
+| mev_extraction | 0.35 | moderate | remains a live execution-layer concern |
+| statistical_anomaly | 0.32 | moderate | now treated as part of the monitored middle band |
+| behavioral_anomaly | 0.28 | low-moderate | tracked, but not a top-tier issue in this run |
+| validator_latency_exploitation | < 0.05 target band | controlled | commit/reveal remains validated |
+| prediction_timing_manipulation | < 0.05 target band | controlled | co-benefit from commit/reveal remains intact |
 
 ## Reset protocols
 
@@ -97,4 +101,5 @@ The simulator and detector now track the legacy 19-vector catalog plus the repor
 ## Known issues
 
 - The dominant BTCUSDT:ETHUSDT ratio remains the main warning-level weakness.
-- Historical docs in `program.md` use older vector numbering; repository docs should prefer the detector naming above.
+- The simulation layer is materially harsher than the autoresearch loop; do not compare the `0.124` simulation breach rate directly to the `2.5e-05` experiment optimum without noting the environment mismatch.
+- Historical docs may use older vector numbering; repository docs should prefer the detector naming above.

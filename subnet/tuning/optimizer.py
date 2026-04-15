@@ -120,9 +120,9 @@ if PYMOO_AVAILABLE:
 
         def __init__(
             self,
-            n_honest: int = 6,
+        n_honest: int = 6,
             n_adversarial_each: int = 1,
-            n_epochs: int = 2,
+        n_epochs: int = 100,
             n_trading_steps: int = 150,
         ):
             lower, upper = get_bounds()
@@ -199,8 +199,8 @@ class RandomSearchOptimizer:
     def __init__(
         self,
         n_iterations: int = 50,
-        n_honest: int = 4,
-        n_epochs: int = 2,
+        n_honest: int = 6,
+        n_epochs: int = 100,
         n_trading_steps: int = 150,
     ):
         self.n_iterations = n_iterations
@@ -288,11 +288,11 @@ class RandomSearchOptimizer:
 # ---------------------------------------------------------------------------
 
 def run_nsga2(
-    n_generations: int = 50,
+    n_generations: int = 20,
     population_size: int = 30,
-    n_honest: int = 4,
+    n_honest: int = 6,
     n_adversarial_each: int = 1,
-    n_epochs: int = 2,
+    n_epochs: int = 100,
     n_trading_steps: int = 150,
     output_dir: str = "results",
     seed: int = 42,
@@ -431,11 +431,11 @@ if __name__ == "__main__":
     logger.setLevel(logging.INFO)
 
     parser = argparse.ArgumentParser(description="Insignia Parameter Optimizer")
-    parser.add_argument("--generations", type=int, default=10)
-    parser.add_argument("--population", type=int, default=20)
-    parser.add_argument("--n-honest", type=int, default=4)
+    parser.add_argument("--generations", type=int, default=20)
+    parser.add_argument("--population", type=int, default=30)
+    parser.add_argument("--n-honest", type=int, default=6)
     parser.add_argument("--n-adversarial", type=int, default=1)
-    parser.add_argument("--n-epochs", type=int, default=2)
+    parser.add_argument("--n-epochs", type=int, default=100)
     parser.add_argument("--n-steps", type=int, default=100)
     parser.add_argument("--output", type=str, default="results")
     parser.add_argument("--seed", type=int, default=42)
