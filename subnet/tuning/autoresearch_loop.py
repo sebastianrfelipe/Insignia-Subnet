@@ -118,6 +118,8 @@ class ExperimentResult:
     config_hash: str
     breach_rate: float
     honest_score: float
+    experiment_id: str
+    radical_level: int
     separation: float
     variance: float
     status: str  # keep, discard, crash
@@ -353,8 +355,8 @@ class AutoresearchLoop:
         budget_minutes: float = 5.0,
         max_experiments: int = 0,
         output_dir: str = "results",
-        n_honest: int = 4,
-        n_epochs: int = 2,
+        n_honest: int = 6,
+        n_epochs: int = 100,
         n_trading_steps: int = 150,
         focus_attack: Optional[str] = None,
         breach_weight: float = 2.0,

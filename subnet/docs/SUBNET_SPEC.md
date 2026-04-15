@@ -14,7 +14,7 @@
 | **Tagline** | Decentralized Predictive Modeling for On-Chain Markets |
 | **Architecture** | Two-Layer (Model Generation + Strategy Deployment) |
 | **Primary Output** | Battle-tested ML model + trading strategy pairs |
-| **Target Instruments** | BTC, ETH, SOL perpetual futures (expandable) |
+| **Target Instruments** | BTC, ETH, SOL, AVAX, ADA perpetual futures |
 | **Time Horizon** | Short-horizon (minutes to hours) |
 
 ---
@@ -53,8 +53,8 @@
 - Data asymmetry (miners: public data; validators: proprietary data) prevents overfitting to validation
 - Cross-layer feedback rewards models that survive real deployment
 - Commit-reveal scheme prevents post-hoc prediction manipulation and timing attacks (SHA-256 hashing with 128-bit nonces, commit window T-35s to T-5s, reveal window T+5s to T+20s)
-- 19 documented attack vectors with specific defenses (see `INCENTIVE_MECHANISM.md`), including 10 novel vectors discovered through autonomous agent swarm orchestration
-- Sentinel-validated: Vector 8 (validator latency exploitation) projected severity 0.047 < 0.05 target with commit-reveal
+- 25 active attack vectors are tracked in the repository: the legacy 19-vector catalog plus 6 report-driven surveillance extensions
+- The latest orchestration run validated commit-reveal effectiveness at 0.723, above the 0.667 acceptance floor
 
 ### Market Demand
 **Who pays for output and why.**
@@ -212,8 +212,8 @@ subnet/
 │   ├── l2_miner.py           # Layer 2 miner template (paper trading + commit/reveal)
 │   └── l2_validator.py       # Layer 2 validator (P&L tracking + scoring)
 ├── tuning/
-│   ├── attack_detector.py    # 19-vector attack detection with commit-reveal awareness
-│   ├── parameter_space.py    # 55-parameter tuning space with defense parameters
+│   ├── attack_detector.py    # 25-vector attack detection with commit-reveal awareness
+│   ├── parameter_space.py    # 60-parameter tuning space with defense parameters
 │   ├── optimizer.py          # NSGA-II multi-objective optimization
 │   ├── simulation.py         # Full pipeline simulation harness
 │   └── orchestrator.py       # Tuning loop orchestration
@@ -224,8 +224,8 @@ subnet/
 ├── scripts/
 │   └── run_demo.py           # Full end-to-end pipeline demonstration
 ├── docs/
-│   ├── INCENTIVE_MECHANISM.md # Incentive design + 13 attack vectors + commit-reveal validation
-│   ├── PARAMETER_TUNING_PLAN.md # 55-parameter tuning strategy
+│   ├── INCENTIVE_MECHANISM.md # Incentive design + attack landscape + commit-reveal validation
+│   ├── PARAMETER_TUNING_PLAN.md # 60-parameter tuning strategy
 │   ├── SUBNET_SPEC.md        # This document
 │   └── TESTNET_DEPLOYMENT.md # Deployment guide with commit-reveal integration
 ├── program.md                # Agent swarm program (orchestration spec)

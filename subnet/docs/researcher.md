@@ -38,23 +38,29 @@ Discard when breach rate increases significantly or scalarized fitness degrades.
 The loop writes TSV rows to `results/experiments.tsv` with these columns:
 
 - commit
+- config_hash
 - breach_rate
 - honest_score
+- separation
+- variance
 - status
 - description
 - experiment_id
 - radical_level
-- separation
-- variance
 
 ## Key reported experiments
 
-- EXP-050: breach_rate 0.00058, honest_score 0.955
-- EXP-103: breach_rate 0.000095, honest_score 0.97, ensemble breakthrough
-- EXP-116: breach_rate 0.000049, honest_score 0.9705, current best overall
+- EXP-116: breach_rate 0.000049, honest_score 0.9705, baseline for this orchestration cycle
+- EXP-118: breach_rate 0.000048, honest_score 0.9720, useful seed checkpoint
+- EXP-134: breach_rate 0.000029, honest_score 0.9742, stake-based consensus breakthrough
+- EXP-140: breach_rate 0.000025, honest_score 0.9748, decentralized identity verification with bonding, current best overall
+- EXP-141: breach_rate 0.000028, honest_score 0.9750, Bayesian model averaging runner-up
 
 ## Best practices from orchestration
 
-- Moderate radical levels 1-2 outperform extreme redesigns.
-- Boundary expansion plus sensitivity tuning yields the most reliable gains.
-- Ensemble detection and temporal stability remain the most productive research directions.
+- The latest 25-experiment orchestration run kept 17 experiments and discarded 8.
+- Architecture redesign was the most productive family: 7 tried, 5 kept.
+- Temporal pattern analysis had the weakest yield: 3 tried, 1 kept.
+- Radical levels 3-4 produced the biggest gains, but also the highest discard rate.
+- Economic mechanisms are the strongest frontier: identity bonding, stake-based consensus, and commit-reveal produced the best improvements.
+- The keep/discard gate is strict: both breach rate and honest score matter, with scalarized regressions treated as discards.
