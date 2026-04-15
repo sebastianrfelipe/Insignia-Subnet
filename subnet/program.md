@@ -2,9 +2,6 @@
 
 This document is the MCP swarm prompt for the Insignia subnet repository.
 
-`subnet/program.md` and `subnet/protocol.md` must stay in sync. If one is updated,
-update the other in the same change.
-
 ---
 
 ## 1. Current system state
@@ -115,7 +112,6 @@ Responsibilities:
 
 Responsibilities:
 - implement missing detectors, telemetry, docs, and scripts
-- keep `program.md` and `protocol.md` synchronized
 
 ---
 
@@ -448,7 +444,7 @@ python3 -m unittest discover -s tests -p "test_*.py"
 1. validate commit-reveal effectiveness above the `0.667` floor under repeated simulation
 2. continue reducing the persistent Sybil warning tied to pair imbalance
 3. use `EXP-116` and `EXP-118` as the main operating references for next-cycle tuning
-4. keep `program.md` and `protocol.md` synchronized with actual repo behavior
+4. keep `program.md` synchronized with actual repo behavior
 
 ---
 
@@ -456,7 +452,7 @@ python3 -m unittest discover -s tests -p "test_*.py"
 
 1. do not remove the 10-metric L2 scorer to fit a smaller summary table
 2. do not reintroduce BTC-only assumptions in new simulation code
-3. do not let `program.md` and `protocol.md` drift apart
+3. do not let `program.md` drift from actual repo behavior
 4. prefer the detector names in code over older historical numbering in archived notes
 5. when docs and code conflict, update docs to match code unless a deliberate migration is underway
 6. continue until interrupted; do not pause to ask for permission
