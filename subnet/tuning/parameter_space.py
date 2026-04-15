@@ -127,6 +127,12 @@ PARAMETER_DEFINITIONS: List[ParameterBounds] = [
     ParameterBounds("validator_agreement_threshold",       0.1,  0.4,  "consensus_integrity", "Max scoring deviation from validator consensus"),
     ParameterBounds("collusion_detection_lookback_epochs", 5,    20,   "consensus_integrity", "Epochs of history for collusion pattern detection"),
 
+    # Economic mechanisms (report-backed sybil resistance and ensemble improvements)
+    ParameterBounds("identity_bond_threshold",             0.50, 0.90, "economic_mechanisms", "Identity verification / bonding threshold for miner admission"),
+    ParameterBounds("stake_weight_consensus",              0.10, 0.60, "economic_mechanisms", "Relative weight assigned to stake-informed consensus checks"),
+    ParameterBounds("bayesian_model_weight",               0.40, 0.90, "ensemble_detection", "Weight assigned to Bayesian model averaging in ensemble fusion"),
+    ParameterBounds("dominant_pair_warning_ratio",         1.05, 2.50, "market_data", "BTC/ETH activity ratio above which sybil pressure warnings intensify"),
+
     # L1/L2 Cross-Layer Balance
     ParameterBounds("cross_layer_penalty_strength",        0.0,  1.0,  "cross_layer_balance", "Penalty strength for L1/L2 weight skew"),
     ParameterBounds("cross_layer_latency",                 10,   1000, "cross_layer_timing", "Max allowed latency (ms) for cross-layer sync"),
@@ -267,11 +273,37 @@ def decode(x: np.ndarray) -> Dict[str, Any]:
             "validator_agreement_threshold": p["validator_agreement_threshold"],
             "collusion_detection_lookback_epochs": int(round(p["collusion_detection_lookback_epochs"])),
         },
+        "economic_mechanisms": {
+            "identity_bond_threshold": p["identity_bond_threshold"],
+            "stake_weight_consensus": p["stake_weight_consensus"],
+        },
         "cross_layer_balance": {
             "penalty_strength": p["cross_layer_penalty_strength"],
         },
         "cross_layer_timing": {
             "max_latency_ms": p["cross_layer_latency"],
+        },
+        "ensemble_detection": {
+            "fusion_strategy": "bayesian_model_averaging",
+            "correlation_threshold": 0.77,
+            "response_vote_threshold": 2,
+            "bayesian_weight": p["bayesian_model_weight"],
+        },
+        "market_data": {
+            "trading_pairs": [
+                "BTC-USDT-PERP",
+                "ETH-USDT-PERP",
+                "SOL-USDT-PERP",
+                "AVAX-USDT-PERP",
+                "ADA-USDT-PERP",
+            ],
+            "dominant_pair_warning_ratio": p["dominant_pair_warning_ratio"],
+        },
+        "research_targets": {
+            "seed_lineage": ["EXP-116", "EXP-118"],
+            "best_experiment": "EXP-140",
+            "runner_up_experiment": "EXP-141",
+            "target_breach_rate": 5e-6,
         },
     }
 
@@ -282,44 +314,49 @@ def encode_defaults() -> np.ndarray:
         "l1_penalized_f1": 0.22, "l1_penalized_sharpe": 0.18, "l1_max_drawdown": 0.14,
         "l1_variance_score": 0.16, "l1_overfitting_penalty": 0.14, "l1_feature_efficiency": 0.06,
         "l1_latency": 0.10,
-        "l2_realized_pnl": 0.21, "l2_omega": 0.15, "l2_max_drawdown": 0.12,
-        "l2_win_rate": 0.07, "l2_consistency": 0.17, "l2_model_attribution": 0.08,
-        "l2_execution_quality": 0.05,
+        "l2_realized_pnl": 0.18, "l2_omega": 0.12, "l2_max_drawdown": 0.12,
+        "l2_win_rate": 0.05, "l2_consistency": 0.18, "l2_model_attribution": 0.11,
+        "l2_execution_quality": 0.09,
         "l2_annualized_volatility": 0.05, "l2_sharpe_ratio": 0.05, "l2_sortino_ratio": 0.05,
         "overfit_gap_threshold": 0.15, "overfit_decay_rate": 5.0,
-        "promotion_top_n": 10, "promotion_min_consecutive_epochs": 2,
-        "promotion_max_overfitting_score": 0.40, "promotion_max_score_decay_pct": 0.20,
+        "promotion_top_n": 8, "promotion_min_consecutive_epochs": 3,
+        "promotion_max_overfitting_score": 0.35, "promotion_max_score_decay_pct": 0.15,
         "promotion_expiry_epochs": 5,
-        "feedback_bonus_weight": 0.15, "feedback_penalty_weight": 0.10,
+        "feedback_bonus_weight": 0.12, "feedback_penalty_weight": 0.12,
         "fingerprint_correlation_threshold": 0.95, "copy_trade_time_tolerance": 60,
         "copy_trade_size_tolerance": 0.05, "copy_trade_correlation_threshold": 0.90,
-        "slippage_base_spread_bps": 2.0, "slippage_vol_impact_factor": 0.5,
-        "slippage_size_impact_factor": 0.1, "slippage_fee_bps": 5.0,
-        "trading_max_position_pct": 0.10, "trading_max_drawdown_pct": 0.20,
+        "slippage_base_spread_bps": 2.5, "slippage_vol_impact_factor": 0.6,
+        "slippage_size_impact_factor": 0.12, "slippage_fee_bps": 5.0,
+        "trading_max_position_pct": 0.08, "trading_max_drawdown_pct": 0.18,
         "buyback_pct": 0.20, "buyback_min_profit": 1000.0,
         "emission_sigmoid_midpoint": 0.50, "emission_sigmoid_steepness": 8.0,
-        "l1_l2_emission_split": 0.70,
+        "l1_l2_emission_split": 0.65,
         "rate_limit_epoch_seconds": 86400,
-        "feedback_min_l2_epochs": 3, "feedback_bonus_threshold": 0.60,
-        "feedback_penalty_threshold": 0.30,
-        # Validation timing (PF-02 validated)
+        "feedback_min_l2_epochs": 3, "feedback_bonus_threshold": 0.62,
+        "feedback_penalty_threshold": 0.28,
+        # Validation timing (commit-reveal validated at 0.723 effectiveness)
         "min_prediction_lead_time": 35,
-        "validator_latency_penalty_weight": 0.25,
-        "high_latency_threshold_ms": 2000,
-        "commit_rate_threshold": 0.70,
-        "commitment_violation_weight": 0.008,
+        "validator_latency_penalty_weight": 0.30,
+        "high_latency_threshold_ms": 1750,
+        "commit_rate_threshold": 0.75,
+        "commitment_violation_weight": 0.012,
         "selective_reveal_warning_streak": 1,
         "selective_reveal_penalty_streak": 2,
         "selective_reveal_zero_streak": 3,
-        # Consensus integrity (V3-PF-007 / autoresearch optimal)
-        "weight_entropy_minimum": 1.3,
-        "cross_validator_score_variance_max": 0.22,
-        "validator_rotation_max_consecutive_epochs": 5,
-        "validator_agreement_threshold": 0.20,
-        "collusion_detection_lookback_epochs": 10,
+        # Consensus integrity (tightened after the 2026-04-15 orchestration report)
+        "weight_entropy_minimum": 1.45,
+        "cross_validator_score_variance_max": 0.18,
+        "validator_rotation_max_consecutive_epochs": 4,
+        "validator_agreement_threshold": 0.16,
+        "collusion_detection_lookback_epochs": 12,
+        # Economic mechanisms (strongest signal from EXP-140/141 family)
+        "identity_bond_threshold": 0.72,
+        "stake_weight_consensus": 0.38,
+        "bayesian_model_weight": 0.68,
+        "dominant_pair_warning_ratio": 1.35,
         # Cross-layer balance
-        "cross_layer_penalty_strength": 0.3,
-        "cross_layer_latency": 200,
+        "cross_layer_penalty_strength": 0.45,
+        "cross_layer_latency": 160,
     }
     return np.array([defaults[name] for name in PARAM_NAMES])
 
@@ -370,6 +407,12 @@ def summarize_config(config: Dict[str, Any]) -> str:
     lines.append(f"  validator_rotation_max_epochs: {int(p['validator_rotation_max_consecutive_epochs'])}")
     lines.append(f"  validator_agreement_threshold: {p['validator_agreement_threshold']:.4f}")
     lines.append(f"  collusion_lookback_epochs: {int(p['collusion_detection_lookback_epochs'])}")
+
+    lines.append("=== Economic Mechanisms ===")
+    lines.append(f"  identity_bond_threshold: {p['identity_bond_threshold']:.4f}")
+    lines.append(f"  stake_weight_consensus: {p['stake_weight_consensus']:.4f}")
+    lines.append(f"  bayesian_model_weight: {p['bayesian_model_weight']:.4f}")
+    lines.append(f"  dominant_pair_warning_ratio: {p['dominant_pair_warning_ratio']:.4f}")
 
     lines.append("=== Cross-Layer Balance ===")
     lines.append(f"  penalty_strength: {p['cross_layer_penalty_strength']:.4f}")

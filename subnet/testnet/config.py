@@ -141,10 +141,10 @@ class ValidationTimingConfig:
     """
 
     min_prediction_lead_time_seconds: float = 35.0
-    validator_latency_penalty_weight: float = 0.25
-    high_latency_threshold_ms: float = 2000.0
-    commit_rate_threshold: float = 0.70
-    commitment_violation_weight: float = 0.008
+    validator_latency_penalty_weight: float = 0.28
+    high_latency_threshold_ms: float = 1800.0
+    commit_rate_threshold: float = 0.75
+    commitment_violation_weight: float = 0.012
     selective_reveal_warning_streak: int = 1
     selective_reveal_penalty_streak: int = 2
     selective_reveal_zero_streak: int = 3
@@ -157,11 +157,11 @@ class ConsensusIntegrityConfig:
     Values from V3-PF-007 knee point and autoresearch optimal.
     """
 
-    weight_entropy_minimum: float = 1.3
-    cross_validator_score_variance_max: float = 0.22
-    validator_rotation_max_consecutive_epochs: int = 5
-    validator_agreement_threshold: float = 0.20
-    collusion_detection_lookback_epochs: int = 10
+    weight_entropy_minimum: float = 1.45
+    cross_validator_score_variance_max: float = 0.18
+    validator_rotation_max_consecutive_epochs: int = 4
+    validator_agreement_threshold: float = 0.17
+    collusion_detection_lookback_epochs: int = 12
 
 
 @dataclass
@@ -170,11 +170,11 @@ class EnsembleDetectionConfig:
     Ensemble detector parameters from EXP-103 / EXP-113.
     """
 
-    correlation_threshold: float = 0.77
-    entropy_threshold_lower: float = 0.18
-    symbol_diversity_threshold: float = 0.275
-    fusion_strategy: str = "weighted_voting_dynamic_adaptive"
-    response_vote_threshold: int = 2
+    correlation_threshold: float = 0.80
+    entropy_threshold_lower: float = 0.20
+    symbol_diversity_threshold: float = 0.33
+    fusion_strategy: str = "bayesian_model_averaging"
+    response_vote_threshold: int = 3
     confirmation_window: int = 2
 
 
@@ -199,7 +199,7 @@ class MarketDataConfig:
     """
 
     trading_pairs: list[str] = field(default_factory=lambda: list(DEFAULT_TRADING_PAIRS))
-    dominant_pair_warning_ratio: float = 17.0
+    dominant_pair_warning_ratio: float = 1.35
 
 
 @dataclass
