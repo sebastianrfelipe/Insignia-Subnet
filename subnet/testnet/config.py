@@ -205,6 +205,29 @@ class MarketDataConfig:
 
 
 @dataclass
+class ModelRoutingConfig:
+    """
+    Per-agent model routing configuration for simulated miners/traders.
+
+    This allows the emulator/tuning stack to assign a stable external
+    model route to each simulated agent for the duration of a run, which
+    better represents diversity of intelligence in a decentralized network.
+    """
+
+    enabled: bool = True
+    route_names: list[str] = field(
+        default_factory=lambda: [
+            "mcp-route-analyst",
+            "mcp-route-balanced",
+            "mcp-route-fast",
+            "mcp-route-reasoning",
+        ]
+    )
+    assignment_seed: int = 4242
+    stable_per_run: bool = True
+
+
+@dataclass
 class EmulatorConfig:
     """Top-level emulator configuration."""
 
@@ -220,6 +243,7 @@ class EmulatorConfig:
     ensemble_detection: EnsembleDetectionConfig = field(default_factory=EnsembleDetectionConfig)
     convergence_monitoring: ConvergenceMonitoringConfig = field(default_factory=ConvergenceMonitoringConfig)
     market_data: MarketDataConfig = field(default_factory=MarketDataConfig)
+    model_routing: ModelRoutingConfig = field(default_factory=ModelRoutingConfig)
 
     n_l1_epochs: int = 5
     n_l2_trading_steps: int = 300
@@ -266,6 +290,12 @@ class EmulatorConfig:
             "market_data": {
                 "trading_pairs": list(self.market_data.trading_pairs),
                 "dominant_pair_warning_ratio": self.market_data.dominant_pair_warning_ratio,
+            },
+            "model_routing": {
+                "enabled": self.model_routing.enabled,
+                "route_names": list(self.model_routing.route_names),
+                "assignment_seed": self.model_routing.assignment_seed,
+                "stable_per_run": self.model_routing.stable_per_run,
             },
             "output_dir": self.output_dir,
         }

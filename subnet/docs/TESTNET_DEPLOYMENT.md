@@ -63,6 +63,17 @@ bash testnet/scripts/check_wallet_balances.sh
 - fusion_strategy: bayesian_model_averaging
 - response_vote_threshold: 3
 
+### Stable MCP model routing
+
+- enabled: configurable
+- stable_per_run: true
+- assignment_seed: configurable
+- route_names / route_ids: provided by the MCP routing server
+- each simulated miner/trader agent receives a fixed `assigned_route` for the full run
+- optional `assigned_model_profile` metadata can be attached for reproducible diagnostics
+- assignments are emitted in simulation/emulator results so route diversity is auditable
+- this is used to model decentralized intelligence diversity during tuning without re-sampling route quality every epoch
+
 ### Symbol diversity enforcement (PC-VH-006)
 
 - enabled: true
@@ -102,6 +113,14 @@ bash testnet/scripts/check_wallet_balances.sh
 - `insignia_btc_eth_dominance_ratio`
 - `insignia_symbol_diversity_enforcement`
 - `insignia_commit_reveal_effectiveness`
+
+## Emulator topology
+
+- validator nodes / wallets: 1
+- miner nodes / wallets: 12
+- simulated benchmark population: 14 agents
+  - L1: 6 honest + 4 adversarial
+  - L2: 3 honest + 1 adversarial
 
 ## Note on parameter counts
 
