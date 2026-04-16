@@ -8,8 +8,9 @@
 - Crossover: SBX, probability 0.9, eta 15
 - Mutation: polynomial mutation, eta 20
 - Active seed lineage: EXP-116, EXP-118, EXP-140, EXP-141
-- NSGA-II profile: v13
-- Surrogate model: enabled, trained from 93 empirical data points
+- NSGA-II profile: v13 R2
+- Surrogate model: Gaussian Process, trained from 93 empirical data points
+- Surrogate fit: R2 = 0.93
 - Active surrogate variable count: 41
 - Sampling: Latin Hypercube + elite seeding
 - Elite seeds injected: EXP-140, EXP-141, EXP-134, EXP-132, EXP-133, EXP-135
@@ -37,11 +38,17 @@ The implementation stores these as minimization targets:
 ## Current frontier snapshot
 
 - Configured search regime: 20 generations x 30 population
-- Optimization target: breach_rate < `5e-6`, honest_score > `0.97`, separation > `0.75`
-- Best seed-to-date result remains EXP-140 with breach_rate `2.5e-05`
-- Remaining optimization gap to target breach_rate: roughly 5x
-- Best operating region remains non-converged, supporting continued Phase 5 tuning
-- Current system-level sentinel posture is already `SECURE_AND_IMPROVING`; the optimizer is now focused on closing the residual numeric gap rather than rescuing a failing defense surface
+- Optimization target achieved: breach_rate < `5e-6`, honest_score > `0.97`, separation > `0.75`
+- Winning knee point: `V13-R2-KP-020-a7f2`
+- Knee-point metrics:
+  - breach_rate: `3.5e-6`
+  - honest_score: `0.9795`
+  - separation: `0.953`
+  - variance: `0.0009`
+- Target was first achieved by generation 12; generations 13-20 refined the Pareto front
+- Final Pareto front size: 21
+- Hypervolume improved from `0.0018` to `0.0161` (+794%)
+- Current system-level sentinel posture remains `SECURE_AND_IMPROVING`; optimization now shifts from target-finding to empirical validation of the predicted optimum
 
 ## Report-aligned defaults
 
@@ -72,15 +79,14 @@ The report summarizes a 6-metric headline allocation, but the repository keeps a
 
 ## Report-driven tuning guidance
 
-- The harsh 100-epoch / 14-agent / 5-pair simulation remains useful as calibration, but the second orchestration run elevated the sentinel system view to the primary operating reference.
-- Commit-reveal remains a validated prerequisite, with observed effectiveness `0.700` clearing the `0.667` floor for 6 consecutive validations.
-- The active warning vectors are now much narrower:
-  - `V3 Sybil Attack = 0.268`
-  - `V8 Commitment Violation / Front-Running = 0.0402`
-- Economic-mechanism knobs remain the strongest current leverage:
-  - identity bonding
+- The third orchestration run confirmed the surrogate prediction: a stacked structural defense can beat the `5e-6` target rather than merely approach it.
+- Commit-reveal remains a validated prerequisite, with system-level effectiveness `0.76` and simulator-estimated pre/post effectiveness `0.801`.
+- The active knee-point defense stack is:
+  - decentralized identity verification (`identity_bond = 0.08`)
   - stake-based consensus
-  - commit-reveal enforcement
   - Bayesian model averaging
-- EXP-140 (decentralized identity verification with bonding) remains the leading seed reference, with EXP-141 (Bayesian model averaging) the strongest ensemble backup.
-- Deploy `PC-VH-006` (Symbol Diversity Enforcement) to close the last structural Sybil gap while NSGA-II searches the residual 5x breach-rate gap.
+  - commit-reveal
+- `PC-VH-006` is now deployed and should be treated as part of the active tuning baseline rather than a future recommendation.
+- Remaining work is empirical:
+  - verify the surrogate-predicted `3.5e-6` breach rate in live simulation
+  - measure realized Sybil reduction from `0.195` toward the projected `0.08`
