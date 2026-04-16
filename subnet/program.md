@@ -172,6 +172,20 @@ The testnet wallet layout now assumes:
 - 1 validator wallet
 - 12 miner wallets
 
+### Stable model-route diversity during tuning
+
+The simulator and testnet emulator can assign a stable external MCP model route
+to each miner/trader agent for the full run. This is intended to represent
+decentralized intelligence diversity without introducing per-epoch routing noise.
+
+Required behavior:
+- route assignment is **stable per agent for the full run**
+- assignment is seeded and reproducible
+- the simulator emits the route manifest in telemetry/results
+- the emulator config is the source of truth for route pools and the assignment seed
+- agent archetype and adversarial behavior remain primary; route assignment is an
+  orthogonal "intelligence diversity" dimension
+
 ---
 
 ## 5. Parameter and weighting guidance
@@ -253,6 +267,14 @@ The codebase preserves a 10-metric L2 scorer. Current compatible defaults are:
 - `max_penalty = 0.5`
 - `grace_generations = 2`
 
+### Stable routing defaults
+
+- `model_routing.enabled = false` unless explicitly turned on by the emulator/operator
+- `model_routing.stable_per_run = true`
+- `model_routing.assignment_seed` should be recorded for every run
+- `model_routing.route_ids` / `route_names` should come from the MCP server's routing catalog
+- `assigned_route` and `assigned_model_profile` should be persisted in simulator/emulator telemetry
+
 ### NSGA-II defaults
 
 - population: `30`
@@ -332,6 +354,7 @@ All new simulation and prompt logic should assume support for these markets:
 - do not hardcode BTC-only flows in new work
 - preserve pair activity metrics
 - explicitly monitor whether BTC/ETH dominance reappears in telemetry
+- preserve stable route-assignment manifests when MCP routing is enabled
 
 ---
 
@@ -364,6 +387,7 @@ Primary endpoints:
 - `insignia_timing_attack_composite_severity`
 - `insignia_trading_pair_activity`
 - `insignia_ensemble_signal`
+- route-assignment telemetry in simulator/emulator result artifacts
 
 ---
 
@@ -527,8 +551,9 @@ python3 -m unittest discover -s tests -p "test_*.py"
 2. measure real Sybil severity reduction from deployed **PC-VH-006** against the projected `60-70%` improvement
 3. validate commit-reveal effectiveness above the `0.667` floor under repeated simulation
 4. continue executing the queued `EXP-142+` economic-security experiment family, starting from the kept `EXP-142`
-5. use `EXP-116` / `EXP-118` as seed lineage while treating `EXP-140`, `EXP-141`, `EXP-142`, `EXP-134`, and `EXP-133` as the main design references
-6. keep `program.md` synchronized with actual repo behavior
+5. validate stable per-run MCP route assignment as an intentional decentralization/intelligence-diversity dimension during tuning
+6. use `EXP-116` / `EXP-118` as seed lineage while treating `EXP-140`, `EXP-141`, `EXP-142`, `EXP-134`, and `EXP-133` as the main design references
+7. keep `program.md` synchronized with actual repo behavior
 
 ---
 

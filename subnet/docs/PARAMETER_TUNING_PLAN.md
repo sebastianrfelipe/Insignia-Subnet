@@ -65,7 +65,7 @@ Together these form a **94-parameter optimization surface**. Tuning by hand is i
 
 **Goal:** Enumerate every tunable parameter, define its bounds, and categorize by layer.
 
-#### Insignia Application-Level Parameters (64 total, tuned by emulator)
+#### Insignia Application-Level Parameters (68 total, tuned by emulator)
 
 | Category | Parameters | Count |
 |----------|-----------|-------|
@@ -86,8 +86,9 @@ Together these form a **94-parameter optimization surface**. Tuning by hand is i
 | Economic Mechanisms | identity_bond_threshold, stake_weight_consensus | 2 |
 | Ensemble Detection | bayesian_model_weight | 1 |
 | Market Data | dominant_pair_warning_ratio | 1 |
+| Model Routing | model_routing_enabled, model_routing_assignment_seed, model_routing_stable_per_run, model_routing_route_count | 4 |
 | Cross-Layer Defense | cross_layer_penalty_strength, cross_layer_latency | 2 |
-| **Subtotal** | | **64** |
+| **Subtotal** | | **68** |
 
 #### Bittensor On-Chain Subnet Hyperparameters (39 total, set via btcli)
 
@@ -109,9 +110,9 @@ Together these form a **94-parameter optimization surface**. Tuning by hand is i
 
 | Level | Parameters | Tuned By |
 |-------|-----------|----------|
-| Insignia application-level | 64 | Emulator (NSGA-II evolutionary optimization) |
+| Insignia application-level | 68 | Emulator (NSGA-II evolutionary optimization) |
 | Bittensor on-chain | 33+ | btcli / subnet owner configuration |
-| **Total** | **92+** | |
+| **Total** | **96+** | |
 
 **Constraints:**
 - L1 weights must sum to 1.0
@@ -142,6 +143,19 @@ Together these form a **94-parameter optimization surface**. Tuning by hand is i
 | **Random** | Random model/strategy submissions | Noise floor baseline |
 
 Each agent type is parameterized so the optimizer can test different attack intensities.
+
+#### Model-route diversity during tuning
+
+To better approximate decentralized intelligence diversity, the tuning harness can
+assign each simulated miner/trader agent a stable per-run external model route.
+This is intended for MCP-backed routing environments where the backend already
+supports route selection.
+
+Key properties:
+- route assignment is **stable per miner for the full run**
+- assignments are seeded and reproducible
+- assignments are emitted into simulation and emulator telemetry
+- route diversity is treated as a realism/control variable, not as untracked noise
 
 **Implementation:** `tuning/simulation.py` — contains `MinerAgent` classes, `SimulationHarness`, and the full pipeline runner.
 
