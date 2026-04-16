@@ -269,10 +269,10 @@ The codebase preserves a 10-metric L2 scorer. Current compatible defaults are:
 
 ### Stable routing defaults
 
-- `model_routing.enabled = false` unless explicitly turned on by the emulator/operator
+- `model_routing.enabled = true` in the emulator/testnet config, but effective assignment still depends on the MCP/server route catalog being provided
 - `model_routing.stable_per_run = true`
 - `model_routing.assignment_seed` should be recorded for every run
-- `model_routing.route_ids` / `route_names` should come from the MCP server's routing catalog
+- `model_routing.route_ids` / `route_names` should come from the MCP server's routing catalog or environment-backed emulator config
 - `assigned_route` and `assigned_model_profile` should be persisted in simulator/emulator telemetry
 
 ### NSGA-II defaults

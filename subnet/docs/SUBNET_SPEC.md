@@ -223,7 +223,7 @@ subnet/
 │   └── orchestrator.py       # Tuning loop orchestration
 ├── testnet/
 │   ├── config.py             # CommitRevealConfig, ValidationTimingConfig, ConsensusIntegrityConfig
-│   ├── emulator.py           # Testnet emulator with commit-reveal support
+│   ├── emulator.py           # Testnet emulator with commit-reveal support and route-diversity assignment
 │   └── ...                   # Chain setup and wallet management
 ├── scripts/
 │   └── run_demo.py           # Full end-to-end pipeline demonstration
