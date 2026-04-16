@@ -26,6 +26,8 @@ Insignia is a two-layer competitive network for producing high-quality ML models
 - 6-agent architecture: deployer, simulator, sentinel, tuner, researcher, coder
 - 8 implemented agent archetypes in simulation: Honest, Overfitter, Copycat, SingleMetricGamer, Sybil, Random, HonestTrader, CopyTrader
 - 14-agent benchmark simulation mix: 9 honest, 5 adversarial across L1/L2
+- Emulator/testnet node layout: 1 validator wallet and 12 miner wallets
+- Stable per-run MCP model-route assignment is now supported for simulated miner agents to represent decentralized intelligence diversity during tuning
 - Active sentinel posture: breach_rate `0.0005`, honest_score `0.94`, score_separation `0.758`
 - No convergence detected and no reset triggers fired (`SOFT`, `HARD`, `FULL` all false)
 - 75-parameter orchestration headline, with the repository retaining a broader 10-metric L2 implementation and expanded parameter space in code
@@ -132,6 +134,18 @@ tied to BTC/ETH dominance. `PC-VH-006` (Symbol Diversity Enforcement) is now
 part of the deployed defense stack, enforcing at least 3 active trading pairs,
 `max_symbol_dominance = 0.6`, warning at `1.35x`, critical at `2.0x`, and an
 exponential penalty schedule with a 2-generation grace period.
+
+## MCP-routed intelligence diversity
+
+The simulator and emulator now support stable per-run external model-route
+assignment for each miner/trader agent. Each agent can be assigned:
+
+- an `assigned_route`
+- an `assigned_model_profile`
+
+from a configured route pool. The assignment is seeded and stable for the full
+run so tuning remains reproducible while still representing heterogeneous
+intelligence across a decentralized subnet population.
 
 ---
 
