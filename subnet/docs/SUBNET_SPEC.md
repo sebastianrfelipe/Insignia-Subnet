@@ -54,8 +54,9 @@
 - Cross-layer feedback rewards models that survive real deployment
 - Commit-reveal scheme prevents post-hoc prediction manipulation and timing attacks (SHA-256 hashing with 128-bit nonces, commit window T-35s to T-5s, reveal window T+5s to T+20s)
 - The core post-commit-reveal operating model is evaluated against 19 active surveillance vectors
-- The latest orchestration run validated commit-reveal effectiveness at 0.700, above the 0.667 acceptance floor, with 6 consecutive successful validations
-- Sentinel classified the system as `SECURE_AND_IMPROVING`, with breach_rate `0.0005`, honest_score `0.94`, and separation `0.758`
+- The latest orchestration run validated commit-reveal effectiveness at `0.76`, above the `0.667` acceptance floor, with a stronger operating margin than the prior run
+- Sentinel classified the system as `SECURE_AND_IMPROVING`, with Sybil reduced to `0.195`, commitment violation reduced to `0.019`, and no new anomalies detected
+- NSGA-II v13 R2 hit the primary target with breach_rate `3.5e-6`, honest_score `0.9795`, and separation `0.953`
 
 ### Market Demand
 **Who pays for output and why.**
@@ -214,8 +215,10 @@ subnet/
 │   └── l2_validator.py       # Layer 2 validator (P&L tracking + scoring)
 ├── tuning/
 │   ├── attack_detector.py    # 19-vector post-commit-reveal attack detection
-│   ├── parameter_space.py    # 60-parameter tuning space with defense parameters
+│   ├── parameter_space.py    # 73-parameter tuning space with defense parameters
 │   ├── optimizer.py          # NSGA-II multi-objective optimization
+│   ├── pc_vh_006_symbol_diversity.py # Symbol diversity enforcement policy
+│   ├── sentinel_symbol_monitor.py # Symbol diversity monitoring and severity projection
 │   ├── simulation.py         # Full pipeline simulation harness
 │   └── orchestrator.py       # Tuning loop orchestration
 ├── testnet/

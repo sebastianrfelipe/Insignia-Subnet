@@ -244,20 +244,26 @@ Pre-configured dashboard with panels for:
 
 #### Current report-aligned operating note
 
-The second orchestration run supersedes the earlier harder-environment snapshot
-as the active system-level operating reference:
+The third orchestration run advances the system from "secure and improving" to
+**target achieved** status:
 
-- sentinel status: `SECURE_AND_IMPROVING`
-- system breach_rate: `0.0005`
-- honest_score: `0.94`
-- separation: `0.758`
-- commit-reveal effectiveness: `0.700` with 6 consecutive validations
-- 17 of 19 post-CR vectors at INFO; only V3 Sybil and V8 commitment violation remain at WARNING
-- no convergence detected and no reset triggers fired
+- NSGA-II v13 R2 reached the target at knee point `V13-R2-KP-020-a7f2`
+- breach_rate: `3.5e-6`
+- honest_score: `0.9795`
+- separation: `0.953`
+- variance: `0.0009`
+- target was hit by generation `12`, with the remaining generations refining a
+  `21`-member Pareto front
+- hypervolume increased from `0.0018` to `0.0161`
+- Gaussian Process surrogate accuracy reached `R^2 = 0.93` on `93` empirical
+  data points
+- commit-reveal effectiveness strengthened to `0.76` in sentinel coordination
+  and `0.801` in the simulator's pre/post stability validation
 
-The simulation-layer `0.124` / `0.847` benchmark is still useful as a stress
-environment, but Phase 5 decisions should now be narrated primarily through the
-sentinel's secured post-commit-reveal state.
+The earlier simulation-layer `0.124` / `0.847` benchmark is still valuable as a
+stress environment, but the operating question has changed: the remaining work
+is now empirical validation of the achieved `3.5e-6` breach rate and direct
+measurement of PC-VH-006's production impact on Sybil severity.
 
 #### Fitness Evaluation Pipeline
 

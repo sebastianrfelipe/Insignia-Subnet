@@ -55,11 +55,14 @@ The loop writes TSV rows to `results/experiments.tsv` with these columns:
 - EXP-134: breach_rate 0.000029, honest_score 0.9742, stake-based consensus breakthrough
 - EXP-140: breach_rate 0.000025, honest_score 0.9748, decentralized identity verification with bonding, current best overall
 - EXP-141: breach_rate 0.000028, honest_score 0.9750, Bayesian model averaging runner-up
+- EXP-142: breach_rate 0.000023, honest_score 0.9752, identity bonding plus Bayesian averaging plus slashing, kept
 
-## Phase 5 queued experiment tranche
+## Phase 5 economic-security tranche
 
 The second orchestration run queued a new economic-security-heavy researcher
-batch spanning `EXP-142` through `EXP-166`. The queue is centered on:
+batch spanning `EXP-142` through `EXP-166`. The third run executed the first
+experiment in that tranche and kept it, while the remaining queue is centered
+on:
 
 - identity bond enhancement
 - dynamic bonding curves
@@ -82,4 +85,5 @@ batch spanning `EXP-142` through `EXP-166`. The queue is centered on:
 - Radical levels 3-4 produced the biggest gains, but also the highest discard rate.
 - Economic mechanisms are the strongest frontier: identity bonding, stake-based consensus, commit-reveal, and Bayesian averaging produced the best improvements.
 - The keep/discard gate is strict: both breach rate and honest score matter, with scalarized regressions treated as discards.
-- The next execution priority is the queued `EXP-142+` tranche; these experiments were designed in the second run but not yet executed there.
+- EXP-142 validated that combining EXP-140 and EXP-141 design ideas still improves both primary and secondary metrics, even though it does not outperform the surrogate-selected NSGA-II knee point.
+- The next execution priority is empirical follow-through on the remaining `EXP-143+` tranche plus production measurement of actual Sybil reduction from PC-VH-006.

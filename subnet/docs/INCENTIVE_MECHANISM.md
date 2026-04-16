@@ -472,7 +472,7 @@ projected_severity = base_severity × (1 - effectiveness) + residual
 | Attack surface eliminated | 0.063 |
 | Residual attack surface | 0.02 |
 
-**Sensitivity:** Commit-reveal effectiveness must exceed 0.667 to meet the target. The latest system-level orchestration run held `0.700` for 6 consecutive validations, so the defense is currently above the floor and suitable for Phase 5 transition gating. The harsher 14-agent / 5-pair simulation benchmark still observed `0.723`, which remains useful as a stress-test reference. This should remain a recurring simulation gate before production deployment.
+**Sensitivity:** Commit-reveal effectiveness must exceed 0.667 to meet the target. The third orchestration run strengthened the live operating margin to `0.76`, while the simulator's pre/post validation study measured `0.801` effectiveness across 25 pre-CR and 25 post-CR epochs. The earlier `0.700` / 6-validation sentinel posture and the harsher `0.723` benchmark remain useful historical gates, but the current state is materially stronger and should now be treated as a validation baseline before production deployment.
 
 **Bonus:** Vector 11 (Prediction Timing Manipulation) drops from 0.06 to projected 0.025.
 

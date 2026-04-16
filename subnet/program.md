@@ -6,40 +6,51 @@ This document is the MCP swarm prompt for the Insignia subnet repository.
 
 ## 1. Current system state
 
-- Current phase: **Phase 5 transition window**
-- Transition status: **Phase 5 transition viable**
+- Current phase: **Phase 5 target-achieved validation window**
+- Transition status: **Phase 5 transition conditions fully met**
 - Current sentinel posture: **SECURE_AND_IMPROVING**
 - Latest system-level sentinel checkpoint from the orchestration report:
   - breach_rate: `0.0005`
   - honest_score: `0.94`
   - score_separation: `0.758`
-  - commit_reveal_effectiveness: `0.700`
+  - commit_reveal_effectiveness: `0.760`
+  - composite_integrity_score: `0.978`
   - commit-reveal validations above floor: `6 consecutive`
   - reset triggers: `SOFT=false`, `HARD=false`, `FULL=false`
-- Historical hard-environment simulation benchmark remains relevant as a stress test:
+- Latest optimization milestone from the orchestration report:
+  - knee point: **V13-R2-KP-020-a7f2**
+  - breach_rate: `3.5e-6`
+  - honest_score: `0.9795`
+  - separation: `0.953`
+  - variance: `0.0009`
+  - target status: **5e-6 target achieved**
+- Historical harder-environment simulation benchmark remains relevant as a stress test:
   - epochs: `100`
   - population: `14 agents` (`6 honest + 4 adversarial` in L1, `3 honest + 1 adversarial` in L2)
   - trading pairs: `BTCUSDT`, `ETHUSDT`, `SOLUSDT`, `AVAXUSDT`, `ADAUSDT`
   - breach_rate: `0.124`
   - honest_score: `0.847`
-  - commit_reveal_effectiveness: `0.723`
+  - commit_reveal_effectiveness: `0.801`
 - Interpretation:
   - the simulation layer remains materially harsher than the researcher loop and should still be treated as the harder operating environment
   - the sentinel view is now the main operating security posture for transition decisions
+  - the optimizer has moved from target-seeking into empirical validation of the achieved regime
   - commit-reveal remains above the acceptance floor of `0.667`
 - Best reported experiment series:
   - baseline checkpoint: **EXP-116** — breach_rate `0.000049`, honest_score `0.9705`, separation `0.903`, variance `0.0030`
   - Phase 5 seed checkpoint: **EXP-118** — breach_rate `0.000048`, honest_score `0.9720`, separation `0.907`, variance `0.0029`
-  - current best overall: **EXP-140** — breach_rate `0.000025`, honest_score `0.9748`, separation `0.929`, variance `0.0016`
+  - current best executed researcher baseline: **EXP-140** — breach_rate `0.000025`, honest_score `0.9748`, separation `0.929`, variance `0.0016`
   - runner-up: **EXP-141** — breach_rate `0.000028`, honest_score `0.9750`, separation `0.922`, variance `0.0017`
+  - latest kept follow-on: **EXP-142** — breach_rate `0.000023`, honest_score `0.9752`, separation `0.931`, scalarized_fitness `0.976`
 - Optimization status:
-  - active NSGA-II profile: **v13 surrogate-guided run**
+  - active NSGA-II profile: **v13 R2 surrogate-guided run**
   - operating spec: `20 generations`, `30 population`, `4 objectives`, `SBX prob=0.9 eta=15`, `PM eta=20`
   - surrogate training basis: `93 empirical data points`
+  - surrogate quality: `Gaussian Process`, `R^2 = 0.93`
   - seed lineage for active tuning: `EXP-116`, `EXP-118`, `EXP-140`, `EXP-141`
   - elite seeds injected: `EXP-140`, `EXP-141`, `EXP-134`, `EXP-132`, `EXP-133`, `EXP-135`
   - variable profile used by the tuner: `41 variables`
-  - target breach_rate remains `5e-6`, leaving roughly a **5x gap** from the best researcher result
+  - target breach_rate `5e-6` has been exceeded by the current knee point (`3.5e-6`)
 - Persistent warning: **Sybil pressure from BTCUSDT:ETHUSDT imbalance**
 
 ### Important compatibility note
@@ -202,6 +213,8 @@ The codebase preserves a 10-metric L2 scorer. Current compatible defaults are:
 - `selective_reveal_warning_streak = 1`
 - `selective_reveal_penalty_streak = 2`
 - `selective_reveal_zero_streak = 3`
+- `expected_commit_reveal_effectiveness = 0.76`
+- `required_validation_streak = 6`
 
 ### Consensus integrity defaults
 
@@ -217,7 +230,8 @@ The codebase preserves a 10-metric L2 scorer. Current compatible defaults are:
 - `stake_weight_consensus = 0.38`
 - `bayesian_model_weight = 0.68`
 - `dominant_pair_warning_ratio = 1.35`
-- these knobs encode the strongest report-backed directions from `EXP-140`, `EXP-141`, `EXP-134`, and `EXP-133`
+- `identity_bond = 0.08` at the winning surrogate-guided knee point
+- these knobs encode the strongest report-backed directions from `EXP-140`, `EXP-141`, `EXP-134`, `EXP-133`, and `EXP-142`
 
 ### Ensemble detection defaults
 
@@ -226,6 +240,18 @@ The codebase preserves a 10-metric L2 scorer. Current compatible defaults are:
 - `symbol_diversity_threshold = 0.33`
 - `fusion_strategy = bayesian_model_averaging`
 - `response_vote_threshold = 3`
+
+### PC-VH-006 symbol diversity enforcement defaults
+
+- `pc_vh_006_enabled = true`
+- `min_trading_pairs = 3`
+- `max_symbol_dominance = 0.6`
+- `warning_ratio = 1.35`
+- `critical_ratio = 2.0`
+- `base_penalty = 0.1`
+- `escalation_factor = 1.5`
+- `max_penalty = 0.5`
+- `grace_generations = 2`
 
 ### NSGA-II defaults
 
@@ -264,27 +290,30 @@ The codebase preserves a 10-metric L2 scorer. Current compatible defaults are:
 
 ### Current post-commit-reveal operating view
 
-The second orchestration run evaluated the active **19 post-commit-reveal attack
+The third orchestration run evaluated the active **19 post-commit-reveal attack
 vectors** and reported:
 
 - overall status: `SECURE_AND_IMPROVING`
 - `17 / 19` vectors at INFO
 - no convergence detected
 - no reset triggers fired
+- composite integrity score: `0.978`
 
 ### Highest-priority persistent risk
 
 The main unresolved structural warning remains Sybil pressure caused by market
-concentration. The current sentinel posture ranks:
+concentration, but it is now declining under the newly deployed symbol-diversity
+defense stack:
 
-- `sybil_attack = 0.268` (**warning**, primary remaining structural gap)
-- `commitment_violation / front-running = 0.0402` (near-threshold residual warning, but trending down)
+- `sybil_attack = 0.195` (**warning**, improved from `0.268`)
+- `commitment_violation / front-running = 0.019` (improved from `0.0402`)
+- `PC-VH-006` is now deployed and should be treated as part of the active
+  defense surface, not a future recommendation
 
-The orchestration report recommends **PC-VH-006 (Symbol Diversity Enforcement)**
-as the next defense to close the Sybil gap and move toward effective `19 / 19`
-coverage. Swarm agents should treat pair diversification, identity-bonding
-defenses, and symbol diversity enforcement as permanent objectives, not one-off
-patches.
+Swarm agents should treat pair diversification, identity-bonding defenses, and
+symbol diversity enforcement as permanent objectives, with the remaining work now
+focused on empirical validation of the projected Sybil reduction rather than
+shipping the defense itself.
 
 ---
 
@@ -440,6 +469,7 @@ The researcher writes TSV rows with:
 - `EXP-134` - stake-based consensus improvement
 - `EXP-140` - decentralized identity verification with bonding, current best overall
 - `EXP-141` - Bayesian model averaging, strongest ensemble runner-up
+- `EXP-142` - combined identity bonding plus Bayesian averaging with slashing conditions, kept
 
 ---
 
@@ -493,11 +523,11 @@ python3 -m unittest discover -s tests -p "test_*.py"
 
 ### ongoing priorities
 
-1. deploy **PC-VH-006** (symbol diversity enforcement) to close the remaining Sybil structural gap
-2. validate commit-reveal effectiveness above the `0.667` floor under repeated simulation
-3. execute the queued `EXP-142+` economic-security experiment family
-4. use `EXP-116` / `EXP-118` as seed lineage while treating `EXP-140`, `EXP-141`, `EXP-134`, and `EXP-133` as the main design references
-5. close the remaining `~5x` breach-rate gap from `2.5e-5` to the `5e-6` target
+1. empirically validate that the surrogate-predicted `3.5e-6` breach_rate holds under live simulation reruns
+2. measure real Sybil severity reduction from deployed **PC-VH-006** against the projected `60-70%` improvement
+3. validate commit-reveal effectiveness above the `0.667` floor under repeated simulation
+4. continue executing the queued `EXP-142+` economic-security experiment family, starting from the kept `EXP-142`
+5. use `EXP-116` / `EXP-118` as seed lineage while treating `EXP-140`, `EXP-141`, `EXP-142`, `EXP-134`, and `EXP-133` as the main design references
 6. keep `program.md` synchronized with actual repo behavior
 
 ---

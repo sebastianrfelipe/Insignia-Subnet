@@ -1,15 +1,15 @@
 # Insignia Testnet Deployment & Emulator Guide
 
-This guide reflects the latest orchestration findings from 2026-04-15 and the repository updates applied from the second post-commit-reveal run.
+This guide reflects the latest orchestration findings from 2026-04-16 and the repository updates applied from the target-achieving third run.
 
 ## Highlights
 
-- Sentinel status is `SECURE_AND_IMPROVING`, with Phase 5 transition viability confirmed.
+- Sentinel status is `SECURE_AND_IMPROVING`, with Phase 5 conditions satisfied and the breach-rate target achieved.
 - Commit-reveal defaults are enabled in config and tracked with timestamp metrics.
 - Default wallet layout now covers 1 owner, 1 validator, and 12 miners.
 - Market diversification now includes BTC, ETH, SOL, AVAX, and ADA.
 - Monitoring assets exist in both `monitoring/` and `testnet/docker-compose.testnet.yml`.
-- Remaining structural gap is Sybil resistance; deploy PC-VH-006 (symbol diversity enforcement) to pursue full 19/19 post-CR coverage.
+- PC-VH-006 (symbol diversity enforcement) is now deployed; remaining work is empirical confirmation of the projected Sybil reduction in live conditions.
 
 ## Quick local stack
 
@@ -24,7 +24,7 @@ bash testnet/scripts/check_wallet_balances.sh
 
 | Metric | Target |
 |---|---:|
-| effectiveness | >= 0.70 |
+| effectiveness | >= 0.76 |
 | critical floor | >= 0.667 |
 | validator latency severity | < 0.05 |
 | prediction timing severity | < 0.03 |
@@ -44,11 +44,13 @@ bash testnet/scripts/check_wallet_balances.sh
 
 ### Validation timing
 
-- min_prediction_lead_time_seconds: 40
+- min_prediction_lead_time_seconds: 35
 - validator_latency_penalty_weight: 0.28
 - high_latency_threshold_ms: 1800
 - commit_rate_threshold: 0.75
 - commitment_violation_weight: 0.012
+- expected_commit_reveal_effectiveness: 0.76
+- required_validation_streak: 6
 - selective_reveal_warning_streak: 1
 - selective_reveal_penalty_streak: 2
 - selective_reveal_zero_streak: 3
@@ -60,6 +62,18 @@ bash testnet/scripts/check_wallet_balances.sh
 - symbol_diversity_threshold: 0.33
 - fusion_strategy: bayesian_model_averaging
 - response_vote_threshold: 3
+
+### Symbol diversity enforcement (PC-VH-006)
+
+- enabled: true
+- minimum_trading_pairs: 3
+- max_symbol_dominance: 0.60
+- warning dominance ratio: 1.35
+- critical dominance ratio: 2.0
+- base penalty: 0.10
+- escalation factor: 1.5
+- maximum penalty: 0.50
+- grace period generations: 2
 
 ### Consensus integrity
 
@@ -87,6 +101,7 @@ bash testnet/scripts/check_wallet_balances.sh
 - `insignia_ensemble_signal`
 - `insignia_btc_eth_dominance_ratio`
 - `insignia_symbol_diversity_enforcement`
+- `insignia_commit_reveal_effectiveness`
 
 ## Note on parameter counts
 
