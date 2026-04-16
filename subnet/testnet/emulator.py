@@ -94,6 +94,7 @@ class EmulatorEpochResult:
     on_chain_weights: Dict[str, float] = field(default_factory=dict)
     metagraph_snapshot: Optional[str] = None
     chain_block: int = 0
+    route_assignments: Dict[str, Dict[str, Any]] = field(default_factory=dict)
 
     elapsed_seconds: float = 0.0
 
@@ -138,6 +139,9 @@ class EmulatorEpochResult:
             result["on_chain_weights"] = {
                 k: round(v, 6) for k, v in self.on_chain_weights.items()
             }
+
+        if self.route_assignments:
+            result["route_assignments"] = self.route_assignments
 
         return result
 
@@ -392,6 +396,7 @@ class InsigniaEmulator:
                 n_random=1,
                 n_honest_traders=self.config.n_honest_l2,
                 n_copy_traders=self.config.n_adversarial_l2,
+                routing_config=self.config.model_routing.to_dict(),
             )
 
         harness = SimulationHarness(
@@ -441,6 +446,14 @@ class InsigniaEmulator:
 
         elapsed = time.time() - t0
 
+        route_assignments: Dict[str, Dict[str, Any]] = {}
+        for agent in list(l1_agents) + list(l2_agents):
+            route_assignments[agent.uid] = {
+                "agent_type": agent.agent_type,
+                "assigned_route": getattr(agent, "assigned_route", None),
+                "assigned_model_profile": getattr(agent, "assigned_model_profile", {}),
+            }
+
         epoch_result = EmulatorEpochResult(
             epoch=epoch_idx,
             param_vector=param_vector,
@@ -451,6 +464,7 @@ class InsigniaEmulator:
             on_chain_weights=on_chain_weights,
             metagraph_snapshot=metagraph_snap,
             chain_block=block,
+            route_assignments=route_assignments,
             elapsed_seconds=elapsed,
         )
 

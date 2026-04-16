@@ -80,10 +80,18 @@ class MinerAgent(ABC):
 
     agent_type: str = "base"
 
-    def __init__(self, uid: str, seed: int = 42):
+    def __init__(
+        self,
+        uid: str,
+        seed: int = 42,
+        assigned_route: str | None = None,
+        assigned_model_profile: Optional[Dict[str, Any]] = None,
+    ):
         self.uid = uid
         self.seed = seed
         self.rng = np.random.RandomState(seed)
+        self.assigned_route = assigned_route
+        self.assigned_model_profile = assigned_model_profile or {}
 
     @abstractmethod
     def produce_submission(self, epoch: int) -> Dict[str, Any]:
@@ -93,14 +101,32 @@ class MinerAgent(ABC):
     def is_adversarial(self) -> bool:
         return False
 
+    def routing_metadata(self) -> Dict[str, Any]:
+        return {
+            "assigned_route": self.assigned_route,
+            "assigned_model_profile": self.assigned_model_profile,
+        }
+
 
 class HonestMiner(MinerAgent):
     """Standard good-faith miner that trains models honestly."""
 
     agent_type = "honest"
 
-    def __init__(self, uid: str, seed: int = 42, n_features: int = 10):
-        super().__init__(uid, seed)
+    def __init__(
+        self,
+        uid: str,
+        seed: int = 42,
+        n_features: int = 10,
+        assigned_route: str | None = None,
+        assigned_model_profile: Optional[Dict[str, Any]] = None,
+    ):
+        super().__init__(
+            uid,
+            seed,
+            assigned_route=assigned_route,
+            assigned_model_profile=assigned_model_profile,
+        )
         self.n_features = n_features
 
     def produce_submission(self, epoch: int) -> Dict[str, Any]:
@@ -109,17 +135,20 @@ class HonestMiner(MinerAgent):
             n_features=self.n_features,
             seed=self.seed + epoch * 13,
         )
+        profile = self.assigned_model_profile
         trainer = L1ModelTrainer(
-            n_estimators=10 + epoch * 2,
-            max_depth=3,
-            learning_rate=0.08,
+            n_estimators=int(profile.get("n_estimators", 10 + epoch * 2)),
+            max_depth=int(profile.get("max_depth", 3)),
+            learning_rate=float(profile.get("learning_rate", 0.08)),
             min_samples_leaf=20,
             max_bins=32,
             features=PUBLIC_FEATURE_REGISTRY[:self.n_features],
             random_state=self.seed + epoch,
         )
         miner = L1Miner(trainer=trainer)
-        return miner.train_and_submit(data)
+        submission = miner.train_and_submit(data)
+        submission.update(self.routing_metadata())
+        return submission
 
 
 class OverfittingMiner(MinerAgent):
@@ -129,10 +158,11 @@ class OverfittingMiner(MinerAgent):
 
     def produce_submission(self, epoch: int) -> Dict[str, Any]:
         data = generate_demo_data(n_samples=200, n_features=15, seed=self.seed + epoch)
+        profile = self.assigned_model_profile
         trainer = L1ModelTrainer(
-            n_estimators=50,
-            max_depth=8,
-            learning_rate=0.3,
+            n_estimators=int(profile.get("n_estimators", 50)),
+            max_depth=int(profile.get("max_depth", 8)),
+            learning_rate=float(profile.get("learning_rate", 0.3)),
             min_samples_leaf=2,
             l2_regularization=0.0,
             max_bins=255,
@@ -140,7 +170,9 @@ class OverfittingMiner(MinerAgent):
             random_state=self.seed + epoch,
         )
         miner = L1Miner(trainer=trainer)
-        return miner.train_and_submit(data)
+        submission = miner.train_and_submit(data)
+        submission.update(self.routing_metadata())
+        return submission
 
     def is_adversarial(self) -> bool:
         return True
@@ -151,8 +183,20 @@ class CopycatMiner(MinerAgent):
 
     agent_type = "copycat"
 
-    def __init__(self, uid: str, target_uid: str, seed: int = 42):
-        super().__init__(uid, seed)
+    def __init__(
+        self,
+        uid: str,
+        target_uid: str,
+        seed: int = 42,
+        assigned_route: str | None = None,
+        assigned_model_profile: Optional[Dict[str, Any]] = None,
+    ):
+        super().__init__(
+            uid,
+            seed,
+            assigned_route=assigned_route,
+            assigned_model_profile=assigned_model_profile,
+        )
         self.target_uid = target_uid
         self._cached_artifact: Optional[bytes] = None
 
@@ -179,7 +223,7 @@ class CopycatMiner(MinerAgent):
             features_used = sub.get("features_used", PUBLIC_FEATURE_REGISTRY[:10])
 
         import hashlib
-        return {
+        submission = {
             "model_artifact": artifact,
             "model_type": "gbdt",
             "features_used": features_used,
@@ -193,6 +237,8 @@ class CopycatMiner(MinerAgent):
             "artifact_size_bytes": len(artifact),
             "artifact_hash": hashlib.sha256(artifact).hexdigest(),
         }
+        submission.update(self.routing_metadata())
+        return submission
 
     @staticmethod
     def _infer_n_features(model) -> int:
@@ -215,17 +261,20 @@ class SingleMetricGamer(MinerAgent):
 
     def produce_submission(self, epoch: int) -> Dict[str, Any]:
         data = generate_demo_data(n_samples=800, n_features=5, seed=self.seed + epoch)
+        profile = self.assigned_model_profile
         trainer = L1ModelTrainer(
-            n_estimators=30,
-            max_depth=6,
-            learning_rate=0.15,
+            n_estimators=int(profile.get("n_estimators", 30)),
+            max_depth=int(profile.get("max_depth", 6)),
+            learning_rate=float(profile.get("learning_rate", 0.15)),
             min_samples_leaf=5,
             max_bins=128,
             features=PUBLIC_FEATURE_REGISTRY[:5],
             random_state=self.seed + epoch,
         )
         miner = L1Miner(trainer=trainer)
-        return miner.train_and_submit(data)
+        submission = miner.train_and_submit(data)
+        submission.update(self.routing_metadata())
+        return submission
 
     def is_adversarial(self) -> bool:
         return True
@@ -238,16 +287,19 @@ class RandomMiner(MinerAgent):
 
     def produce_submission(self, epoch: int) -> Dict[str, Any]:
         data = generate_demo_data(n_samples=100, n_features=3, seed=self.seed + epoch * 97)
+        profile = self.assigned_model_profile
         trainer = L1ModelTrainer(
-            n_estimators=3,
-            max_depth=1,
-            learning_rate=0.5,
+            n_estimators=int(profile.get("n_estimators", 3)),
+            max_depth=int(profile.get("max_depth", 1)),
+            learning_rate=float(profile.get("learning_rate", 0.5)),
             min_samples_leaf=30,
             features=PUBLIC_FEATURE_REGISTRY[:3],
             random_state=self.seed + epoch * 97,
         )
         miner = L1Miner(trainer=trainer)
-        return miner.train_and_submit(data)
+        submission = miner.train_and_submit(data)
+        submission.update(self.routing_metadata())
+        return submission
 
 
 class SybilMiner(MinerAgent):
@@ -258,8 +310,20 @@ class SybilMiner(MinerAgent):
 
     agent_type = "sybil"
 
-    def __init__(self, uid: str, cluster_seed: int, identity_idx: int):
-        super().__init__(uid, cluster_seed + identity_idx)
+    def __init__(
+        self,
+        uid: str,
+        cluster_seed: int,
+        identity_idx: int,
+        assigned_route: str | None = None,
+        assigned_model_profile: Optional[Dict[str, Any]] = None,
+    ):
+        super().__init__(
+            uid,
+            cluster_seed + identity_idx,
+            assigned_route=assigned_route,
+            assigned_model_profile=assigned_model_profile,
+        )
         self.cluster_seed = cluster_seed
         self.identity_idx = identity_idx
 
@@ -268,16 +332,21 @@ class SybilMiner(MinerAgent):
             n_samples=500, n_features=10,
             seed=self.cluster_seed + epoch,
         )
+        profile = self.assigned_model_profile
         trainer = L1ModelTrainer(
-            n_estimators=10 + self.identity_idx,
-            max_depth=3,
-            learning_rate=0.08 + self.identity_idx * 0.005,
+            n_estimators=int(profile.get("n_estimators", 10 + self.identity_idx)),
+            max_depth=int(profile.get("max_depth", 3)),
+            learning_rate=float(
+                profile.get("learning_rate", 0.08 + self.identity_idx * 0.005)
+            ),
             min_samples_leaf=20,
             features=PUBLIC_FEATURE_REGISTRY[:10],
             random_state=self.cluster_seed + self.identity_idx,
         )
         miner = L1Miner(trainer=trainer)
-        return miner.train_and_submit(data)
+        submission = miner.train_and_submit(data)
+        submission.update(self.routing_metadata())
+        return submission
 
     def is_adversarial(self) -> bool:
         return True
@@ -290,9 +359,17 @@ class SybilMiner(MinerAgent):
 class TraderAgent(ABC):
     agent_type: str = "base_trader"
 
-    def __init__(self, uid: str, seed: int = 42):
+    def __init__(
+        self,
+        uid: str,
+        seed: int = 42,
+        assigned_route: str | None = None,
+        assigned_model_profile: Optional[Dict[str, Any]] = None,
+    ):
         self.uid = uid
         self.seed = seed
+        self.assigned_route = assigned_route
+        self.assigned_model_profile = assigned_model_profile or {}
 
     @abstractmethod
     def create_l2_miner(
@@ -303,6 +380,12 @@ class TraderAgent(ABC):
     def is_adversarial(self) -> bool:
         return False
 
+    def routing_metadata(self) -> Dict[str, Any]:
+        return {
+            "assigned_route": self.assigned_route,
+            "assigned_model_profile": self.assigned_model_profile,
+        }
+
 
 class HonestTrader(TraderAgent):
     agent_type = "honest_trader"
@@ -310,10 +393,11 @@ class HonestTrader(TraderAgent):
     def create_l2_miner(
         self, promoted_artifacts: Dict[str, bytes], trading_config: Dict,
     ) -> L2StrategyMiner:
+        profile = self.assigned_model_profile
         engine = PaperTradingEngine(
             initial_capital=100_000,
-            max_position_pct=trading_config.get("max_position_pct", 0.10),
-            max_drawdown_pct=trading_config.get("max_drawdown_pct", 0.20),
+            max_position_pct=float(profile.get("max_position_pct", trading_config.get("max_position_pct", 0.10))),
+            max_drawdown_pct=float(profile.get("max_drawdown_pct", trading_config.get("max_drawdown_pct", 0.20))),
             slippage=SlippageConfig(
                 base_spread_bps=trading_config.get("base_spread_bps", 2.0),
                 volatility_impact_factor=trading_config.get("volatility_impact_factor", 0.5),
@@ -324,6 +408,7 @@ class HonestTrader(TraderAgent):
         l2 = L2StrategyMiner(engine=engine)
         for mid, artifact in list(promoted_artifacts.items())[:3]:
             l2.load_model(mid, artifact)
+        l2.route_metadata = self.routing_metadata()
         return l2
 
 
@@ -335,14 +420,16 @@ class CopyTrader(TraderAgent):
     def create_l2_miner(
         self, promoted_artifacts: Dict[str, bytes], trading_config: Dict,
     ) -> L2StrategyMiner:
+        profile = self.assigned_model_profile
         engine = PaperTradingEngine(
             initial_capital=100_000,
-            max_position_pct=trading_config.get("max_position_pct", 0.10),
-            max_drawdown_pct=trading_config.get("max_drawdown_pct", 0.20),
+            max_position_pct=float(profile.get("max_position_pct", trading_config.get("max_position_pct", 0.10))),
+            max_drawdown_pct=float(profile.get("max_drawdown_pct", trading_config.get("max_drawdown_pct", 0.20))),
         )
         l2 = L2StrategyMiner(engine=engine)
         for mid, artifact in list(promoted_artifacts.items())[:3]:
             l2.load_model(mid, artifact)
+        l2.route_metadata = self.routing_metadata()
         return l2
 
     def is_adversarial(self) -> bool:
@@ -394,6 +481,10 @@ class SimulationResult:
     convergence_indexes: List[str] = field(default_factory=list)
     trading_pair_counts: Dict[str, int] = field(default_factory=dict)
     ensemble_signals: Dict[str, Dict[str, float]] = field(default_factory=dict)
+    l1_route_assignments: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    l2_route_assignments: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    miner_route_assignments: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    trader_route_assignments: Dict[str, Dict[str, Any]] = field(default_factory=dict)
 
 
 class SimulationHarness:
@@ -496,6 +587,7 @@ class SimulationHarness:
         all_submissions = {}
         for agent in self.l1_agents:
             result.miner_types[agent.uid] = agent.agent_type
+            result.l1_route_assignments[agent.uid] = agent.route_manifest()
 
         for epoch in range(self.n_epochs):
             submissions = {}
@@ -649,6 +741,7 @@ class SimulationHarness:
         l2_miners = {}
         for agent in self.l2_agents:
             result.l2_types[agent.uid] = agent.agent_type
+            result.l2_route_assignments[agent.uid] = agent.route_manifest()
             l2 = agent.create_l2_miner(promoted_artifacts, trading_config)
             l2_miners[agent.uid] = l2
             l2_validator.register_strategy(
@@ -819,6 +912,8 @@ class SimulationHarness:
             "symbol_diversity_threshold": symbol_diversity_threshold,
             "pc_vh_006_symbol_diversity": symbol_assessment.to_dict(),
             "bayesian_weight": bayesian_weight,
+            "l1_route_assignments": result.l1_route_assignments,
+            "l2_route_assignments": result.l2_route_assignments,
         }
         result.breach_trends = {
             "moving_average_breach_rate": [2.5e-5, 1.8e-5, 1.1e-5, 5.0e-6, 3.5e-6],
@@ -853,42 +948,84 @@ def create_default_agents(
     n_random: int = 0,
     n_honest_traders: int = 3,
     n_copy_traders: int = 1,
+    model_routing: Optional[Dict[str, Any]] = None,
 ) -> Tuple[List[MinerAgent], List[TraderAgent]]:
     """Create a default mix of agent types for simulation."""
+    routing_cfg = model_routing or {}
+    routing_enabled = bool(routing_cfg.get("enabled", False))
+    route_names = list(routing_cfg.get("route_names", []))
+    assignment_seed = int(routing_cfg.get("assignment_seed", 0))
+    stable_per_run = bool(routing_cfg.get("stable_per_run", True))
+    rng = np.random.RandomState(assignment_seed)
+
+    def assign_route(uid: str, agent_kind: str) -> Tuple[Optional[str], Dict[str, Any]]:
+        if not routing_enabled or not route_names:
+            return None, {"agent_kind": agent_kind, "routing_enabled": False}
+        if stable_per_run:
+            local_rng = np.random.RandomState(
+                assignment_seed + sum(ord(ch) for ch in f"{agent_kind}:{uid}")
+            )
+            route = str(local_rng.choice(route_names))
+        else:
+            route = str(rng.choice(route_names))
+        return route, {
+            "agent_kind": agent_kind,
+            "routing_enabled": True,
+            "stable_per_run": stable_per_run,
+            "assignment_seed": assignment_seed,
+            "route_name": route,
+        }
+
     l1_agents: List[MinerAgent] = []
     idx = 0
 
     for i in range(n_honest):
-        l1_agents.append(HonestMiner(f"honest_{i}", seed=100 + i, n_features=8 + i))
+        uid = f"honest_{i}"
+        route, profile = assign_route(uid, "l1")
+        l1_agents.append(HonestMiner(uid, seed=100 + i, n_features=8 + i, assigned_route=route, assigned_model_profile=profile))
         idx += 1
 
     for i in range(n_overfitters):
-        l1_agents.append(OverfittingMiner(f"overfitter_{i}", seed=200 + i))
+        uid = f"overfitter_{i}"
+        route, profile = assign_route(uid, "l1")
+        l1_agents.append(OverfittingMiner(uid, seed=200 + i, assigned_route=route, assigned_model_profile=profile))
         idx += 1
 
     for i in range(n_copycats):
         target = f"honest_0"
-        l1_agents.append(CopycatMiner(f"copycat_{i}", target_uid=target, seed=300 + i))
+        uid = f"copycat_{i}"
+        route, profile = assign_route(uid, "l1")
+        l1_agents.append(CopycatMiner(uid, target_uid=target, seed=300 + i, assigned_route=route, assigned_model_profile=profile))
         idx += 1
 
     for i in range(n_gamers):
-        l1_agents.append(SingleMetricGamer(f"gamer_{i}", seed=400 + i))
+        uid = f"gamer_{i}"
+        route, profile = assign_route(uid, "l1")
+        l1_agents.append(SingleMetricGamer(uid, seed=400 + i, assigned_route=route, assigned_model_profile=profile))
         idx += 1
 
     for i in range(n_sybils):
-        l1_agents.append(SybilMiner(f"sybil_{i}", cluster_seed=500, identity_idx=i))
+        uid = f"sybil_{i}"
+        route, profile = assign_route(uid, "l1")
+        l1_agents.append(SybilMiner(uid, cluster_seed=500, identity_idx=i, assigned_route=route, assigned_model_profile=profile))
         idx += 1
 
     for i in range(n_random):
-        l1_agents.append(RandomMiner(f"random_{i}", seed=600 + i))
+        uid = f"random_{i}"
+        route, profile = assign_route(uid, "l1")
+        l1_agents.append(RandomMiner(uid, seed=600 + i, assigned_route=route, assigned_model_profile=profile))
         idx += 1
 
     l2_agents: List[TraderAgent] = []
     for i in range(n_honest_traders):
-        l2_agents.append(HonestTrader(f"trader_{i}", seed=700 + i))
+        uid = f"trader_{i}"
+        route, profile = assign_route(uid, "l2")
+        l2_agents.append(HonestTrader(uid, seed=700 + i, assigned_route=route, assigned_model_profile=profile))
 
     for i in range(n_copy_traders):
-        l2_agents.append(CopyTrader(f"copy_trader_{i}", seed=800 + i))
+        uid = f"copy_trader_{i}"
+        route, profile = assign_route(uid, "l2")
+        l2_agents.append(CopyTrader(uid, seed=800 + i, assigned_route=route, assigned_model_profile=profile))
 
     return l1_agents, l2_agents
 

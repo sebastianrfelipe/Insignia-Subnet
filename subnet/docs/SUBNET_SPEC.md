@@ -215,11 +215,11 @@ subnet/
 │   └── l2_validator.py       # Layer 2 validator (P&L tracking + scoring)
 ├── tuning/
 │   ├── attack_detector.py    # 19-vector post-commit-reveal attack detection
-│   ├── parameter_space.py    # 73-parameter tuning space with defense parameters
+│   ├── parameter_space.py    # 73-parameter tuning space with defense and routing parameters
 │   ├── optimizer.py          # NSGA-II multi-objective optimization
 │   ├── pc_vh_006_symbol_diversity.py # Symbol diversity enforcement policy
 │   ├── sentinel_symbol_monitor.py # Symbol diversity monitoring and severity projection
-│   ├── simulation.py         # Full pipeline simulation harness
+│   ├── simulation.py         # Full pipeline simulation harness with stable MCP route assignment
 │   └── orchestrator.py       # Tuning loop orchestration
 ├── testnet/
 │   ├── config.py             # CommitRevealConfig, ValidationTimingConfig, ConsensusIntegrityConfig
