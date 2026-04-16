@@ -65,10 +65,10 @@ bash testnet/scripts/check_wallet_balances.sh
 
 ### Stable MCP model routing
 
-- enabled: configurable
+- enabled: true by default in emulator config, with effective assignment gated by whether the MCP/server route catalog is supplied
 - stable_per_run: true
 - assignment_seed: configurable
-- route_names / route_ids: provided by the MCP routing server
+- route_names / route_ids: provided by the MCP routing server or injected through emulator/server config
 - each simulated miner/trader agent receives a fixed `assigned_route` for the full run
 - optional `assigned_model_profile` metadata can be attached for reproducible diagnostics
 - assignments are emitted in simulation/emulator results so route diversity is auditable

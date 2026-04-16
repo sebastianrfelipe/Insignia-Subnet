@@ -406,7 +406,8 @@ class HonestTrader(TraderAgent):
             ),
         )
         l2 = L2StrategyMiner(engine=engine)
-        for mid, artifact in list(promoted_artifacts.items())[:3]:
+        model_load_count = int(profile.get("model_load_count", 3))
+        for mid, artifact in list(promoted_artifacts.items())[:model_load_count]:
             l2.load_model(mid, artifact)
         l2.route_metadata = self.routing_metadata()
         return l2
@@ -427,7 +428,8 @@ class CopyTrader(TraderAgent):
             max_drawdown_pct=float(profile.get("max_drawdown_pct", trading_config.get("max_drawdown_pct", 0.20))),
         )
         l2 = L2StrategyMiner(engine=engine)
-        for mid, artifact in list(promoted_artifacts.items())[:3]:
+        model_load_count = int(profile.get("model_load_count", 3))
+        for mid, artifact in list(promoted_artifacts.items())[:model_load_count]:
             l2.load_model(mid, artifact)
         l2.route_metadata = self.routing_metadata()
         return l2
@@ -958,6 +960,35 @@ def create_default_agents(
     stable_per_run = bool(routing_cfg.get("stable_per_run", True))
     rng = np.random.RandomState(assignment_seed)
 
+    def build_profile(route: str, uid: str, agent_kind: str) -> Dict[str, Any]:
+        local_rng = np.random.RandomState(
+            assignment_seed + sum(ord(ch) for ch in f"profile:{agent_kind}:{uid}:{route}")
+        )
+        profile = {
+            "agent_kind": agent_kind,
+            "routing_enabled": True,
+            "stable_per_run": stable_per_run,
+            "assignment_seed": assignment_seed,
+            "route_name": route,
+        }
+        if agent_kind == "l1":
+            profile.update(
+                {
+                    "n_estimators": int(local_rng.randint(8, 40)),
+                    "max_depth": int(local_rng.randint(2, 7)),
+                    "learning_rate": round(float(local_rng.uniform(0.04, 0.18)), 4),
+                }
+            )
+        else:
+            profile.update(
+                {
+                    "max_position_pct": round(float(local_rng.uniform(0.04, 0.12)), 4),
+                    "max_drawdown_pct": round(float(local_rng.uniform(0.12, 0.22)), 4),
+                    "model_load_count": int(local_rng.randint(1, 4)),
+                }
+            )
+        return profile
+
     def assign_route(uid: str, agent_kind: str) -> Tuple[Optional[str], Dict[str, Any]]:
         if not routing_enabled or not route_names:
             return None, {"agent_kind": agent_kind, "routing_enabled": False}
@@ -968,13 +999,7 @@ def create_default_agents(
             route = str(local_rng.choice(route_names))
         else:
             route = str(rng.choice(route_names))
-        return route, {
-            "agent_kind": agent_kind,
-            "routing_enabled": True,
-            "stable_per_run": stable_per_run,
-            "assignment_seed": assignment_seed,
-            "route_name": route,
-        }
+        return route, build_profile(route, uid, agent_kind)
 
     l1_agents: List[MinerAgent] = []
     idx = 0
