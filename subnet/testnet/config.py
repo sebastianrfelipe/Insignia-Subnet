@@ -52,6 +52,20 @@ EVM_CHAIN_IDS: Dict[NetworkTarget, int] = {
 }
 
 BITTENSOR_HOME = Path(os.environ.get("BITTENSOR_HOME", "~/.bittensor")).expanduser()
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() not in {"0", "false", "no", "off"}
+
+
+def _env_list(name: str) -> list[str]:
+    raw = os.environ.get(name, "")
+    return [item.strip() for item in raw.split(",") if item.strip()]
+
+
 DEFAULT_TRADING_PAIRS = [
     "BTCUSDT",
     "ETHUSDT",
@@ -214,17 +228,18 @@ class ModelRoutingConfig:
     better represents diversity of intelligence in a decentralized network.
     """
 
-    enabled: bool = True
-    route_names: list[str] = field(
-        default_factory=lambda: [
-            "mcp-route-analyst",
-            "mcp-route-balanced",
-            "mcp-route-fast",
-            "mcp-route-reasoning",
-        ]
+    enabled: bool = field(
+        default_factory=lambda: _env_bool("INSIGNIA_MODEL_ROUTING_ENABLED", True)
     )
-    assignment_seed: int = 4242
-    stable_per_run: bool = True
+    route_names: list[str] = field(
+        default_factory=lambda: _env_list("INSIGNIA_MODEL_ROUTES")
+    )
+    assignment_seed: int = field(
+        default_factory=lambda: int(os.environ.get("INSIGNIA_MODEL_ROUTING_ASSIGNMENT_SEED", "4242"))
+    )
+    stable_per_run: bool = field(
+        default_factory=lambda: _env_bool("INSIGNIA_MODEL_ROUTING_STABLE_PER_RUN", True)
+    )
 
 
 @dataclass
