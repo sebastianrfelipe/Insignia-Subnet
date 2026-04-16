@@ -2,14 +2,15 @@
 
 ## Current status
 
-- Phase: 4 - Attack Surveillance
+- Phase: 5 - Target achieved / empirical validation
 - System posture: `SECURE_AND_IMPROVING`
-- Transition: Phase 5 transition viable
+- Transition: Phase 5 conditions met
 - Active sentinel metrics: breach rate `0.0005`, honest score `0.94`, score separation `0.758`
-- Commit-reveal effectiveness: `0.700` (passes the `0.667` floor with 6 consecutive validations)
+- Commit-reveal effectiveness: `0.76` (passes the `0.667` floor with a 14% margin)
+- Composite integrity score: `0.978`
 - Convergence detected: false
 - Reset triggers: `SOFT=false`, `HARD=false`, `FULL=false`
-- Persistent warning: Sybil pressure from BTCUSDT:ETHUSDT imbalance
+- Persistent warning: Sybil pressure from BTCUSDT:ETHUSDT imbalance is declining and should be further reduced by PC-VH-006
 
 ## Alert levels
 
@@ -71,20 +72,21 @@ post-CR 19-vector posture.
 
 | Vector | Severity | Tier | Notes |
 |---|---:|---|---|
-| V3 Sybil Attack | 0.268 | warning | structural gap; commit-reveal is not meant to solve Sybil pressure |
-| V8 Commitment Violation / Front-Running | 0.0402 | warning but below breach line | trending downward under sustained commit-reveal enforcement |
-| Temporal attack pattern | 0.01 | info | down ~98% from the earlier 0.51 persistent-risk benchmark |
-| Selective revelation | 0.004 | info | sharply reduced by post-CR enforcement |
-| Wash trading | 0.003 | info | effectively neutralized in the current sentinel posture |
-| Pump / dump | 0.003 | info | effectively neutralized in the current sentinel posture |
-| Remaining post-CR vectors | < 0.05 | info | 17 of 19 vectors now sit in the info band |
+| V3 Sybil Attack | 0.195 | warning | declining slowly; PC-VH-006 should accelerate the reduction toward the `0.08` target |
+| V8 Commitment Violation / Front-Running | 0.019 | info | materially improved from `0.0402` |
+| Core 9-vector base surface | < 0.05 | info | all core vectors are now well below threshold |
+| Temporal attack pattern | no anomaly detected | info | no new temporal attack signatures detected in the third run |
+| New attack patterns | none detected | info | sentinel/tuner coordination reported no new anomaly clusters |
 
 ## Program risk mapping
 
-The sentinel mapped all 8 `program.md` persistent risks to current post-CR
-severities. Seven are already at `INFO`; the only remaining structural gap is
-Sybil pressure, which should be addressed by deploying `PC-VH-006` (Symbol
-Diversity Enforcement).
+The third orchestration run confirms that the remaining structural gap is now
+primarily an empirical validation problem rather than a design-gap problem:
+
+- the optimizer target has been hit at `3.5e-6`
+- PC-VH-006 is deployed
+- Sybil severity is down from `0.268` to `0.195`
+- the next step is to confirm the projected production reduction toward `0.08`
 
 ## Reset protocols
 
@@ -110,7 +112,7 @@ Diversity Enforcement).
 
 ## Known issues
 
-- The dominant BTCUSDT:ETHUSDT ratio remains the main warning-level weakness.
-- `PC-VH-006` (Symbol Diversity Enforcement) is the recommended next mitigation to close 19/19 vector coverage.
+- The dominant BTCUSDT:ETHUSDT ratio remains the main warning-level weakness, though it is now on a declining trajectory.
+- `PC-VH-006` is deployed, but its projected 60-70% Sybil reduction still needs live empirical confirmation.
 - The earlier harsh simulation benchmark (`0.124` breach rate, `0.847` honest score) should now be treated as calibration context, not the current system-level security posture.
 - Historical docs may use older vector numbering or the richer telemetry catalog; repository docs should prefer the post-CR sentinel framing when discussing transition readiness.

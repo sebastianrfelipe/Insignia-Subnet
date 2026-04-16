@@ -139,6 +139,18 @@ PHASE5_EXPERIMENT_QUEUE: List[Dict[str, str | int]] = [
     {"experiment_id": "EXP-166", "theme": "economic_mechanism_innovation", "description": "Economic firewall composite"},
 ]
 
+PHASE5_EXECUTED_RESULTS: List[Dict[str, str | float]] = [
+    {
+        "experiment_id": "EXP-142",
+        "status": "KEEP",
+        "breach_rate": 2.3e-5,
+        "honest_score": 0.9752,
+        "separation": 0.931,
+        "scalarized_fitness": 0.976,
+        "description": "Identity bonding + Bayesian averaging + slashing + harmonic-mean composite scoring",
+    }
+]
+
 
 @dataclass
 class ExperimentResult:
