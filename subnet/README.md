@@ -145,7 +145,9 @@ assignment for each miner/trader agent. Each agent can be assigned:
 
 from a configured route pool. The assignment is seeded and stable for the full
 run so tuning remains reproducible while still representing heterogeneous
-intelligence across a decentralized subnet population.
+intelligence across a decentralized subnet population. The route pool itself is
+expected to come from the MCP/model-routing server rather than hardcoded
+application logic.
 
 ---
 
