@@ -149,6 +149,11 @@ class AttackDetector:
 
     def _economic_config(self) -> Dict[str, float]:
         return self.config.get("economic_mechanisms", {})
+
+    def _pc_vh_006_report(self, result: SimulationResult) -> Dict[str, float]:
+        monitoring = getattr(result, "attack_monitoring", {})
+        return monitoring.get("pc_vh_006_symbol_diversity", {}).get("report", {})
+
     def _pair_imbalance_ratio(self, result: SimulationResult) -> float:
         counts = getattr(result, "trading_pair_counts", {})
         btc = float(counts.get("BTC-USDT-PERP", counts.get("BTCUSDT", 0.0)))
@@ -158,6 +163,9 @@ class AttackDetector:
         return btc / eth
 
     def _symbol_diversity_score(self, result: SimulationResult) -> float:
+        pc_vh_report = self._pc_vh_006_report(result)
+        if "symbol_diversity_score" in pc_vh_report:
+            return float(pc_vh_report["symbol_diversity_score"])
         monitoring = getattr(result, "attack_monitoring", {})
         if "symbol_diversity_score" in monitoring:
             return float(monitoring["symbol_diversity_score"])
@@ -341,8 +349,10 @@ class AttackDetector:
         ensemble_component = float(np.mean(list(temporal_scores.values()))) if temporal_scores else 0.0
         peak_component = max(temporal_scores.values(), default=0.0)
         flagged_fraction = len(flagged) / max(len(signals), 1)
-        cr_effectiveness = float(
-            getattr(result, "attack_monitoring", {}).get("commit_reveal_effectiveness", 0.70)
+        monitoring = getattr(result, "attack_monitoring", {})
+        cr_effectiveness = float(monitoring.get("commit_reveal_effectiveness", 0.76))
+        stability_effectiveness = float(
+            monitoring.get("commit_reveal_stability_effectiveness", cr_effectiveness)
         )
         severity = min(
             1.0,
@@ -354,7 +364,8 @@ class AttackDetector:
                 + 0.05 * min(1.0, average_reveal_delay / 20.0)
             )
             * (1.0 - 0.20 * bayesian_weight)
-            * (1.0 - 0.70 * cr_effectiveness),
+            * (1.0 - 0.45 * cr_effectiveness)
+            * (1.0 - 0.25 * stability_effectiveness),
         )
         return AttackBreach(
             "temporal_attack_pattern",
@@ -369,6 +380,7 @@ class AttackDetector:
                 "lead_time_threshold": lead_time,
                 "bayesian_weight": bayesian_weight,
                 "commit_reveal_effectiveness": cr_effectiveness,
+                "commit_reveal_stability_effectiveness": stability_effectiveness,
             },
         )
 
@@ -393,6 +405,7 @@ class AttackDetector:
         dominant_pair_warning_ratio = float(
             self._market_config().get("dominant_pair_warning_ratio", 1.35)
         )
+        pc_vh_report = self._pc_vh_006_report(result)
         symbol_diversity_score = self._symbol_diversity_score(result)
         symbol_diversity_threshold = float(
             self._ensemble_config().get("symbol_diversity_threshold", 0.33)
@@ -408,6 +421,8 @@ class AttackDetector:
             0.0,
             symbol_diversity_threshold - symbol_diversity_score,
         ) / max(symbol_diversity_threshold, 1e-12)
+        symbol_penalty = float(pc_vh_report.get("penalty", 0.0))
+        projected_sybil_reduction = float(pc_vh_report.get("projected_sybil_reduction", 0.0))
         min_entropy = float(self._consensus_config().get("weight_entropy_minimum", 1.45))
         entropy_deficit = 0.0
         for weights in getattr(result, "validator_weight_vectors", {}).values():
@@ -424,7 +439,8 @@ class AttackDetector:
         structural_mitigation = min(
             0.35,
             0.15 * float(economic_cfg.get("identity_bond_threshold", 0.72))
-            + 0.10 * float(economic_cfg.get("stake_weight_consensus", 0.38)),
+            + 0.10 * float(economic_cfg.get("stake_weight_consensus", 0.38))
+            + 0.15 * float(economic_cfg.get("identity_bond_weight", 0.08)),
         )
         severity = min(
             1.0,
@@ -436,6 +452,8 @@ class AttackDetector:
                 + 0.10 * min(1.0, diversity_deficit)
             )
             * (1.0 - structural_mitigation)
+            * (1.0 - 0.55 * projected_sybil_reduction)
+            + 0.10 * symbol_penalty
         )
         return AttackBreach(
             "sybil_collusion_graph",
@@ -453,6 +471,8 @@ class AttackDetector:
                 "entropy_deficit": entropy_deficit,
                 "temporal_alignment": temporal_alignment,
                 "structural_mitigation": structural_mitigation,
+                "symbol_penalty": symbol_penalty,
+                "projected_sybil_reduction": projected_sybil_reduction,
             },
         )
 

@@ -145,7 +145,7 @@ class ValidationTimingConfig:
     high_latency_threshold_ms: float = 1800.0
     commit_rate_threshold: float = 0.75
     commitment_violation_weight: float = 0.012
-    expected_commit_reveal_effectiveness: float = 0.700
+    expected_commit_reveal_effectiveness: float = 0.760
     required_validation_streak: int = 6
     selective_reveal_warning_streak: int = 1
     selective_reveal_penalty_streak: int = 2

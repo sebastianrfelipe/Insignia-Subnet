@@ -56,13 +56,25 @@ logger.setLevel(logging.INFO)
 N_OBJECTIVES = 4
 NSGA2_V13_PROFILE = {
     "version": "13.0",
+    "revision": "R2",
     "surrogate_empirical_points": 93,
+    "surrogate_r2": 0.93,
     "active_surrogate_variables": 41,
     "elite_seed_lineage": ["EXP-140", "EXP-141", "EXP-134", "EXP-132", "EXP-133", "EXP-135"],
     "sampling": "LatinHypercube + Elite Seeding",
     "selection": "Tournament(pressure=2)",
-    "status": "SECURE_AND_IMPROVING",
+    "status": "TARGET_ACHIEVED",
     "target_breach_rate": 5e-6,
+    "target_hit_generation": 12,
+    "knee_point_id": "V13-R2-KP-020-a7f2",
+    "best_observed_metrics": {
+        "breach_rate": 3.5e-6,
+        "honest_score": 0.9795,
+        "separation": 0.953,
+        "variance": 0.0009,
+        "hypervolume": 0.0161,
+        "pareto_front_size": 21,
+    },
 }
 
 

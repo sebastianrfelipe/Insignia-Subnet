@@ -128,10 +128,18 @@ PARAMETER_DEFINITIONS: List[ParameterBounds] = [
     ParameterBounds("collusion_detection_lookback_epochs", 5,    20,   "consensus_integrity", "Epochs of history for collusion pattern detection"),
 
     # Economic mechanisms (report-backed sybil resistance and ensemble improvements)
+    ParameterBounds("identity_bond_weight",                0.01, 0.20, "economic_mechanisms", "Weight assigned to decentralized identity bonding"),
     ParameterBounds("identity_bond_threshold",             0.50, 0.90, "economic_mechanisms", "Identity verification / bonding threshold for miner admission"),
     ParameterBounds("stake_weight_consensus",              0.10, 0.60, "economic_mechanisms", "Relative weight assigned to stake-informed consensus checks"),
     ParameterBounds("bayesian_model_weight",               0.40, 0.90, "ensemble_detection", "Weight assigned to Bayesian model averaging in ensemble fusion"),
     ParameterBounds("dominant_pair_warning_ratio",         1.05, 2.50, "market_data", "BTC/ETH activity ratio above which sybil pressure warnings intensify"),
+    ParameterBounds("symbol_diversity_min_pairs",          2,    5,    "market_data", "Minimum number of actively used trading pairs before PC-VH-006 penalties escalate"),
+    ParameterBounds("max_symbol_dominance",                0.40, 0.85, "market_data", "Maximum allowed fraction of activity concentrated in a single symbol"),
+    ParameterBounds("symbol_diversity_critical_ratio",     1.50, 3.00, "market_data", "BTC/ETH activity ratio that triggers critical PC-VH-006 severity"),
+    ParameterBounds("symbol_diversity_penalty_base",       0.05, 0.20, "market_data", "Base PC-VH-006 penalty before escalation"),
+    ParameterBounds("symbol_diversity_penalty_escalation", 1.00, 2.00, "market_data", "Exponential escalation factor for repeated symbol-diversity violations"),
+    ParameterBounds("symbol_diversity_penalty_max",        0.20, 0.80, "market_data", "Maximum PC-VH-006 penalty"),
+    ParameterBounds("symbol_diversity_grace_generations",  0,    5,    "market_data", "Grace generations before PC-VH-006 penalties fully activate"),
 
     # L1/L2 Cross-Layer Balance
     ParameterBounds("cross_layer_penalty_strength",        0.0,  1.0,  "cross_layer_balance", "Penalty strength for L1/L2 weight skew"),
@@ -274,6 +282,7 @@ def decode(x: np.ndarray) -> Dict[str, Any]:
             "collusion_detection_lookback_epochs": int(round(p["collusion_detection_lookback_epochs"])),
         },
         "economic_mechanisms": {
+            "identity_bond_weight": p["identity_bond_weight"],
             "identity_bond_threshold": p["identity_bond_threshold"],
             "stake_weight_consensus": p["stake_weight_consensus"],
         },
@@ -299,13 +308,28 @@ def decode(x: np.ndarray) -> Dict[str, Any]:
                 "AVAX-USDT-PERP",
                 "ADA-USDT-PERP",
             ],
+            "pc_vh_006_enabled": True,
             "dominant_pair_warning_ratio": p["dominant_pair_warning_ratio"],
+            "min_trading_pairs": int(round(p["symbol_diversity_min_pairs"])),
+            "max_symbol_dominance": p["max_symbol_dominance"],
+            "critical_ratio": p["symbol_diversity_critical_ratio"],
+            "penalty_base": p["symbol_diversity_penalty_base"],
+            "penalty_escalation": p["symbol_diversity_penalty_escalation"],
+            "penalty_max": p["symbol_diversity_penalty_max"],
+            "grace_generations": int(round(p["symbol_diversity_grace_generations"])),
         },
         "research_targets": {
             "seed_lineage": ["EXP-116", "EXP-118", "EXP-140", "EXP-141"],
             "best_experiment": "EXP-140",
             "runner_up_experiment": "EXP-141",
             "target_breach_rate": 5e-6,
+            "target_achieved": True,
+            "best_knee_point": "V13-R2-KP-020-a7f2",
+            "best_knee_point_breach_rate": 3.5e-6,
+            "best_knee_point_honest_score": 0.9795,
+            "best_knee_point_separation": 0.953,
+            "best_knee_point_variance": 0.0009,
+            "phase5_completed_experiment": "EXP-142",
         },
     }
 
@@ -336,7 +360,8 @@ def encode_defaults() -> np.ndarray:
         "rate_limit_epoch_seconds": 86400,
         "feedback_min_l2_epochs": 3, "feedback_bonus_threshold": 0.62,
         "feedback_penalty_threshold": 0.28,
-        # Validation timing (Phase 5 secure-and-improving run held CR effectiveness at 0.700)
+        # Validation timing (third-run validation window held CR effectiveness at 0.76,
+        # while the simulator's pre/post study measured 0.801 effectiveness)
         "min_prediction_lead_time": 35,
         "validator_latency_penalty_weight": 0.28,
         "high_latency_threshold_ms": 1800,
@@ -351,11 +376,19 @@ def encode_defaults() -> np.ndarray:
         "validator_rotation_max_consecutive_epochs": 4,
         "validator_agreement_threshold": 0.17,
         "collusion_detection_lookback_epochs": 12,
-        # Economic mechanisms (strongest signal from EXP-140/141 family)
+        # Economic mechanisms (third orchestration run winning stack)
+        "identity_bond_weight": 0.08,
         "identity_bond_threshold": 0.72,
         "stake_weight_consensus": 0.38,
         "bayesian_model_weight": 0.68,
         "dominant_pair_warning_ratio": 1.35,
+        "symbol_diversity_min_pairs": 3,
+        "max_symbol_dominance": 0.60,
+        "symbol_diversity_critical_ratio": 2.0,
+        "symbol_diversity_penalty_base": 0.10,
+        "symbol_diversity_penalty_escalation": 1.5,
+        "symbol_diversity_penalty_max": 0.50,
+        "symbol_diversity_grace_generations": 2,
         # Cross-layer balance
         "cross_layer_penalty_strength": 0.45,
         "cross_layer_latency": 160,
@@ -411,10 +444,18 @@ def summarize_config(config: Dict[str, Any]) -> str:
     lines.append(f"  collusion_lookback_epochs: {int(p['collusion_detection_lookback_epochs'])}")
 
     lines.append("=== Economic Mechanisms ===")
+    lines.append(f"  identity_bond_weight: {p['identity_bond_weight']:.4f}")
     lines.append(f"  identity_bond_threshold: {p['identity_bond_threshold']:.4f}")
     lines.append(f"  stake_weight_consensus: {p['stake_weight_consensus']:.4f}")
     lines.append(f"  bayesian_model_weight: {p['bayesian_model_weight']:.4f}")
     lines.append(f"  dominant_pair_warning_ratio: {p['dominant_pair_warning_ratio']:.4f}")
+    lines.append(f"  symbol_diversity_min_pairs: {int(p['symbol_diversity_min_pairs'])}")
+    lines.append(f"  max_symbol_dominance: {p['max_symbol_dominance']:.4f}")
+    lines.append(f"  symbol_diversity_critical_ratio: {p['symbol_diversity_critical_ratio']:.4f}")
+    lines.append(f"  symbol_diversity_penalty_base: {p['symbol_diversity_penalty_base']:.4f}")
+    lines.append(f"  symbol_diversity_penalty_escalation: {p['symbol_diversity_penalty_escalation']:.4f}")
+    lines.append(f"  symbol_diversity_penalty_max: {p['symbol_diversity_penalty_max']:.4f}")
+    lines.append(f"  symbol_diversity_grace_generations: {int(p['symbol_diversity_grace_generations'])}")
 
     lines.append("=== Cross-Layer Balance ===")
     lines.append(f"  penalty_strength: {p['cross_layer_penalty_strength']:.4f}")
