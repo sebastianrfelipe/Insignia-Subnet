@@ -74,6 +74,9 @@ class PairedValidator:
         self._fitnesses: List[PairFitness] = []
         self._model_score_cache: Dict[Tuple[str, int], ScoreVector] = {}
         self.generation_history: List[Dict[str, Any]] = []
+        # Full ranked fitnesses + emission weights from the most recent generation.
+        self.last_fitnesses: List[PairFitness] = []
+        self.last_weights: Dict[str, float] = {}
 
     # ------------------------------------------------------------------
     # Pairing
@@ -144,6 +147,8 @@ class PairedValidator:
         result = self.population.select(self._fitnesses)
         weights: Dict[str, float] = result["weights"]
         report = result["collusion"]
+        self.last_fitnesses = result["fitnesses"]
+        self.last_weights = weights
 
         summary = {
             "generation": result["generation"],

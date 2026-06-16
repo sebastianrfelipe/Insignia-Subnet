@@ -1,9 +1,16 @@
 """
-Evolutionary Multi-Objective Optimizer
+Evolutionary Multi-Objective Optimizer (OFFLINE mechanism tuner)
 
 Uses pymoo's NSGA-II algorithm to search the parameter space for
 configurations that maximize honest miner performance while minimizing
 attack vector breaches.
+
+NOTE: This is the OFFLINE tuner that optimizes *mechanism parameters*
+(scoring weights, thresholds, and the pairing knobs in the `pairing` group).
+It is distinct from the IN-PROTOCOL genetic algorithm in `insignia/pairing.py`,
+which evolves `(researcher, trader)` pairings each epoch on-chain. Both use
+NSGA-II but operate at different layers: this one tunes the rules, the in-protocol
+one selects pairs under those rules.
 
 Objectives (all minimized):
   1. -mean_honest_score: Negative mean composite score of honest miners
@@ -176,6 +183,8 @@ if PYMOO_AVAILABLE:
                     n_random=1,
                     n_honest_traders=max(2, self.n_honest // 3),
                     n_copy_traders=self.n_adversarial_each,
+                    n_colluding_rings=self.n_adversarial_each,
+                    n_partner_gamers=self.n_adversarial_each,
                 )
 
                 harness = SimulationHarness(
@@ -254,6 +263,7 @@ class RandomSearchOptimizer:
                 n_overfitters=1, n_copycats=1, n_gamers=1,
                 n_sybils=2, n_random=1,
                 n_honest_traders=2, n_copy_traders=1,
+                n_colluding_rings=1, n_partner_gamers=1,
             )
             harness = SimulationHarness(
                 l1_agents=l1_agents, l2_agents=l2_agents,
