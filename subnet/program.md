@@ -2,6 +2,15 @@
 
 This document is the MCP swarm prompt for the Insignia subnet repository.
 
+> **Architecture:** Insignia is a **single paired genetic mechanism** — researcher
+> miners (ML models) and trader miners (trading operations) share one UID space
+> and one Yuma weight vector, matched into `(model, strategy)` pairs that are
+> jointly evaluated and selected with NSGA-II. The 7 model + 10 trading metrics
+> and their weights are preserved; the old L1→promotion→L2 flow, cross-layer
+> feedback, and `l1_l2_emission_split` are gone. See `docs/PAIRING_MECHANISM.md`.
+> Note: "trading-pair / symbol diversification" below refers to market symbols
+> (BTC/ETH/...), not `(researcher, trader)` genome pairs.
+
 ---
 
 ## 1. Current system state
@@ -26,7 +35,7 @@ This document is the MCP swarm prompt for the Insignia subnet repository.
   - target status: **5e-6 target achieved**
 - Historical harder-environment simulation benchmark remains relevant as a stress test:
   - epochs: `100`
-  - population: `14 agents` (`6 honest + 4 adversarial` in L1, `3 honest + 1 adversarial` in L2)
+  - population: `14 agents` (`6 honest + 4 adversarial` researchers, `3 honest + 1 adversarial` traders)
   - trading pairs: `BTCUSDT`, `ETHUSDT`, `SOLUSDT`, `AVAXUSDT`, `ADAUSDT`
   - breach_rate: `0.124`
   - honest_score: `0.847`
@@ -55,13 +64,13 @@ This document is the MCP swarm prompt for the Insignia subnet repository.
 
 ### Important compatibility note
 
-The orchestration report uses a compact **75-parameter headline** in its summaries.
-The repository still retains a broader implementation surface, including a
-**10-metric L2 scorer** and extra operational knobs. Swarm agents should:
+The repository retains a broad implementation surface, including the
+**10-metric trading scorer**, the 7-metric model scorer, and the `pairing`
+parameter group. Swarm agents should:
 
 1. preserve the broader implementation in code,
-2. use the report headline in narrative summaries when helpful, and
-3. never remove L2 risk controls just to match a smaller summary table.
+2. use report headlines in narrative summaries when helpful, and
+3. never remove trading risk controls just to match a smaller summary table.
 
 ---
 
@@ -69,9 +78,11 @@ The repository still retains a broader implementation surface, including a
 
 Swarm agents should treat these files as canonical for implementation state:
 
-- `tuning/parameter_space.py` - tuned defaults, bounds, and decoded config
-- `tuning/simulation.py` - simulated population, commit/reveal telemetry, pair diversification
-- `tuning/attack_detector.py` - active attack checks and breach logic
+- `insignia/pairing.py` - paired genetic engine (chain-seeded pairing, NSGA-II matchmaker, marginal-contribution credit, collusion detector)
+- `neurons/validator.py` - unified `PairedValidator` (pairing -> joint eval -> NSGA-II -> credit -> single set_weights)
+- `tuning/parameter_space.py` - tuned defaults, bounds, and decoded config (incl. the `pairing` group)
+- `tuning/simulation.py` - pair-based simulated population, commit/reveal telemetry, symbol diversification
+- `tuning/attack_detector.py` - active attack checks and breach logic (28 vectors)
 - `tuning/autoresearch_loop.py` - experiment loop, TSV schema, radical escalation
 - `tuning/composite_integrity_scorer.py` - EXP-023 integrity scoring helper
 - `tuning/metrics_exporter.py` - Prometheus surface
@@ -111,7 +122,7 @@ Responsibilities:
 - run `SimulationHarness`
 - instantiate all attack/honest archetypes
 - emit structured telemetry for sentinel and tuner
-- keep pair diversification active in simulations
+- keep trading-pair (symbol) diversification active in simulations
 
 ### sentinel
 
@@ -146,26 +157,28 @@ Responsibilities:
 
 ## 4. Active simulation population
 
-The simulator currently assumes 8 implemented agent archetypes:
+The simulator implements these agent archetypes (all in one UID space):
 
-### Layer 1
+### Researcher miners
 - Honest
 - Overfitter
 - Copycat
 - SingleMetricGamer
 - Sybil
 - Random
+- ColludingResearcher (rings with a matched ColludingTrader)
 
-### Layer 2
+### Trader miners
 - HonestTrader
 - CopyTrader
+- ColludingTrader (rings with a matched ColludingResearcher)
+- PartnerGamingTrader
 
 Default operational mix in the repository:
-- 6 honest L1
-- 4 adversarial L1 aggregate pressure
-- 3 honest L2
-- 1 adversarial L2
-- total active benchmark population: 14 agents
+- 6 honest researchers + adversarial researchers (overfitter, copycat, gamer, sybil)
+- 3 honest traders + copy-trader
+- 1 colluding ring (researcher + trader) + 1 partner-gaming trader
+- pairs per generation are formed by chain-seeded matching (each miner in >= `partners_per_miner` pairs)
 
 The testnet wallet layout now assumes:
 - 1 owner wallet
@@ -190,9 +203,9 @@ Required behavior:
 
 ## 5. Parameter and weighting guidance
 
-### L1 weights
+### Model weights (researcher half)
 
-Use these as the default L1 priorities unless a run explicitly overrides them:
+Use these as the default model-scoring priorities unless a run overrides them:
 
 - `l1_penalized_f1 = 0.22`
 - `l1_penalized_sharpe = 0.18`
@@ -202,20 +215,30 @@ Use these as the default L1 priorities unless a run explicitly overrides them:
 - `l1_feature_efficiency = 0.06`
 - `l1_latency = 0.10`
 
-### L2 weights kept in repository defaults
+### Trading weights (trader half) kept in repository defaults
 
-The codebase preserves a 10-metric L2 scorer. Current compatible defaults are:
+The codebase preserves a 10-metric trading scorer. Current defaults are:
 
-- `l2_realized_pnl = 0.21`
-- `l2_omega = 0.15`
+- `l2_realized_pnl = 0.18`
+- `l2_omega = 0.12`
 - `l2_max_drawdown = 0.12`
-- `l2_win_rate = 0.07`
-- `l2_consistency = 0.17`
-- `l2_model_attribution = 0.08`
-- `l2_execution_quality = 0.05`
+- `l2_win_rate = 0.05`
+- `l2_consistency = 0.18`
+- `l2_model_attribution = 0.11`
+- `l2_execution_quality = 0.09`
 - `l2_annualized_volatility = 0.05`
 - `l2_sharpe_ratio = 0.05`
 - `l2_sortino_ratio = 0.05`
+
+### Pairing (genetic mechanism) defaults
+
+- `partners_per_miner = 3`
+- `elite_fraction = 0.30`
+- `mutation_rate = 0.20`
+- `pair_blend_alpha = 0.50`
+- `marginal_contribution_weight = 0.50`
+- `fixed_pair_correlation_threshold = 0.85`
+- `max_pairs = 64`
 
 ### Validation timing defaults
 
@@ -288,7 +311,9 @@ The codebase preserves a 10-metric L2 scorer. Current compatible defaults are:
 
 ## 6. Attack surveillance model
 
-### Legacy 19-vector catalog preserved in code
+### 28-vector catalog in code
+
+Core + orchestration (1-19; #18 reframed as role-emission balance):
 
 1. overfitting_exploitation
 2. model_plagiarism
@@ -307,13 +332,23 @@ The codebase preserves a 10-metric L2 scorer. Current compatible defaults are:
 15. validator_rotation_circumvention
 16. validator_agreement_anomaly
 17. collusion_temporal_pattern
-18. weight_manipulation
+18. weight_manipulation (role-emission balance: researchers vs. traders)
 19. cross_layer_attack
+
+Rich telemetry extensions (20-25): selective_revelation, statistical_anomaly,
+behavioral_anomaly, temporal_attack_pattern, sybil_collusion_graph,
+cross_layer_correlation.
+
+Paired-mechanism vectors (26-28):
+
+26. pair_collusion
+27. partner_selection_gaming
+28. latency_arbitrage_pairing
 
 ### Current post-commit-reveal operating view
 
-The third orchestration run evaluated the active **19 post-commit-reveal attack
-vectors** and reported:
+The detector now spans **28 vectors** (the historical orchestration run below
+evaluated the earlier 19-vector post-commit-reveal set) and reported:
 
 - overall status: `SECURE_AND_IMPROVING`
 - `17 / 19` vectors at INFO
@@ -332,8 +367,8 @@ defense stack:
 - `PC-VH-006` is now deployed and should be treated as part of the active
   defense surface, not a future recommendation
 
-Swarm agents should treat pair diversification, identity-bonding defenses, and
-symbol diversity enforcement as permanent objectives, with the remaining work now
+Swarm agents should treat symbol (trading-pair) diversification, identity-bonding
+defenses, and symbol diversity enforcement as permanent objectives, with the remaining work now
 focused on empirical validation of the projected Sybil reduction rather than
 shipping the defense itself.
 
@@ -371,8 +406,9 @@ Primary endpoints:
 
 ### Core metrics to preserve
 
-- `insignia_l1_composite_score`
-- `insignia_l2_composite_score`
+- `insignia_model_composite_score`
+- `insignia_trading_composite_score`
+- `insignia_pair_composite_score`
 - `insignia_attack_breach`
 - `insignia_attack_severity`
 - `insignia_total_breaches`
@@ -537,7 +573,7 @@ python3 -m unittest discover -s tests -p "test_*.py"
 
 ### completed in repository
 
-- pair diversification support for SOL / AVAX / ADA
+- trading-pair (symbol) diversification support for SOL / AVAX / ADA
 - composite integrity scorer module
 - enriched simulator telemetry for commit/reveal, convergence, and ensemble signals
 - selective revelation escalation support
@@ -559,7 +595,7 @@ python3 -m unittest discover -s tests -p "test_*.py"
 
 ## 13. Hard rules for the swarm
 
-1. do not remove the 10-metric L2 scorer to fit a smaller summary table
+1. do not remove the 10-metric trading scorer to fit a smaller summary table
 2. do not reintroduce BTC-only assumptions in new simulation code
 3. do not let `program.md` drift from actual repo behavior
 4. prefer the detector names in code over older historical numbering in archived notes

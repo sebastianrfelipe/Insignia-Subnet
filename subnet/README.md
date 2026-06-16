@@ -4,12 +4,12 @@
 
 Built on [Bittensor](https://bittensor.com) for the Sovereign Infrastructure Hackathon (March 2026).
 
-> **Architecture migration (single paired mechanism).** Insignia is moving from the
-> two-layer (L1 model → promotion → L2 strategy) design to a *single* incentive
-> mechanism in which **researcher miners and trader miners are matched into pairs,
-> jointly evaluated, and selected/rewarded with an NSGA-II-style genetic algorithm**.
-> The same evaluation metrics and weights are preserved; promotion and the
-> `l1_l2_emission_split` are removed. See
+> **Architecture (single paired mechanism).** Insignia uses a *single* incentive
+> mechanism in which **researcher miners and trader miners are matched into
+> `(model, strategy)` pairs, jointly evaluated, and selected/rewarded with an
+> NSGA-II-style genetic algorithm**. The same evaluation metrics and weights are
+> preserved from the earlier two-layer design; promotion, cross-layer feedback,
+> and the `l1_l2_emission_split` are removed. See
 > [docs/PAIRING_MECHANISM.md](docs/PAIRING_MECHANISM.md) for the full spec.
 
 **Status:** Phase 5 target achieved and under empirical validation  
@@ -20,32 +20,33 @@ Built on [Bittensor](https://bittensor.com) for the Sovereign Infrastructure Hac
 
 ## What Is This?
 
-Insignia is a two-layer competitive network for producing high-quality ML models and validating that they actually work when deployed.
+Insignia is a **single paired competitive network**: ML researcher miners and trading-operations miners are matched into `(model, strategy)` pairs, jointly evaluated, and selected with an NSGA-II-style genetic algorithm.
 
-- **Layer 1 (Model Competition):** miners train predictive models and are scored across 7 weighted metrics.
-- **Layer 2 (Deployment Validation):** promoted models are wrapped into strategies and scored with the repository's 10-metric L2 risk stack.
-- **Cross-Layer Feedback:** Layer 2 outcomes feed back into Layer 1 rankings.
-- **Commit-Reveal Validation:** the timing defense path now holds at system-level effectiveness `0.76`, above the `0.667` acceptance floor, with simulator stability analysis reaching `0.801` across pre/post-CR epochs.
+- **Researcher miners (Model Competition):** train predictive models, scored across 7 weighted metrics on a proprietary benchmark.
+- **Trader miners (Deployment Validation):** build strategies on the validator-assigned model, scored with the 10-metric trading risk stack.
+- **Joint pair evaluation:** each `(researcher, trader)` pair is scored together; NSGA-II ranks pairs and a variance-penalized marginal contribution produces one Yuma weight vector (no promotion, no `l1_l2_emission_split`).
+- **Anti-gaming:** chain-seeded pairing + marginal credit + collusion detection defend against miner collusion; commit-reveal + min lead time defend against latency arbitrage.
+- **Commit-Reveal Validation:** the timing defense path holds at system-level effectiveness `0.76`, above the `0.667` acceptance floor, with simulator stability analysis reaching `0.801` across pre/post-CR epochs.
 
 ---
 
 ## Current orchestration snapshot
 
-- 6-agent architecture: deployer, simulator, sentinel, tuner, researcher, coder
-- 8 implemented agent archetypes in simulation: Honest, Overfitter, Copycat, SingleMetricGamer, Sybil, Random, HonestTrader, CopyTrader
-- 14-agent benchmark simulation mix: 9 honest, 5 adversarial across L1/L2
+- 6-agent orchestration roster: deployer, simulator, sentinel, tuner, researcher, coder
+- Implemented simulation archetypes: Honest, Overfitter, Copycat, SingleMetricGamer, Sybil, Random (researchers); HonestTrader, CopyTrader, ColludingTrader, PartnerGamingTrader (traders); ColludingResearcher
+- Benchmark simulation mix: honest + adversarial researchers and traders in one UID space, paired each generation
 - Emulator/testnet node layout: 1 validator wallet and 12 miner wallets
 - Stable per-run MCP model-route assignment is now supported for simulated miner agents to represent decentralized intelligence diversity during tuning
 - Active sentinel posture: breach_rate `0.0005`, honest_score `0.94`, score_separation `0.758`
 - No convergence detected and no reset triggers fired (`SOFT`, `HARD`, `FULL` all false)
-- 75-parameter orchestration headline, with the repository retaining a broader 10-metric L2 implementation and expanded parameter space in code
+- The repository retains the full 7 model + 10 trading metric scorers plus the `pairing` parameter group in code
 - 41-variable NSGA-II v13 R2 surrogate profile runs on top of the repository's broader 67-parameter surface
 - Current optimization spec: 20 generations, population 30, 4 objectives, 93 empirical surrogate points, Gaussian Process surrogate `R^2 = 0.93`
 - The 5e-6 breach-rate target has been achieved at the surrogate-guided knee point: breach_rate `3.5e-6`, honest_score `0.9795`, separation `0.953`, variance `0.0009`
 - Persistent warning: Sybil pressure driven by BTCUSDT:ETHUSDT imbalance
 - Historical hard-environment simulation headline remains useful context: breach_rate `0.124`, honest_score `0.847`
 
-## L1 weights
+## Model weights (researcher half of a pair)
 
 | Metric | Weight |
 |---|---:|
@@ -57,9 +58,9 @@ Insignia is a two-layer competitive network for producing high-quality ML models
 | feature_efficiency | 0.06 |
 | latency | 0.10 |
 
-## L2 weights used in repository defaults
+## Trading weights (trader half of a pair)
 
-The orchestration report summarizes a 6-metric headline split, but the codebase intentionally keeps a 10-metric L2 scorer for additional risk controls. The updated compatible defaults are:
+The codebase keeps a 10-metric trading scorer for additional risk controls. The repository defaults are:
 
 | Metric | Weight |
 |---|---:|
@@ -78,14 +79,13 @@ The orchestration report summarizes a 6-metric headline split, but the codebase 
 
 ## Attack surveillance
 
-### Active post-commit-reveal security gate
+### 28-vector detector
 
-The current sentinel operating model treats **19 post-commit-reveal vectors** as
-the Phase 5 security gate. The repository still keeps richer telemetry for
-additional extensions, but the active transition decision is based on the
-19-vector post-CR posture.
+`tuning/attack_detector.py` evaluates 28 vectors: the original 9, the 10
+orchestration vectors (with #18 reframed as role-emission balance for the single
+mechanism), 6 rich-telemetry extensions, and 3 paired-mechanism vectors.
 
-### Legacy 19-vector catalog retained in code
+Core + orchestration:
 
 1. overfitting_exploitation
 2. model_plagiarism
@@ -104,10 +104,10 @@ additional extensions, but the active transition decision is based on the
 15. validator_rotation_circumvention
 16. validator_agreement_anomaly
 17. collusion_temporal_pattern
-18. weight_manipulation
+18. weight_manipulation (role-emission balance: researchers vs. traders)
 19. cross_layer_attack
 
-### Rich telemetry extensions retained in the repository
+Rich telemetry extensions:
 
 - selective_revelation
 - statistical_anomaly
@@ -115,6 +115,12 @@ additional extensions, but the active transition decision is based on the
 - temporal_attack_pattern
 - sybil_collusion_graph
 - cross_layer_correlation
+
+Paired-mechanism vectors:
+
+- pair_collusion (researcher ↔ trader non-transferable lift)
+- partner_selection_gaming (steering one's assigned partner)
+- latency_arbitrage_pairing (latency / partner foreknowledge)
 
 ### Current warning vectors from the latest orchestration run
 
@@ -195,7 +201,14 @@ Notable report-aligned metrics now include:
 ```text
 subnet/
 ├── insignia/
+│   ├── pairing.py        # paired genetic engine (NSGA-II, credit, collusion)
+│   ├── scoring.py        # 7 model + 10 trading metrics + combine_pair_scores
+│   ├── protocol.py       # MinerRole + pairing synapses
+│   └── incentive.py      # commit-reveal + attack/defense matrix
 ├── neurons/
+│   ├── validator.py          # unified PairedValidator
+│   ├── researcher_miner.py   # role-aware researcher
+│   └── trader_miner.py       # role-aware trader
 ├── tuning/
 │   ├── attack_detector.py
 │   ├── autoresearch_loop.py

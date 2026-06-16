@@ -1,16 +1,23 @@
 # Insignia Subnet — Parameter Tuning Strategy
 
+> **Two NSGA-II layers — do not confuse them.** This document covers the
+> **OFFLINE mechanism tuner** (`tuning/optimizer.py`), which searches *mechanism
+> parameters* (scoring weights, thresholds, and the `pairing` group). It is
+> distinct from the **in-protocol** genetic algorithm in `insignia/pairing.py`,
+> which evolves `(researcher, trader)` pairings each epoch on-chain. Both use
+> NSGA-II but at different layers. See [PAIRING_MECHANISM.md](PAIRING_MECHANISM.md).
+
 ## Executive Summary
 
-The Insignia subnet's incentive mechanism involves **two composite scoring vectors** (L1: 7 metrics, L2: 10 metrics), **cross-layer feedback parameters**, **anti-gaming thresholds**, **commit-reveal parameters**, **emission distribution parameters**, and **subnet hyperparameters**. The full tuning landscape spans two distinct levels:
+The Insignia subnet's incentive mechanism combines a **model scoring vector** (7 metrics) and a **trading scoring vector** (10 metrics) into a joint pair fitness, plus **pairing parameters**, **anti-gaming thresholds**, **commit-reveal parameters**, **emission distribution parameters**, and **subnet hyperparameters**. The full tuning landscape spans two distinct levels:
 
-- **55 Insignia application-level parameters** — scoring weights, thresholds, commit-reveal timing, defense parameters, emission distribution, and mechanism knobs (tuned by the emulator)
-- **39 Bittensor on-chain subnet hyperparameters** — network-level parameters controlling registration, consensus, staking, and bonds (set via `btcli subnets hyperparameters`)
+- **Insignia application-level parameters** — scoring weights, thresholds, commit-reveal timing, defense parameters, emission distribution, and the pairing/genetic knobs (tuned by the emulator)
+- **Bittensor on-chain subnet hyperparameters** — network-level parameters controlling registration, consensus, staking, and bonds (set via `btcli subnets hyperparameters`)
 
-Together these form a **94-parameter optimization surface**. Tuning by hand is infeasible because:
+Tuning by hand is infeasible because:
 
-1. The parameter space is high-dimensional (80 total parameters across two levels)
-2. Interactions between parameters are non-linear (e.g., changing L1 overfitting weight affects which models reach L2; changing `tempo` affects how frequently weights are set)
+1. The parameter space is high-dimensional across two levels
+2. Interactions between parameters are non-linear (e.g., changing the overfitting weight affects which models win pairs; changing `tempo` affects how frequently weights are set)
 3. Attack vectors exploit specific parameter configurations
 4. You cannot iterate quickly on mainnet — miners are real actors with real stakes
 
@@ -32,14 +39,14 @@ Together these form a **94-parameter optimization surface**. Tuning by hand is i
 └──────┬──────┴───────┬───────┴───────┬───────┴───────┬───────┘
        │              │               │               │
        │              ▼               │               │
-       │   ┌─────────────────┐        │               │
-       │   │ Subnet Pipeline │        │               │
-       │   │ L1 Miners (bots)│        │               │
-       │   │ L1 Validator    │◄───────┘               │
-       │   │ L2 Miners (bots)│                        │
-       │   │ L2 Validator    │                        │
-       │   │ Cross-Layer     │                        │
-       │   └────────┬────────┘                        │
+       │   ┌──────────────────────┐   │               │
+       │   │ Subnet Pipeline      │   │               │
+       │   │ Researcher bots      │   │               │
+       │   │ Trader bots          │◄──┘               │
+       │   │ PairedValidator      │                   │
+       │   │  (pairing + NSGA-II  │                   │
+       │   │   + marginal credit) │                   │
+       │   └────────┬─────────────┘                   │
        │            │                                 │
        │            ▼                                 │
        │   ┌─────────────────┐                        │
@@ -67,28 +74,29 @@ Together these form a **94-parameter optimization surface**. Tuning by hand is i
 
 #### Insignia Application-Level Parameters (68 total, tuned by emulator)
 
-| Category | Parameters | Count |
-|----------|-----------|-------|
-| L1 Scoring Weights | penalized_f1, penalized_sharpe, max_drawdown, variance_score, overfitting_penalty, feature_efficiency, latency | 7 |
-| L2 Scoring Weights | realized_pnl, omega, max_drawdown, win_rate, consistency, model_attribution, execution_quality, annualized_volatility, sharpe_ratio, sortino_ratio | 10 |
-| Overfitting Detector | gap_threshold, decay_rate | 2 |
-| Cross-Layer Promotion | top_n, min_consecutive_epochs, max_overfitting_score, max_score_decay_pct, expiry_epochs | 5 |
-| Cross-Layer Feedback | feedback_bonus_weight, feedback_penalty_weight | 2 |
-| Anti-Gaming | fingerprint_correlation_threshold, copy_trade_time_tolerance, copy_trade_size_tolerance, copy_trade_correlation_threshold | 4 |
-| L2 Trading | base_spread_bps, volatility_impact_factor, size_impact_factor, fee_bps, max_position_pct, max_drawdown_pct | 6 |
-| Buyback | buyback_pct, min_profit_threshold | 2 |
-| Emission Distribution | sigmoid_midpoint, sigmoid_steepness, l1_l2_emission_split | 3 |
-| Rate Limiting | rate_limit_epoch_seconds | 1 |
-| Feedback Thresholds | feedback_min_l2_epochs, feedback_bonus_threshold, feedback_penalty_threshold | 3 |
-| Commit-Reveal Timing | commit_window_seconds, reveal_window_seconds, late_reveal_penalty | 3 |
-| Validation Timing | min_prediction_lead_time, validator_latency_penalty_weight, high_latency_threshold_ms, commit_rate_threshold, commitment_violation_weight, selective_reveal_warning_streak, selective_reveal_penalty_streak, selective_reveal_zero_streak | 8 |
-| Consensus Integrity | weight_entropy_minimum, cross_validator_score_variance_max, validator_rotation_max_consecutive_epochs, validator_agreement_threshold, collusion_detection_lookback_epochs | 5 |
-| Economic Mechanisms | identity_bond_threshold, stake_weight_consensus | 2 |
-| Ensemble Detection | bayesian_model_weight | 1 |
-| Market Data | dominant_pair_warning_ratio | 1 |
-| Model Routing | model_routing_enabled, model_routing_assignment_seed, model_routing_stable_per_run, model_routing_route_count | 4 |
-| Cross-Layer Defense | cross_layer_penalty_strength, cross_layer_latency | 2 |
-| **Subtotal** | | **68** |
+| Category | Parameters |
+|----------|-----------|
+| Model Scoring Weights | penalized_f1, penalized_sharpe, max_drawdown, variance_score, overfitting_penalty, feature_efficiency, latency |
+| Trading Scoring Weights | realized_pnl, omega, max_drawdown, win_rate, consistency, model_attribution, execution_quality, annualized_volatility, sharpe_ratio, sortino_ratio |
+| Overfitting Detector | gap_threshold, decay_rate |
+| **Pairing (genetic mechanism)** | partners_per_miner, elite_fraction, mutation_rate, pair_blend_alpha, marginal_contribution_weight, fixed_pair_correlation_threshold, max_pairs |
+| Anti-Gaming | fingerprint_correlation_threshold, copy_trade_time_tolerance, copy_trade_size_tolerance, copy_trade_correlation_threshold |
+| Trading Engine | base_spread_bps, volatility_impact_factor, size_impact_factor, fee_bps, max_position_pct, max_drawdown_pct |
+| Buyback | buyback_pct, min_profit_threshold |
+| Emission Distribution | sigmoid_midpoint, sigmoid_steepness |
+| Rate Limiting | rate_limit_epoch_seconds |
+| Commit-Reveal Timing | commit_window_seconds, reveal_window_seconds, late_reveal_penalty |
+| Validation Timing | min_prediction_lead_time, validator_latency_penalty_weight, high_latency_threshold_ms, commit_rate_threshold, commitment_violation_weight, selective_reveal_warning_streak, selective_reveal_penalty_streak, selective_reveal_zero_streak |
+| Consensus Integrity | weight_entropy_minimum, cross_validator_score_variance_max, validator_rotation_max_consecutive_epochs, validator_agreement_threshold, collusion_detection_lookback_epochs |
+| Economic Mechanisms | identity_bond_weight, identity_bond_threshold, stake_weight_consensus |
+| Ensemble Detection | bayesian_model_weight |
+| Market Data | dominant_pair_warning_ratio + PC-VH-006 symbol-diversity knobs |
+
+> The legacy `promotion_*` / `feedback_*` groups (top_n, min_consecutive_epochs,
+> bonus/penalty weights, etc.) and the cross-layer split (`l1_l2_emission_split`,
+> `cross_layer_penalty_strength`, `cross_layer_latency`) were removed; the
+> `pairing` group replaces them. Exact bounds and defaults live in
+> `tuning/parameter_space.py`.
 
 #### Bittensor On-Chain Subnet Hyperparameters (39 total, set via btcli)
 
@@ -108,18 +116,21 @@ Together these form a **94-parameter optimization surface**. Tuning by hand is i
 
 #### Full Tuning Landscape
 
-| Level | Parameters | Tuned By |
-|-------|-----------|----------|
-| Insignia application-level | 68 | Emulator (NSGA-II evolutionary optimization) |
-| Bittensor on-chain | 33+ | btcli / subnet owner configuration |
-| **Total** | **96+** | |
+| Level | Tuned By |
+|-------|----------|
+| Insignia application-level (scoring weights, thresholds, pairing group, defenses) | Offline NSGA-II tuner (`tuning/optimizer.py`) |
+| Bittensor on-chain hyperparameters | btcli / subnet owner configuration |
+
+> Note: the offline tuner tunes the *rules*; the in-protocol genetic algorithm
+> (`insignia/pairing.py`) selects `(researcher, trader)` pairs under those rules
+> each epoch.
 
 **Constraints:**
-- L1 weights must sum to 1.0
-- L2 weights must sum to 1.0
+- Model weights must sum to 1.0
+- Trading weights must sum to 1.0
 - All weights ∈ [0.01, 0.50]
 - Thresholds must be positive
-- `feedback_penalty_threshold` < `feedback_bonus_threshold`
+- `partners_per_miner` ≥ 2 (every miner judged against multiple partners)
 
 **Implementation:** `tuning/parameter_space.py` — defines the search space, encoding/decoding, and constraint handling.
 
@@ -131,16 +142,18 @@ Together these form a **94-parameter optimization surface**. Tuning by hand is i
 
 #### Miner Agent Types
 
-| Agent Type | Behavior | Purpose |
-|------------|----------|---------|
-| **Honest** | Trains models normally, submits best effort | Baseline — represents good-faith miners |
-| **Overfitter** | Deliberately overfits to training data | Tests overfitting detection |
-| **Copycat** | Copies another miner's model with small perturbations | Tests plagiarism detection |
-| **Spammer** | Submits many low-quality models rapidly | Tests rate limiting |
-| **Single-Metric Gamer** | Optimizes only for directional accuracy | Tests composite scoring robustness |
-| **Sybil** | Multiple identities submitting correlated models | Tests sybil detection |
-| **Copy-Trader (L2)** | Mirrors another L2 miner's positions | Tests copy-trade detection |
-| **Random** | Random model/strategy submissions | Noise floor baseline |
+| Agent Type | Role | Behavior | Purpose |
+|------------|------|----------|---------|
+| **Honest** | researcher | Trains models normally, submits best effort | Baseline — good-faith researchers |
+| **Overfitter** | researcher | Deliberately overfits to training data | Tests overfitting detection |
+| **Copycat** | researcher | Copies another miner's model with small perturbations | Tests plagiarism detection |
+| **Single-Metric Gamer** | researcher | Optimizes only for directional accuracy | Tests composite scoring robustness |
+| **Sybil** | researcher | Multiple identities submitting correlated models | Tests sybil detection |
+| **Random** | researcher | Random model submissions | Noise floor baseline |
+| **HonestTrader** | trader | Builds a strategy on the assigned model | Baseline — good-faith traders |
+| **CopyTrader** | trader | Mirrors another trader's positions | Tests copy-trade detection |
+| **ColludingResearcher + ColludingTrader** | both | A ring that only performs when matched together | Tests `pair_collusion` + marginal credit |
+| **PartnerGamingTrader** | trader | Tries to steer which partner it is matched with | Tests `partner_selection_gaming` |
 
 Each agent type is parameterized so the optimizer can test different attack intensities.
 
@@ -163,7 +176,7 @@ Key properties:
 
 ### Phase 3: Attack Vector Detection
 
-**Goal:** Automatically detect whether each of the 19 documented attack vectors has been breached under a given parameter configuration.
+**Goal:** Automatically detect whether each documented attack vector has been breached under a given parameter configuration. `tuning/attack_detector.py` evaluates 28 vectors, including the 3 paired-mechanism vectors below.
 
 For each attack vector, define a **breach condition** (boolean) and a **severity score** (0-1):
 
@@ -171,25 +184,25 @@ For each attack vector, define a **breach condition** (boolean) and a **severity
 |---|--------|-----------------|
 | 1 | Overfitting exploitation | Overfitting miner scores higher than honest miners |
 | 2 | Submission spam | Spammer gets >0 score despite rate limits |
-| 3 | Model plagiarism (L1) | Copycat miner is not detected and scores independently |
-| 4 | Copy-trading (L2) | Copy-trader is not detected and scores independently |
+| 3 | Model plagiarism (researcher) | Copycat miner is not detected and scores independently |
+| 4 | Copy-trading (trader) | Copy-trader is not detected and scores independently |
 | 5 | Single-metric gaming | Single-metric gamer ranks in top 50% |
 | 6 | Validator data leakage | (Structural check — no simulation needed) |
 | 7 | Paper trading manipulation | Inflated P&L not caught by slippage model |
 | 8 | Sybil attack | Sybil identities collectively earn >2x single miner share |
 | 9 | Regime-specific exploitation | Model that only works in 1 regime ranks in top 25% |
-| 10 | L1/L2 weight skew exploitation | Adversarial miner captures disproportionate rewards via emission split |
-| 11 | Cross-layer timing sync | Timing gaps between L1/L2 scoring windows exploited for feedback gaming |
+| 10 | Pair collusion | A researcher+trader ring scores well only when matched together (non-transferable lift) |
+| 11 | Partner-selection gaming | A miner steers which partner it is matched with to secure a favorable counterpart |
 | 12 | Objective weight manipulation | NSGA-II objective weights manipulated to favor specific attack patterns |
 | 13 | GA parameter exploitation | Genetic algorithm parameters (crossover, mutation) tuned to exploit optimizer |
 | 14 | Governance parameter manipulation | On-chain hyperparameters manipulated to enable other attacks |
-| 15 | L1/L2 incentive misalignment | Emission split and weight ratios create cross-layer gaming opportunities |
+| 15 | Latency arbitrage in pairing | Exploiting validator latency or partner foreknowledge to submit after data materializes |
 | 16 | Pareto front manipulation | Population diversity or elite preservation exploited to bias optimization |
 | 17 | Reward distribution manipulation | Sigmoid emission curve or buyback parameters gamed for disproportionate rewards |
 | 18 | Validator latency exploitation (Vector 8) | Miner accuracy correlated with validator latency; post-market submissions scored as predictions. **Commit-reveal validated: projected severity 0.047 < 0.05 target** |
 | 19 | Miner-validator collusion | Validator weight/score bias toward specific miners not justified by performance |
 
-**Implementation:** `tuning/attack_detector.py` — runs the simulation with adversarial agents and returns a breach report. The active detector is modeled around the 19 post-commit-reveal vectors used by the second orchestration run.
+**Implementation:** `tuning/attack_detector.py` — runs the simulation with adversarial agents and returns a breach report across 28 vectors (the legacy post-commit-reveal set plus `pair_collusion`, `partner_selection_gaming`, and `latency_arbitrage_pairing`, with the former L1/L2-skew vector reframed as role-emission balance).
 
 **Commit-reveal impact on Vector 18:** Sentinel validation (session 69dab601) confirmed that the commit-reveal scheme reduces Vector 18 severity from 0.09 to projected 0.047, clearing the 0.05 target. Companion Vector 11 (prediction timing manipulation) also drops from 0.06 to 0.025. The critical effectiveness threshold is 0.667 — this must be validated in simulation before production deployment.
 
@@ -202,13 +215,13 @@ For each attack vector, define a **breach condition** (boolean) and a **severity
 #### Metrics Exported
 
 **Simulation Metrics:**
-- `insignia_l1_composite_score` (gauge, per miner, per epoch)
-- `insignia_l1_weight` (gauge, per miner)
-- `insignia_l2_composite_score` (gauge, per strategy)
-- `insignia_l2_pnl` (gauge, per strategy)
-- `insignia_l2_drawdown` (gauge, per strategy)
-- `insignia_promotion_count` (counter)
-- `insignia_feedback_adjustment` (gauge, per model)
+- `insignia_model_composite_score` (gauge, per researcher, per generation)
+- `insignia_pair_composite_score` (gauge, per pair)
+- `insignia_trading_composite_score` (gauge, per trader)
+- `insignia_miner_weight` (gauge, per miner — single emission vector)
+- `insignia_pareto_front_size` (gauge, per generation)
+- `insignia_pair_count` (gauge, per generation)
+- `insignia_collusion_flags` (gauge, count of flagged pairs)
 
 **Attack Detection Metrics:**
 - `insignia_attack_breach` (gauge, per attack type, 0/1)
@@ -226,12 +239,12 @@ For each attack vector, define a **breach condition** (boolean) and a **severity
 #### Grafana Dashboard
 
 Pre-configured dashboard with panels for:
-1. **Scoring Distribution** — histogram of L1/L2 composite scores across miners
+1. **Scoring Distribution** — histogram of model/trading/pair composite scores
 2. **Attack Status** — traffic light panel for each attack vector
 3. **Weight Evolution** — how scoring weights change across generations
 4. **Pareto Front** — scatter plot of multi-objective fitness
-5. **P&L Distribution** — L2 strategy returns across miners
-6. **Cross-Layer Flow** — promotion counts and feedback adjustments
+5. **P&L Distribution** — trader strategy returns across pairs
+6. **Pairing Flow** — pairs per generation, Pareto front size, and collusion flags
 
 **Implementation:** `monitoring/` directory with `docker-compose.yml`, Prometheus config, and Grafana provisioning.
 
@@ -254,7 +267,7 @@ Pre-configured dashboard with panels for:
 - **Generations:** 20 (configurable)
 - **Crossover:** Simulated Binary Crossover (SBX)
 - **Mutation:** Polynomial Mutation
-- **Constraint handling:** L1/L2 weight sum = 1.0 (repair operator)
+- **Constraint handling:** model + trading weight sums = 1.0 (repair operator)
 
 #### Current report-aligned operating note
 
@@ -283,10 +296,10 @@ measurement of PC-VH-006's production impact on Sybil severity.
 
 ```
 For each individual in population:
-  1. Decode parameter vector → WeightConfig + PromotionConfig + ...
+  1. Decode parameter vector → WeightConfig + PairingConfig + ...
   2. Inject parameters into simulation harness
-  3. Run simulation with all agent types (honest + adversarial)
-  4. Collect L1/L2 scores, rankings, breach reports
+  3. Run pair-based generations with all agent types (honest + adversarial)
+  4. Collect per-miner quality + emission weights, pair fitnesses, breach reports
   5. Compute fitness vector: [honest_perf, breach_rate, variance, separation]
   6. Export metrics to Prometheus
   7. Return fitness to optimizer
@@ -335,7 +348,7 @@ The orchestrator:
 
 #### Steps:
 1. Export best parameter config as YAML
-2. Inject into subnet code (WeightConfig, PromotionConfig, etc.)
+2. Inject into subnet code (WeightConfig, PairingConfig, etc.)
 3. Deploy subnet on testnet: `btcli s create --subtensor.network test`
 4. Run validator with optimized parameters
 5. Deploy AI agent miners (same bots, but as real testnet neurons)

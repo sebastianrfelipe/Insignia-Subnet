@@ -1,12 +1,15 @@
 # Insignia Testnet Deployment & Emulator Guide
 
-This guide reflects the latest orchestration findings from 2026-04-16 and the repository updates applied from the target-achieving third run.
+This guide reflects the single paired genetic mechanism: researcher and trader
+miners share one subnet UID space and one Yuma weight vector, matched into
+`(model, strategy)` pairs (see [PAIRING_MECHANISM.md](PAIRING_MECHANISM.md)).
 
 ## Highlights
 
-- Sentinel status is `SECURE_AND_IMPROVING`, with Phase 5 conditions satisfied and the breach-rate target achieved.
+- Single mechanism: one validator forms chain-seeded pairs, jointly evaluates them, ranks with NSGA-II, and sets one weight vector (no L1/L2 split, no promotion pool).
+- Sentinel status is `SECURE_AND_IMPROVING`, with the breach-rate target achieved.
 - Commit-reveal defaults are enabled in config and tracked with timestamp metrics.
-- Default wallet layout now covers 1 owner, 1 validator, and 12 miners.
+- Default wallet layout covers 1 owner, 1 validator, and 12 miners (researchers + traders).
 - Market diversification now includes BTC, ETH, SOL, AVAX, and ADA.
 - Monitoring assets exist in both `monitoring/` and `testnet/docker-compose.testnet.yml`.
 - PC-VH-006 (symbol diversity enforcement) is now deployed; remaining work is empirical confirmation of the projected Sybil reduction in live conditions.
@@ -94,6 +97,17 @@ bash testnet/scripts/check_wallet_balances.sh
 - validator_agreement_threshold: 0.17
 - collusion_detection_lookback_epochs: 12
 
+### Pairing (genetic mechanism)
+
+- partners_per_miner: 3
+- elite_fraction: 0.30
+- mutation_rate: 0.20
+- pair_blend_alpha: 0.50
+- marginal_contribution_weight: 0.50
+- fixed_pair_correlation_threshold: 0.85
+- max_pairs: 64
+- pairing_seed_source: chain_block_hash (partner identity revealed only at evaluation)
+
 ## Monitoring endpoints
 
 | Service | URL |
@@ -116,12 +130,15 @@ bash testnet/scripts/check_wallet_balances.sh
 
 ## Emulator topology
 
-- validator nodes / wallets: 1
-- miner nodes / wallets: 12
-- simulated benchmark population: 14 agents
-  - L1: 6 honest + 4 adversarial
-  - L2: 3 honest + 1 adversarial
+- validator nodes / wallets: 1 (unified `PairedValidator`)
+- miner nodes / wallets: 12 (researchers + traders in one UID space)
+- simulated benchmark population (default mix):
+  - researchers: 6 honest + adversarial (overfitter, copycat, single-metric gamer, sybil)
+  - traders: 3 honest + copy-trader
+  - 1 colluding ring (researcher + trader) and 1 partner-gaming trader for the paired-mechanism vectors
 
-## Note on parameter counts
+## Note on the scoring surface
 
-The orchestration brief references a 75-parameter optimization headline. The repository still exposes a broader parameter surface in code because the 10-metric L2 scorer and additional safeguards remain enabled for realism.
+The mechanism retains the full 7 model + 10 trading metric scorers (no L2 risk
+controls removed); the joint pair fitness blends them via `pair_blend_alpha`, and
+selection/credit are handled by the pairing engine rather than a promotion pool.

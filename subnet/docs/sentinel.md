@@ -31,13 +31,11 @@
 
 ## Attack catalog
 
-The current Phase 5 gate evaluates **19 post-commit-reveal vectors**. The
-repository still keeps richer detector telemetry for extensions like
-`sybil_collusion_graph`, `temporal_attack_pattern`, and
-`cross_layer_correlation`, but the sentinel transition decision is based on the
-post-CR 19-vector posture.
+`tuning/attack_detector.py` evaluates **28 vectors**: the original 9, the 10
+orchestration vectors (10-19, with #18 reframed as role-emission balance for the
+single mechanism), 6 rich-telemetry extensions, and 3 paired-mechanism vectors.
 
-### Legacy vectors retained in code
+### Core + orchestration vectors
 
 1. overfitting_exploitation
 2. model_plagiarism
@@ -56,8 +54,8 @@ post-CR 19-vector posture.
 15. validator_rotation_circumvention
 16. validator_agreement_anomaly
 17. collusion_temporal_pattern
-18. weight_manipulation
-19. cross_layer_attack
+18. weight_manipulation (reframed: role-emission balance — researchers vs. traders)
+19. cross_layer_attack (residual timing telemetry)
 
 ### Rich telemetry extensions retained in the repository
 
@@ -67,6 +65,12 @@ post-CR 19-vector posture.
 23. temporal_attack_pattern
 24. sybil_collusion_graph
 25. cross_layer_correlation
+
+### Paired-mechanism vectors
+
+26. pair_collusion — a researcher+trader ring with non-transferable lift; defended by chain-seeded pairing, the K-partner floor, variance-penalized marginal credit, and the collusion-graph detector
+27. partner_selection_gaming — steering which partner one is matched with; defended by chain-seeded assignment + reveal-at-evaluation
+28. latency_arbitrage_pairing — exploiting validator latency / partner foreknowledge; defended by commit-reveal on both halves + min lead time
 
 ## Current notable severities
 

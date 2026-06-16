@@ -4,13 +4,14 @@
 **Category**: Quantitative Finance / DeFi
 **Track**: Bittensor Sovereign Infrastructure Hackathon
 
-> **Note:** This document describes the original two-layer architecture. The
-> subnet is migrating to a **single paired genetic incentive mechanism**
-> (researcher + trader miners matched into pairs and selected with NSGA-II). The
-> evaluation metrics and weights below are preserved; the L1→promotion→L2 flow,
-> the cross-layer feedback loop, and `l1_l2_emission_split` are replaced by
-> chain-seeded pairing, joint pair evaluation, and marginal-contribution credit.
-> See [PAIRING_MECHANISM.md](PAIRING_MECHANISM.md) for the authoritative design.
+> **Architecture:** Insignia uses a **single paired genetic incentive mechanism**
+> — researcher and trader miners matched into `(model, strategy)` pairs, jointly
+> evaluated, and selected with NSGA-II. The 7 model + 10 trading metrics and their
+> weights are preserved from the earlier two-layer design; the L1→promotion→L2
+> flow, the cross-layer feedback loop, and `l1_l2_emission_split` are gone,
+> replaced by chain-seeded pairing, joint pair evaluation, and
+> marginal-contribution credit. See [PAIRING_MECHANISM.md](PAIRING_MECHANISM.md)
+> for the authoritative design.
 
 ---
 
@@ -20,7 +21,7 @@
 |-------|-------|
 | **Name** | Insignia |
 | **Tagline** | Decentralized Predictive Modeling for On-Chain Markets |
-| **Architecture** | Two-Layer (Model Generation + Strategy Deployment) |
+| **Architecture** | Single paired genetic mechanism (researcher + trader miners matched into pairs) |
 | **Primary Output** | Battle-tested ML model + trading strategy pairs |
 | **Target Instruments** | BTC, ETH, SOL, AVAX, ADA perpetual futures |
 | **Time Horizon** | Short-horizon (minutes to hours) |
@@ -32,38 +33,42 @@
 ### Benchmark
 **Target output quality metric miners are scored on.**
 
-- **Layer 1**: Multi-metric evaluation vector (7 dimensions: Penalized F1, Penalized Sharpe, Max Drawdown, Variance Score, Overfitting Penalty, Feature Efficiency, Latency) scored against proprietary tick-by-tick benchmark dataset
-- **Layer 2**: Real trading outcomes (10 dimensions: Realized P&L, Omega Ratio, Max Drawdown, Win Rate, Consistency, Model Attribution, Execution Quality, Annualized Volatility, Sharpe Ratio, Sortino Ratio) measured against actual market performance, with commit-reveal enforcement preventing post-hoc manipulation
-- Published metric definitions with configurable weights (see `scoring.py`)
+A candidate strategy is a `(researcher, trader)` **pair**. Each pair is scored on
+the same metrics as before, now combined into one joint fitness:
+
+- **Model half (researcher)**: 7 dimensions (Penalized F1, Penalized Sharpe, Max Drawdown, Variance Score, Overfitting Penalty, Feature Efficiency, Latency) scored against the proprietary tick-by-tick benchmark dataset
+- **Trading half (trader)**: 10 dimensions (Realized P&L, Omega Ratio, Max Drawdown, Win Rate, Consistency, Model Attribution, Execution Quality, Annualized Volatility, Sharpe Ratio, Sortino Ratio) measured by running the trader's strategy on the paired model, with commit-reveal preventing post-hoc manipulation
+- The two are combined into a `pair_composite` plus a multi-objective fitness vector (`combine_pair_scores` in `scoring.py`); published metric definitions with configurable weights are unchanged
 
 ### Evaluation Loop
 **How validators score miners; cost, scale consideration.**
 
-- **L1**: Vectorized batch backtesting — O(n) per miner per epoch; parallelizable across miners
-- **L2**: Incremental P&L tracking — O(1) per position close; continuous streaming
-- Cost scales linearly with miner count, not quadratically
-- Validators converge deterministically (same scorer + same data = same scores)
+- Each pair: vectorized model backtest (O(n)) + a trading run on that model (O(steps)); parallelizable across pairs
+- Each miner is evaluated against `K = partners_per_miner` partners (chain-seeded), so cost scales linearly with the population, not quadratically
+- Validators converge deterministically (same scorer + same chain-seeded pairing + same data = same scores)
+- NSGA-II non-dominated sorting + crowding ranks pairs; a variance-penalized marginal contribution turns pair ranks into one per-miner weight vector
 
 ### Miner Task
 **Specific, measurable, implementable task interface.**
 
-- **L1 Task**: Train and submit ML model artifacts (ONNX/joblib) for directional prediction
-  - Interface: `POST /l1/submit_model` with defined schema (see `protocol.py`)
-  - Measurable via composite score vector
-- **L2 Task**: Build and operate paper/live trading strategy using promoted L1 models
-  - Interface: `POST /l2/submit_strategy` with position log
-  - Measurable via realized P&L, Omega, drawdown, consistency, execution quality
+- **Researcher Task**: Train and submit ML model artifacts (ONNX/joblib) for directional prediction
+  - Interface: `L1ModelSubmission` / `PairEvaluationRequest` with `role = researcher` (see `protocol.py`)
+  - Measurable via the model score vector inside the pair
+- **Trader Task**: Build and operate a paper/live trading strategy on the validator-assigned model
+  - Interface: `PairEvaluationRequest` with `role = trader`; returns strategy params + position log
+  - Measurable via realized P&L, Omega, drawdown, consistency, execution quality of the pair
 
 ### Incentive Design
 **Why scoring rewards genuine quality; why top attack vectors fail.**
 
-- Composite scoring prevents single-metric gaming
+- Composite scoring across model + trading metrics prevents single-metric gaming
 - Data asymmetry (miners: public data; validators: proprietary data) prevents overfitting to validation
-- Cross-layer feedback rewards models that survive real deployment
-- Commit-reveal scheme prevents post-hoc prediction manipulation and timing attacks (SHA-256 hashing with 128-bit nonces, commit window T-35s to T-5s, reveal window T+5s to T+20s)
-- The core post-commit-reveal operating model is evaluated against 19 active surveillance vectors
-- The latest orchestration run validated commit-reveal effectiveness at `0.76`, above the `0.667` acceptance floor, with a stronger operating margin than the prior run
-- Sentinel classified the system as `SECURE_AND_IMPROVING`, with Sybil reduced to `0.195`, commitment violation reduced to `0.019`, and no new anomalies detected
+- Joint pair evaluation rewards models that translate into real trading outcomes and traders that exploit good models — no promotion bottleneck, no `l1_l2_emission_split`
+- Variance-penalized marginal-contribution credit rewards transferable skill (works across many partners) and demotes one-hit / collusive pairings
+- Chain-seeded pairing removes miner self-selection and partner foreknowledge (anti-collusion, anti-latency-arbitrage)
+- Commit-reveal binds both model and trade commitments before the window (SHA-256 + 128-bit nonces, commit window T-35s to T-5s, reveal window T+5s to T+20s)
+- The post-commit-reveal operating model is evaluated against 28 surveillance vectors, including 3 paired-mechanism vectors (`pair_collusion`, `partner_selection_gaming`, `latency_arbitrage_pairing`)
+- The latest orchestration run validated commit-reveal effectiveness at `0.76`, above the `0.667` acceptance floor
 - NSGA-II v13 R2 hit the primary target with breach_rate `3.5e-6`, honest_score `0.9795`, and separation `0.953`
 
 ### Market Demand
@@ -76,54 +81,62 @@
 ### Sovereignty Test
 **Subnet survives if any single cloud, company, API disappears.**
 
-- L1 miners run their own compute — no cloud dependency
-- L1 validators can fall back to premium public data sources
-- L2 paper trading can switch exchange price feeds trivially
-- Core architecture (competitive model selection + live validation) survives any single provider outage
+- Researcher miners run their own compute — no cloud dependency
+- Validators can fall back to premium public data sources
+- Trader paper trading can switch exchange price feeds trivially
+- Core architecture (chain-seeded paired evaluation + genetic selection) survives any single provider outage
 
 ---
 
 ## 3. Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                     INSIGNIA SUBNET                             │
-│                                                                 │
-│  ┌──────────────────┐    ┌──────────────────┐    ┌───────────┐ │
-│  │   LAYER 1        │    │   LAYER 2        │    │  OUTPUT   │ │
-│  │                  │    │                  │    │           │ │
-│  │  ⛏ Miners:       │    │  📈 Miners:       │    │  🏢 Firm  │ │
-│  │  Train ML models ├───►│  Paper/live      ├───►│  deploys  │ │
-│  │  (GBDT, Neural,  │    │  trading with    │    │  winning  │ │
-│  │   Ensemble)      │    │  promoted models │    │  pairs    │ │
-│  │                  │    │                  │    │           │ │
-│  │  ✓ Validators:   │    │  ✓ Validators:   │    │  Buyback  │ │
-│  │  Score on prop.  │    │  Score on real   │    │  → token  │ │
-│  │  benchmark data  │    │  trading P&L     │    │  value    │ │
-│  └────────┬─────────┘    └────────┬─────────┘    └───────────┘ │
-│           │                       │                             │
-│           └───────── Feedback ◄───┘                             │
-│            L2 results adjust L1 scores                          │
-└─────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│                          INSIGNIA SUBNET                              │
+│                  (single UID space, one weight vector)               │
+│                                                                      │
+│   ⛏ Researcher miners            📈 Trader miners                     │
+│   (ML models)                    (trading operations)               │
+│        │                               │                            │
+│        └────────────┬──────────────────┘                            │
+│                     ▼                                                │
+│        Chain-seeded pairing  →  population of (researcher, trader)   │
+│                     │            pairs (genomes)                     │
+│                     ▼                                                │
+│        Joint evaluation: model on benchmark + strategy on that model │
+│                     ▼                                                │
+│        NSGA-II non-dominated sort + crowding (multi-objective)       │
+│                     ▼                                                │
+│        Collusion screen + variance-penalized marginal credit        │
+│                     ▼                                                │
+│        Single Yuma set_weights  ──►  🏢 Firm deploys winning pairs   │
+│                     │                       │                        │
+│        Crossover + mutation (next gen)      └─► Buyback → token value │
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
-### Cross-Layer Data Flow
+### Data Flow (one generation)
 
-1. L1 miners submit model artifacts → L1 validators score on proprietary benchmark
-2. Top-N models promoted to L2 pool (configurable, default N=10)
-3. L2 miners build strategies around promoted models → paper/live trading
-4. L2 validators score real trading outcomes
-5. L2 performance feeds back to adjust L1 model scores retroactively
-6. Subnet owner deploys winning model+strategy pairs
+1. Researcher miners submit model artifacts; trader miners submit strategies
+2. The validator forms chain-seeded `(researcher, trader)` pairs (each miner in ≥ K pairs)
+3. Each pair is jointly evaluated: model on the proprietary benchmark + the trader's strategy run on that model
+4. NSGA-II ranks pairs by Pareto front + crowding over the multi-objective fitness
+5. A collusion-graph screen flags non-transferable lift; a variance-penalized marginal contribution converts pair ranks to one per-miner weight vector
+6. Elite pairs are bred (crossover + mutation) for the next generation; the subnet owner deploys winning model+strategy pairs
 
 ---
 
 ## 4. Technical Interfaces
 
-### Layer 1 Model Submission
+Miners declare a `role` (`researcher` or `trader`) at registration. The validator
+announces the chain-seeded pairing via `PairAssignment` and requests artifacts via
+`PairEvaluationRequest`.
+
+### Researcher Model Submission
 
 ```python
 class L1ModelSubmission(bt.Synapse):
+    role: str = "researcher"
     model_artifact: bytes          # Serialized model (ONNX/joblib, max 50MB)
     model_type: str                # gbdt | neural | ensemble | other
     features_used: List[str]       # From published feature registry
@@ -134,18 +147,35 @@ class L1ModelSubmission(bt.Synapse):
     target_horizon_minutes: int    # Prediction horizon
 ```
 
-### Layer 2 Strategy Submission
+### Trader Strategy Submission
+
+The trader runs its strategy on the model assigned by the pairing (no
+self-selected promotion pool).
 
 ```python
 class L2StrategySubmission(bt.Synapse):
+    role: str = "trader"
     strategy_id: str               # Unique strategy identifier
-    model_ids_used: List[str]      # Which L1 models are inferenced
+    model_ids_used: List[str]      # The validator-assigned researcher model(s)
     trading_mode: str              # "paper" | "live_capital"
     position_log: List[Dict]       # Signed position records
     realized_pnl: float            # Total P&L
     max_drawdown_pct: float        # Peak-to-trough loss
     omega_ratio: float             # Risk-adjusted return measure
     win_rate: float                # Fraction of profitable trades
+```
+
+### Pairing Synapses
+
+```python
+class PairAssignment(bt.Synapse):
+    epoch_id: int; generation: int; pairing_seed: str
+    researcher_uid: str; trader_uid: str   # chain-seeded, revealed at eval time
+
+class PairScoreReport(bt.Synapse):
+    model_composite: float; trading_composite: float; pair_composite: float
+    pareto_rank: int; selection_score: float
+    collusion_flagged: bool; miner_credit: float
 ```
 
 ### Public Feature Registry
@@ -182,7 +212,7 @@ The following components are proprietary and NOT included in the open-source cod
 | Exact scoring weights | Subject to ongoing tuning | Published weight ranges and default values |
 | Firm's deployment strategy | Prop trading operations | Architecture for buyback mechanism is documented |
 
-Everything else — the scoring framework, synapse definitions, incentive design, anti-gaming mechanisms, cross-layer logic — is fully transparent and open-source.
+Everything else — the scoring framework, synapse definitions, incentive design, anti-gaming mechanisms, and the pairing/genetic-selection logic — is fully transparent and open-source.
 
 ---
 
@@ -193,16 +223,18 @@ Everything else — the scoring framework, synapse definitions, incentive design
 | Dimension | Taoshi (SN8) | Insignia |
 |-----------|-------------|----------|
 | Core output | Trading signals | ML model artifacts + validated strategies |
-| Validation | Live performance only | Simulation + live chained together |
-| Data source | Public prices | L1: proprietary tick data, L2: real market |
+| Validation | Live performance only | Joint model + live validation per pair |
+| Data source | Public prices | Researchers: proprietary tick benchmark; traders: real market |
 | Simulation rigor | None | Full multi-metric backtest on institutional data |
+| Specialization | Single role | Two roles (researcher + trader) matched genetically |
 | Buyback mechanism | Not documented | Firm P&L → alpha token buybacks |
 
 ### Key Differentiators
 
-1. **The Bridge**: First subnet to chain rigorous ML model competition with mandatory live validation
-2. **Institutional Data**: Proprietary tick-by-tick benchmark creates ungameable validation
-3. **Short-Horizon Niche**: Minutes-to-hours prediction is technically distinct from medium-term signals
+1. **Paired desks**: Separate ML researchers and trading-operations engineers, matched and evaluated together like individuals in a genetic algorithm (similar to a pod shop)
+2. **Genetic selection**: NSGA-II non-dominated sorting over `(model, strategy)` pairs, with marginal-contribution credit rewarding transferable skill
+3. **Institutional Data**: Proprietary tick-by-tick benchmark creates ungameable model validation
+4. **Short-Horizon Niche**: Minutes-to-hours prediction is technically distinct from medium-term signals
 
 ---
 
@@ -212,32 +244,35 @@ Everything else — the scoring framework, synapse definitions, incentive design
 subnet/
 ├── insignia/
 │   ├── __init__.py           # Package definition
-│   ├── protocol.py           # Bittensor Synapse definitions (L1 + L2 + commit/reveal)
-│   ├── scoring.py            # Composite scoring engine (L1: 7 metrics, L2: 10 metrics)
+│   ├── protocol.py           # Synapses (model + trading + commit/reveal + pairing) and MinerRole
+│   ├── scoring.py            # Composite scoring (7 model + 10 trading metrics) + combine_pair_scores
+│   ├── pairing.py            # Paired genetic engine: chain-seeded pairing, NSGA-II matchmaker,
+│   │                         #   marginal-contribution credit, collusion-graph detector
 │   ├── incentive.py          # Anti-gaming mechanisms + commit-reveal + attack/defense matrix
-│   └── cross_layer.py        # Model promotion + feedback loop engine
+│   └── cross_layer.py        # DEPRECATED (promotion/feedback replaced by pairing)
 ├── neurons/
-│   ├── l1_miner.py           # Layer 1 miner template (model training + commit/reveal)
-│   ├── l1_validator.py       # Layer 1 validator (evaluation + commitment verification)
-│   ├── l2_miner.py           # Layer 2 miner template (paper trading + commit/reveal)
-│   └── l2_validator.py       # Layer 2 validator (P&L tracking + scoring)
+│   ├── validator.py          # Unified PairedValidator (pairing → joint eval → NSGA-II → credit → set_weights)
+│   ├── researcher_miner.py   # Role-aware researcher miner (ML model training)
+│   ├── trader_miner.py       # Role-aware trader miner (paper/live trading on the assigned model)
+│   ├── l1_miner.py / l1_validator.py / l2_miner.py / l2_validator.py  # legacy primitives reused by the above
 ├── tuning/
-│   ├── attack_detector.py    # 19-vector post-commit-reveal attack detection
-│   ├── parameter_space.py    # 73-parameter tuning space with defense and routing parameters
-│   ├── optimizer.py          # NSGA-II multi-objective optimization
+│   ├── attack_detector.py    # 28-vector detection incl. pairing vectors
+│   ├── parameter_space.py    # Tuning space with the `pairing` parameter group
+│   ├── optimizer.py          # OFFLINE NSGA-II mechanism tuner (distinct from the in-protocol GA)
 │   ├── pc_vh_006_symbol_diversity.py # Symbol diversity enforcement policy
 │   ├── sentinel_symbol_monitor.py # Symbol diversity monitoring and severity projection
-│   ├── simulation.py         # Full pipeline simulation harness with stable MCP route assignment
+│   ├── simulation.py         # Pair-based simulation harness with collusion/partner-gaming agents
 │   └── orchestrator.py       # Tuning loop orchestration
 ├── testnet/
 │   ├── config.py             # CommitRevealConfig, ValidationTimingConfig, ConsensusIntegrityConfig
 │   ├── emulator.py           # Testnet emulator with commit-reveal support and route-diversity assignment
 │   └── ...                   # Chain setup and wallet management
 ├── scripts/
-│   └── run_demo.py           # Full end-to-end pipeline demonstration
+│   └── run_demo.py           # Full paired-mechanism pipeline demonstration
 ├── docs/
+│   ├── PAIRING_MECHANISM.md  # Authoritative single paired mechanism design
 │   ├── INCENTIVE_MECHANISM.md # Incentive design + attack landscape + commit-reveal validation
-│   ├── PARAMETER_TUNING_PLAN.md # 60-parameter tuning strategy
+│   ├── PARAMETER_TUNING_PLAN.md # Tuning strategy
 │   ├── SUBNET_SPEC.md        # This document
 │   └── TESTNET_DEPLOYMENT.md # Deployment guide with commit-reveal integration
 ├── program.md                # Agent swarm program (orchestration spec)

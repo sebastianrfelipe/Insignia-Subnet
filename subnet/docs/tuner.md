@@ -1,5 +1,11 @@
 # Tuner
 
+> **Scope:** This is the **offline** NSGA-II mechanism tuner (`tuning/optimizer.py`)
+> that searches mechanism *parameters* (scoring weights, thresholds, and the
+> `pairing` group). It is separate from the **in-protocol** genetic algorithm in
+> `insignia/pairing.py` that evolves `(researcher, trader)` pairings each epoch.
+> Both use NSGA-II but operate at different layers.
+
 ## NSGA-II configuration
 
 - Population: 30
@@ -52,7 +58,7 @@ The implementation stores these as minimization targets:
 
 ## Report-aligned defaults
 
-### L1 weights
+### Model weights (researcher half of a pair)
 
 - directional accuracy: 0.22
 - sharpe ratio: 0.18
@@ -62,9 +68,9 @@ The implementation stores these as minimization targets:
 - feature efficiency: 0.06
 - latency: 0.10
 
-### L2 weights in code
+### Trading weights (trader half of a pair)
 
-The report summarizes a 6-metric headline allocation, but the repository keeps a 10-metric L2 scorer for risk controls. The checked-in defaults were updated to the nearest compatible mapping:
+The repository keeps a 10-metric trading scorer for risk controls:
 
 - realized_pnl: 0.18
 - omega: 0.12
@@ -76,6 +82,16 @@ The report summarizes a 6-metric headline allocation, but the repository keeps a
 - annualized_volatility: 0.05
 - sharpe_ratio: 0.05
 - sortino_ratio: 0.05
+
+### Pairing (genetic mechanism) defaults
+
+- partners_per_miner: 3
+- elite_fraction: 0.30
+- mutation_rate: 0.20
+- pair_blend_alpha: 0.50 (model vs. trading weight in the pair composite)
+- marginal_contribution_weight: 0.50 (λ in the variance-penalized credit)
+- fixed_pair_correlation_threshold: 0.85 (collusion interaction threshold)
+- max_pairs: 64
 
 ## Report-driven tuning guidance
 

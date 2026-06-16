@@ -1,5 +1,13 @@
 # Researcher
 
+> **Context:** Experiments now target the **single paired genetic mechanism**
+> (researcher + trader miners matched into pairs and selected with NSGA-II).
+> Fitness comes from the pair-based simulation harness; the `pairing` parameter
+> group (`partners_per_miner`, `elite_fraction`, `mutation_rate`,
+> `pair_blend_alpha`, `marginal_contribution_weight`,
+> `fixed_pair_correlation_threshold`, `max_pairs`) is in-scope for tuning, and
+> the 3 paired-mechanism attack vectors contribute to `breach_rate`.
+
 ## Autoresearch loop
 
 The repository includes a Karpathy-style experimentation loop in `tuning/autoresearch_loop.py`.
@@ -12,6 +20,7 @@ The repository includes a Karpathy-style experimentation loop in `tuning/autores
 4. architecture_redesign
 5. ensemble_methods
 6. temporal_pattern_analysis
+7. pairing_and_credit_design (matchmaking, marginal-credit λ, collusion thresholds)
 
 ### Radical levels
 
