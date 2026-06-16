@@ -1,5 +1,14 @@
 # Insignia Subnet — Incentive Mechanism Design
 
+> **Migration note:** The two independent Yuma cycles described below are being
+> unified into a **single paired genetic mechanism**. Researcher and trader
+> miners share one UID space and one weight vector; a candidate strategy is a
+> `(researcher, trader)` pair that is jointly evaluated and ranked with NSGA-II,
+> then credited via a variance-penalized marginal contribution. The 7 model
+> metrics and 10 trading metrics, their weights, and the commit-reveal and
+> consensus-integrity defenses documented here are all preserved. See
+> [PAIRING_MECHANISM.md](PAIRING_MECHANISM.md).
+
 ## Overview
 
 The Insignia incentive mechanism ensures that miners are rewarded proportionally to the genuine quality and deployability of their contributions, while making all known gaming strategies unprofitable.

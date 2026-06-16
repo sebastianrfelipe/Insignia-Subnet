@@ -4,6 +4,14 @@
 **Category**: Quantitative Finance / DeFi
 **Track**: Bittensor Sovereign Infrastructure Hackathon
 
+> **Note:** This document describes the original two-layer architecture. The
+> subnet is migrating to a **single paired genetic incentive mechanism**
+> (researcher + trader miners matched into pairs and selected with NSGA-II). The
+> evaluation metrics and weights below are preserved; the L1→promotion→L2 flow,
+> the cross-layer feedback loop, and `l1_l2_emission_split` are replaced by
+> chain-seeded pairing, joint pair evaluation, and marginal-contribution credit.
+> See [PAIRING_MECHANISM.md](PAIRING_MECHANISM.md) for the authoritative design.
+
 ---
 
 ## 1. Subnet Identity

@@ -1,6 +1,12 @@
 """
 Cross-Layer Promotion and Feedback Engine
 
+DEPRECATED under the single paired mechanism. Promotion (top-N models into a
+self-selected pool) and retroactive L2->L1 feedback are replaced by chain-seeded
+pairing + joint pair evaluation in ``insignia.pairing`` and
+``neurons/validator.py``. This module is retained only for backward
+compatibility and historical reference; the active pipeline no longer uses it.
+
 Manages the flow of models from Layer 1 to Layer 2 and the reverse flow
 of performance feedback from Layer 2 back to Layer 1.
 

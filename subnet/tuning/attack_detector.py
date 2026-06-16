@@ -1,8 +1,11 @@
 """
 Attack Vector Detection System
 
-Evaluates whether each of the 19 documented attack vectors has been
-breached under a given parameter configuration.
+Evaluates whether each documented attack vector has been breached under a given
+parameter configuration. Includes the original 9 vectors, the 10 orchestration
+vectors (10-19), 6 rich-telemetry extensions, and 3 paired-mechanism vectors
+(pair_collusion, partner_selection_gaming, latency_arbitrage_pairing) added for
+the single paired genetic incentive mechanism.
 
 Original 9 vectors:
   1. Overfitting exploitation
@@ -539,7 +542,132 @@ class AttackDetector:
         report.breaches.append(self._check_temporal_attack_pattern(result))
         report.breaches.append(self._check_sybil_collusion_graph(result))
         report.breaches.append(self._check_cross_layer_correlation(result))
+        # Paired-mechanism vectors
+        report.breaches.append(self._check_pair_collusion(result))
+        report.breaches.append(self._check_partner_selection_gaming(result))
+        report.breaches.append(self._check_latency_arbitrage_pairing(result))
         return report
+
+    # -------------------------------------------------------------------
+    # Paired genetic mechanism vectors
+    # -------------------------------------------------------------------
+
+    def _check_pair_collusion(self, result: SimulationResult) -> AttackBreach:
+        """
+        Researcher<->trader collusion. Breach if a flagged colluding pair's
+        members keep credit at/above the honest mean (i.e., collusion paid off).
+        Defended when chain-seeded pairing + variance-penalized marginal credit
+        + the collusion detector demote the ring below honest miners.
+        """
+        flags = getattr(result, "collusion_flags", []) or []
+        colluder_credit = getattr(result, "colluder_credit", {}) or {}
+        honest = result.honest_l1_scores + result.honest_l2_scores
+        if not flags and not colluder_credit:
+            return AttackBreach(
+                "pair_collusion", False, 0.0,
+                "No colluding pairs present in the population",
+            )
+
+        honest_mean = float(np.mean(honest)) if honest else 0.0
+        # Profitability: how much colluder credit exceeds the honest mean.
+        excess = [
+            max(0.0, cred - honest_mean) / max(honest_mean, 1e-12)
+            for cred in colluder_credit.values()
+        ]
+        profitability = float(max(excess)) if excess else 0.0
+        detector_caught = len(flags) > 0
+        # Collusion is defended when detected AND unprofitable.
+        severity = min(1.0, profitability)
+        breached = profitability > 0.10  # colluder beats honest mean by >10%
+
+        return AttackBreach(
+            "pair_collusion", breached, severity,
+            f"flagged={len(flags)} detector_caught={detector_caught} "
+            f"colluder_profitability={profitability:.3f} (honest_mean={honest_mean:.4f})",
+            {
+                "flagged_pairs": [k for k, _ in flags],
+                "colluder_credit": colluder_credit,
+                "honest_mean": honest_mean,
+            },
+        )
+
+    def _check_partner_selection_gaming(self, result: SimulationResult) -> AttackBreach:
+        """
+        Attempt to steer pairings toward favorable partners. Defended when
+        pairing is chain-seeded and partner counts are balanced (the K-partner
+        floor), so no miner concentrates favorable matchups.
+        """
+        seed_source = getattr(result, "pairing_seed_source", "chain_block_hash")
+        partner_counts = getattr(result, "miner_partner_counts", {}) or {}
+        if not partner_counts:
+            return AttackBreach(
+                "partner_selection_gaming", False, 0.0,
+                "No pairing assignment telemetry available",
+            )
+
+        counts = np.array(list(partner_counts.values()), dtype=float)
+        mean_c = float(np.mean(counts)) if len(counts) else 0.0
+        # Imbalance: coefficient of variation of partner counts.
+        imbalance = float(np.std(counts) / mean_c) if mean_c > 1e-12 else 0.0
+        chain_seeded = seed_source == "chain_block_hash"
+        # If pairing is chain-seeded the selection surface is removed entirely.
+        severity = 0.0 if chain_seeded else min(1.0, imbalance)
+        breached = (not chain_seeded) and imbalance > 0.5
+
+        return AttackBreach(
+            "partner_selection_gaming", breached, severity,
+            f"seed_source={seed_source} chain_seeded={chain_seeded} "
+            f"partner_count_cv={imbalance:.3f}",
+            {"seed_source": seed_source, "partner_count_cv": imbalance},
+        )
+
+    def _check_latency_arbitrage_pairing(self, result: SimulationResult) -> AttackBreach:
+        """
+        Latency arbitrage within the paired flow: exploiting validator latency
+        or partner foreknowledge to submit after data materializes. Discounted
+        by commit-reveal effectiveness and the chain-seeded partner reveal.
+        """
+        validator_latencies = getattr(result, "validator_latencies", {}) or {}
+        if not validator_latencies or not result.miner_scores:
+            return AttackBreach(
+                "latency_arbitrage_pairing", False, 0.0,
+                "No latency telemetry available",
+            )
+
+        high_thresh = self._validation_config().get("high_latency_threshold_ms", 2000)
+        scores = np.array(list(result.miner_scores.values()), dtype=float)
+        latencies = np.array(
+            [validator_latencies.get(uid, 0.0) for uid in result.miner_scores], dtype=float
+        )
+        if len(scores) < 3 or np.std(latencies) < 1e-12:
+            corr = 0.0
+        else:
+            with np.errstate(divide="ignore", invalid="ignore"):
+                corr = float(np.corrcoef(scores, latencies)[0, 1])
+            corr = 0.0 if np.isnan(corr) else corr
+
+        high_frac = float(np.mean(latencies > high_thresh))
+        monitoring = getattr(result, "attack_monitoring", {}) or {}
+        cr_effectiveness = float(monitoring.get("commit_reveal_effectiveness", 0.76))
+        # Partner identity is revealed only at evaluation time -> no foreknowledge.
+        partner_foreknowledge = 0.0
+        # Latency correlation is heavily discounted: commit-reveal binds both
+        # the model and trade commitments before the window, and the chain-seeded
+        # partner reveal removes any timing advantage. Mirrors the 0.15 weighting
+        # of the legacy validator_latency_exploitation vector.
+        latency_score = abs(corr) * high_frac
+        severity = max(
+            0.0,
+            min(1.0, (0.15 * latency_score + partner_foreknowledge) * (1.0 - 0.6 * cr_effectiveness)),
+        )
+        breached = severity >= 0.05
+
+        return AttackBreach(
+            "latency_arbitrage_pairing", breached, severity,
+            f"corr(score,latency)={corr:.3f} high_latency_frac={high_frac:.2f} "
+            f"cr_effectiveness={cr_effectiveness:.2f}",
+            {"correlation": corr, "high_latency_fraction": high_frac},
+        )
 
     def _check_overfitting(self, result: SimulationResult) -> AttackBreach:
         """Check if overfitting miners score higher than honest miners."""
@@ -1192,36 +1320,44 @@ class AttackDetector:
 
     def _check_weight_manipulation(self, result: SimulationResult) -> AttackBreach:
         """
-        Vector 18: L1/L2 weight skew exploitation.
+        Vector 18 (reframed): role emission balance.
 
-        Breach condition: The effective emission split between L1 and L2
-        deviates significantly from the configured ratio, indicating that
-        adversarial miners are exploiting the weight-setting mechanism.
+        The single paired mechanism has no L1/L2 emission split to skew; emissions
+        flow through one Yuma vector over both roles. The residual concern is a
+        *degenerate* outcome where one role (researchers or traders) is starved of
+        emissions, which would break the pairing incentive. Breach if either
+        role's share of the actual emission vector collapses below a floor.
         """
-        l1_total = sum(result.miner_scores.values()) if result.miner_scores else 0
-        l2_total = sum(result.l2_scores.values()) if result.l2_scores else 0
-        combined = l1_total + l2_total
-
-        if combined < 1e-12:
+        weights = getattr(result, "pairing_weights", {}) or {}
+        researcher_uids = set(result.miner_types.keys())
+        trader_uids = set(result.l2_types.keys())
+        if not weights or not researcher_uids or not trader_uids:
             return AttackBreach(
                 "weight_manipulation", False, 0.0,
-                "No scores available for weight analysis",
+                "No emission-vector data for role-balance analysis",
             )
 
-        target_split = self.config.get("emissions", {}).get("l1_l2_split", 0.6)
-        actual_l1_share = l1_total / combined
-        skew = abs(actual_l1_share - target_split)
+        researcher_share = sum(weights.get(u, 0.0) for u in researcher_uids)
+        trader_share = sum(weights.get(u, 0.0) for u in trader_uids)
+        total = researcher_share + trader_share
+        if total < 1e-12:
+            return AttackBreach(
+                "weight_manipulation", False, 0.0,
+                "Emission vector is empty",
+            )
+        researcher_share /= total
+        trader_share /= total
+        min_share = min(researcher_share, trader_share)
 
-        penalty_strength = self.config.get("cross_layer_balance", {}).get(
-            "penalty_strength", 0.3,
-        )
-        severity = max(0.0, min(1.0, skew * penalty_strength * 5))
-        breached = skew > 0.2
+        floor = 0.10  # each role should retain at least 10% of emissions
+        severity = max(0.0, min(1.0, (floor - min_share) / floor)) if min_share < floor else 0.0
+        breached = min_share < floor
 
         return AttackBreach(
             "weight_manipulation", breached, severity,
-            f"L1 share={actual_l1_share:.3f} vs target={target_split:.3f}, skew={skew:.3f}",
-            {"actual_l1_share": actual_l1_share, "target_split": target_split},
+            f"researcher_share={researcher_share:.3f} trader_share={trader_share:.3f} "
+            f"(floor={floor})",
+            {"researcher_share": researcher_share, "trader_share": trader_share},
         )
 
     def _check_cross_layer_attack(self, result: SimulationResult) -> AttackBreach:
@@ -1298,11 +1434,13 @@ if __name__ == "__main__":
         n_random=0,
         n_honest_traders=3,
         n_copy_traders=1,
+        n_colluding_rings=1,
+        n_partner_gamers=1,
     )
 
     harness = SimulationHarness(
         l1_agents=l1_agents, l2_agents=l2_agents,
-        n_epochs=100, n_trading_steps=150,
+        n_epochs=3, n_trading_steps=120,
     )
 
     defaults = encode_defaults()
