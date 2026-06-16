@@ -54,6 +54,82 @@ class ScoreVector:
 
 
 # ---------------------------------------------------------------------------
+# Pair Score: joint model + trading evaluation for the paired mechanism
+# ---------------------------------------------------------------------------
+
+@dataclass
+class PairScore:
+    """
+    Joint evaluation of a ``(researcher, trader)`` pair under the single paired
+    incentive mechanism (see ``insignia.pairing`` and ``docs/PAIRING_MECHANISM.md``).
+
+    ``objectives`` is the NSGA-II vector (all MINIMIZED) consumed by the
+    matchmaker:
+        [-model_composite, -trading_composite, trading_max_drawdown,
+         -trading_consistency]
+    """
+
+    model_composite: float = 0.0
+    trading_composite: float = 0.0
+    pair_composite: float = 0.0
+    objectives: List[float] = field(default_factory=list)
+    model_breakdown: Dict[str, float] = field(default_factory=dict)
+    trading_breakdown: Dict[str, float] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict:
+        return {
+            "model_composite": round(self.model_composite, 6),
+            "trading_composite": round(self.trading_composite, 6),
+            "pair_composite": round(self.pair_composite, 6),
+            "objectives": [round(float(o), 6) for o in self.objectives],
+        }
+
+
+def combine_pair_scores(
+    model_score: "ScoreVector",
+    trading_score: "ScoreVector",
+    alpha: float = 0.5,
+) -> PairScore:
+    """
+    Combine a researcher's model ``ScoreVector`` (from ``score_l1``) and a
+    trader's strategy ``ScoreVector`` (from ``score_l2``) into a single
+    ``PairScore``.
+
+    The pair composite blends the two existing composites without altering any
+    underlying metric or weight:
+        pair_composite = alpha * model_composite + (1 - alpha) * trading_composite
+
+    The objective vector exposes model quality, trading quality, risk (drawdown),
+    and consistency as separate minimized objectives so NSGA-II keeps a diverse
+    Pareto front of viable desks rather than collapsing onto a single metric.
+    """
+    alpha = float(min(1.0, max(0.0, alpha)))
+    model_composite = float(model_score.composite)
+    trading_composite = float(trading_score.composite)
+    pair_composite = alpha * model_composite + (1.0 - alpha) * trading_composite
+
+    # Risk and consistency pulled from the already-normalized trading metrics.
+    trading_drawdown_raw = float(trading_score.raw.get("max_drawdown", 0.0))
+    trading_consistency = float(trading_score.normalized.get("consistency", 0.0))
+
+    objectives = [
+        -model_composite,        # maximize model quality
+        -trading_composite,      # maximize trading quality
+        trading_drawdown_raw,    # minimize drawdown (risk safety)
+        -trading_consistency,    # maximize consistency
+    ]
+
+    return PairScore(
+        model_composite=model_composite,
+        trading_composite=trading_composite,
+        pair_composite=pair_composite,
+        objectives=objectives,
+        model_breakdown=dict(model_score.normalized),
+        trading_breakdown=dict(trading_score.normalized),
+    )
+
+
+# ---------------------------------------------------------------------------
 # Metric Definitions (Layer 1)
 # ---------------------------------------------------------------------------
 
@@ -734,6 +810,11 @@ class WeightConfig:
     l2_sharpe_ratio: float = 0.05
     l2_sortino_ratio: float = 0.05
 
+    # Paired mechanism: blend weight on the model composite vs. the trading
+    # composite when forming a pair's scalar composite. Does not alter any of
+    # the 7 model or 10 trading metric weights above.
+    pair_blend_alpha: float = 0.50
+
 
 class CompositeScorer:
     """
@@ -892,6 +973,23 @@ class CompositeScorer:
         )
 
         return ScoreVector(raw=raw, normalized=normalized, composite=composite)
+
+    # ------------------------------------------------------------------
+    # Paired evaluation
+    # ------------------------------------------------------------------
+
+    def combine_pair(
+        self,
+        model_score: ScoreVector,
+        trading_score: ScoreVector,
+        alpha: float | None = None,
+    ) -> PairScore:
+        """
+        Combine a model ``ScoreVector`` and a trading ``ScoreVector`` into a
+        ``PairScore`` using ``pair_blend_alpha`` (overridable via ``alpha``).
+        """
+        a = self.weights.pair_blend_alpha if alpha is None else alpha
+        return combine_pair_scores(model_score, trading_score, alpha=a)
 
     # ------------------------------------------------------------------
     # Normalization helpers

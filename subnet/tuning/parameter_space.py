@@ -28,6 +28,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from insignia.scoring import WeightConfig
 from insignia.cross_layer import PromotionConfig
+from insignia.pairing import PairingConfig
 
 
 @dataclass
@@ -98,7 +99,15 @@ PARAMETER_DEFINITIONS: List[ParameterBounds] = [
     # Emission Distribution (reverse sigmoid)
     ParameterBounds("emission_sigmoid_midpoint",   0.2,  0.8,  "emissions", "Reverse sigmoid midpoint — controls how many miners get high emissions"),
     ParameterBounds("emission_sigmoid_steepness",  1.0,  20.0, "emissions", "Reverse sigmoid steepness — controls drop-off gradient"),
-    ParameterBounds("l1_l2_emission_split",        0.40, 0.80, "emissions", "Fraction of emissions to L1 (remainder to L2)"),
+
+    # Paired genetic mechanism (single incentive mechanism — replaces L1/L2 split)
+    ParameterBounds("partners_per_miner",              2,    6,    "pairing", "K: minimum partners each miner is evaluated against per generation"),
+    ParameterBounds("elite_fraction",                  0.10, 0.60, "pairing", "Fraction of pairs retained as elites for reproduction"),
+    ParameterBounds("mutation_rate",                   0.0,  0.50, "pairing", "Probability mass for random re-pairings (exploration)"),
+    ParameterBounds("pair_blend_alpha",                0.20, 0.80, "pairing", "Weight on model composite vs. trading composite in the pair composite"),
+    ParameterBounds("marginal_contribution_weight",    0.0,  1.0,  "pairing", "Lambda in the variance-penalized marginal-contribution credit"),
+    ParameterBounds("fixed_pair_correlation_threshold",0.60, 0.95, "pairing", "Interaction-anomaly threshold for the collusion-graph detector"),
+    ParameterBounds("max_pairs",                       16,   128,  "pairing", "Population cap (max pairs evaluated per generation)"),
 
     # Rate Limiting
     ParameterBounds("rate_limit_epoch_seconds",    3600, 172800, "rate_limit", "Minimum seconds between miner submissions"),
@@ -141,9 +150,6 @@ PARAMETER_DEFINITIONS: List[ParameterBounds] = [
     ParameterBounds("symbol_diversity_penalty_max",        0.20, 0.80, "market_data", "Maximum PC-VH-006 penalty"),
     ParameterBounds("symbol_diversity_grace_generations",  0,    5,    "market_data", "Grace generations before PC-VH-006 penalties fully activate"),
 
-    # L1/L2 Cross-Layer Balance
-    ParameterBounds("cross_layer_penalty_strength",        0.0,  1.0,  "cross_layer_balance", "Penalty strength for L1/L2 weight skew"),
-    ParameterBounds("cross_layer_latency",                 10,   1000, "cross_layer_timing", "Max allowed latency (ms) for cross-layer sync"),
 ]
 
 N_PARAMS = len(PARAMETER_DEFINITIONS)
@@ -211,6 +217,17 @@ def decode(x: np.ndarray) -> Dict[str, Any]:
         l2_annualized_volatility=p["l2_annualized_volatility"],
         l2_sharpe_ratio=p["l2_sharpe_ratio"],
         l2_sortino_ratio=p["l2_sortino_ratio"],
+        pair_blend_alpha=p["pair_blend_alpha"],
+    )
+
+    pairing_config = PairingConfig(
+        partners_per_miner=int(round(p["partners_per_miner"])),
+        elite_fraction=p["elite_fraction"],
+        mutation_rate=p["mutation_rate"],
+        pair_blend_alpha=p["pair_blend_alpha"],
+        marginal_contribution_weight=p["marginal_contribution_weight"],
+        fixed_pair_correlation_threshold=p["fixed_pair_correlation_threshold"],
+        max_pairs=int(round(p["max_pairs"])),
     )
 
     promotion_config = PromotionConfig(
@@ -224,6 +241,7 @@ def decode(x: np.ndarray) -> Dict[str, Any]:
     return {
         "weight_config": weight_config,
         "promotion_config": promotion_config,
+        "pairing_config": pairing_config,
         "raw_params": p,
         "overfitting": {
             "gap_threshold": p["overfit_gap_threshold"],
@@ -254,7 +272,16 @@ def decode(x: np.ndarray) -> Dict[str, Any]:
         "emissions": {
             "sigmoid_midpoint": p["emission_sigmoid_midpoint"],
             "sigmoid_steepness": p["emission_sigmoid_steepness"],
-            "l1_l2_split": p["l1_l2_emission_split"],
+        },
+        "pairing": {
+            "partners_per_miner": int(round(p["partners_per_miner"])),
+            "elite_fraction": p["elite_fraction"],
+            "mutation_rate": p["mutation_rate"],
+            "pair_blend_alpha": p["pair_blend_alpha"],
+            "marginal_contribution_weight": p["marginal_contribution_weight"],
+            "fixed_pair_correlation_threshold": p["fixed_pair_correlation_threshold"],
+            "max_pairs": int(round(p["max_pairs"])),
+            "pairing_seed_source": "chain_block_hash",
         },
         "rate_limit": {
             "epoch_seconds": p["rate_limit_epoch_seconds"],
@@ -285,12 +312,6 @@ def decode(x: np.ndarray) -> Dict[str, Any]:
             "identity_bond_weight": p["identity_bond_weight"],
             "identity_bond_threshold": p["identity_bond_threshold"],
             "stake_weight_consensus": p["stake_weight_consensus"],
-        },
-        "cross_layer_balance": {
-            "penalty_strength": p["cross_layer_penalty_strength"],
-        },
-        "cross_layer_timing": {
-            "max_latency_ms": p["cross_layer_latency"],
         },
         "ensemble_detection": {
             "fusion_strategy": "bayesian_model_averaging",
@@ -356,7 +377,14 @@ def encode_defaults() -> np.ndarray:
         "trading_max_position_pct": 0.08, "trading_max_drawdown_pct": 0.18,
         "buyback_pct": 0.20, "buyback_min_profit": 1000.0,
         "emission_sigmoid_midpoint": 0.50, "emission_sigmoid_steepness": 8.0,
-        "l1_l2_emission_split": 0.65,
+        # Paired genetic mechanism (replaces L1/L2 emission split)
+        "partners_per_miner": 3,
+        "elite_fraction": 0.30,
+        "mutation_rate": 0.20,
+        "pair_blend_alpha": 0.50,
+        "marginal_contribution_weight": 0.50,
+        "fixed_pair_correlation_threshold": 0.85,
+        "max_pairs": 64,
         "rate_limit_epoch_seconds": 86400,
         "feedback_min_l2_epochs": 3, "feedback_bonus_threshold": 0.62,
         "feedback_penalty_threshold": 0.28,
@@ -389,9 +417,6 @@ def encode_defaults() -> np.ndarray:
         "symbol_diversity_penalty_escalation": 1.5,
         "symbol_diversity_penalty_max": 0.50,
         "symbol_diversity_grace_generations": 2,
-        # Cross-layer balance
-        "cross_layer_penalty_strength": 0.45,
-        "cross_layer_latency": 160,
     }
     return np.array([defaults[name] for name in PARAM_NAMES])
 
@@ -457,9 +482,14 @@ def summarize_config(config: Dict[str, Any]) -> str:
     lines.append(f"  symbol_diversity_penalty_max: {p['symbol_diversity_penalty_max']:.4f}")
     lines.append(f"  symbol_diversity_grace_generations: {int(p['symbol_diversity_grace_generations'])}")
 
-    lines.append("=== Cross-Layer Balance ===")
-    lines.append(f"  penalty_strength: {p['cross_layer_penalty_strength']:.4f}")
-    lines.append(f"  max_latency_ms: {p['cross_layer_latency']:.0f}")
+    lines.append("=== Paired Genetic Mechanism ===")
+    lines.append(f"  partners_per_miner: {int(p['partners_per_miner'])}")
+    lines.append(f"  elite_fraction: {p['elite_fraction']:.4f}")
+    lines.append(f"  mutation_rate: {p['mutation_rate']:.4f}")
+    lines.append(f"  pair_blend_alpha: {p['pair_blend_alpha']:.4f}")
+    lines.append(f"  marginal_contribution_weight: {p['marginal_contribution_weight']:.4f}")
+    lines.append(f"  fixed_pair_correlation_threshold: {p['fixed_pair_correlation_threshold']:.4f}")
+    lines.append(f"  max_pairs: {int(p['max_pairs'])}")
 
     return "\n".join(lines)
 

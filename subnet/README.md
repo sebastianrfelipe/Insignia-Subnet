@@ -4,6 +4,14 @@
 
 Built on [Bittensor](https://bittensor.com) for the Sovereign Infrastructure Hackathon (March 2026).
 
+> **Architecture migration (single paired mechanism).** Insignia is moving from the
+> two-layer (L1 model → promotion → L2 strategy) design to a *single* incentive
+> mechanism in which **researcher miners and trader miners are matched into pairs,
+> jointly evaluated, and selected/rewarded with an NSGA-II-style genetic algorithm**.
+> The same evaluation metrics and weights are preserved; promotion and the
+> `l1_l2_emission_split` are removed. See
+> [docs/PAIRING_MECHANISM.md](docs/PAIRING_MECHANISM.md) for the full spec.
+
 **Status:** Phase 5 target achieved and under empirical validation  
 **System posture:** `SECURE_AND_IMPROVING`  
 **Best reported checkpoint:** V13-R2-KP-020-a7f2 with breach_rate `3.5e-6`, honest_score `0.9795`

@@ -482,10 +482,16 @@ ATTACK_DEFENSE_MATRIX: List[AttackDefense] = [
         mechanism="weight_entropy_minimum + cross_validator_score_variance_max + validator_rotation + validator_agreement_threshold",
     ),
     AttackDefense(
-        attack="L1/L2 weight skew exploitation",
-        description="Adversarial miners exploit the emission split between L1 and L2 to capture disproportionate rewards.",
-        defense="Cross-layer penalty strength parameter penalizes deviations from the configured l1_l2_emission_split.",
-        mechanism="cross_layer_penalty_strength + l1_l2_emission_split",
+        attack="Pair collusion (researcher <-> trader)",
+        description="A researcher and trader privately cooperate so their (model, strategy) pair scores well only when matched together (non-transferable lift), capturing emissions without genuine, partner-independent quality.",
+        defense="Chain-seeded pairing prevents self-selecting an accomplice; the K-partner floor forces evaluation against partners the miner did not choose; variance-penalized marginal-contribution credit (mean - lambda*std across partners) erodes one-hit pairings; CollusionGraphDetector flags pairs whose composite far exceeds each partner's best alternative pairing.",
+        mechanism="ChainSeededPairing + partners_per_miner + MarginalContributionCredit + CollusionGraphDetector",
+    ),
+    AttackDefense(
+        attack="Partner-selection gaming",
+        description="A miner tries to steer which partner it is matched with (e.g., timing registration or submissions) to secure a favorable counterpart.",
+        defense="Pairing assignment is deterministic from chain block state and partner identity is revealed only at evaluation time, so there is no controllable selection surface. Reproduction (crossover/mutation) re-matches elites across generations.",
+        mechanism="pairing_seed_source=chain_block_hash + PairAssignment reveal timing + NSGA2 reproduction",
     ),
     AttackDefense(
         attack="Prediction timing manipulation",
@@ -494,9 +500,9 @@ ATTACK_DEFENSE_MATRIX: List[AttackDefense] = [
         mechanism="CommitRevealManager + temporal_correlation_detector + commit_window_deadline",
     ),
     AttackDefense(
-        attack="Cross-layer timing sync attack",
-        description="Adversarial miners exploit timing gaps between L1 and L2 scoring windows to game cross-layer feedback.",
-        defense="Cross-layer latency threshold enforcement and temporal correlation monitoring.",
-        mechanism="cross_layer_latency + collusion_detection_lookback_epochs",
+        attack="Latency arbitrage in pairing",
+        description="A miner exploits validator latency or knowledge of its partner to submit model/trade decisions after benchmark/market data has materialized.",
+        defense="Commit-reveal binds both the model commitment and the trade commitments before the window; partner identity is unknown until evaluation; min_prediction_lead_time and validator_latency_penalty_weight discount late or high-latency submissions.",
+        mechanism="CommitRevealManager + chain-seeded partner reveal + min_prediction_lead_time + validator_latency_penalty_weight",
     ),
 ]
