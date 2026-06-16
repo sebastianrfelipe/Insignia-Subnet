@@ -1,5 +1,15 @@
 """Launch miner and validator servers.
 
+This is a standalone, illustrative single-miner/validator web demo (model
+submission + scoring + dashboard). It is intentionally simple and does NOT model
+the full incentive mechanism. For the authoritative single paired genetic
+mechanism (chain-seeded researcher/trader pairing, joint NSGA-II evaluation, and
+marginal-contribution credit), run the pipeline demo instead:
+
+    python scripts/run_demo.py
+
+See docs/PAIRING_MECHANISM.md for the design.
+
 Usage:
     uv run python -m demo.run
     uv run python demo/run.py

@@ -181,10 +181,28 @@ def crowding_distance(objectives: np.ndarray, front: List[int]) -> Dict[int, flo
 
 
 class NSGA2Matchmaker:
-    """Ranks a generation of pairs by Pareto front (85%) and crowding (15%)."""
+    """
+    Ranks a generation of pairs. The selection score blends three signals:
 
-    def __init__(self, front_weight: float = 0.85):
-        self.front_weight = front_weight
+      - Pareto front rank (primary multi-objective signal),
+      - scalar pair composite (so quality still discriminates when many pairs
+        share the non-dominated front — which is common in small populations),
+      - crowding distance (diversity tiebreak).
+
+    Without the composite term, a crowded front-0 would let a uniformly mediocre
+    (e.g., collusion-capped) pair earn as much credit as a genuinely strong one.
+    """
+
+    def __init__(
+        self,
+        front_weight: float = 0.55,
+        composite_weight: float = 0.35,
+        crowd_weight: float = 0.10,
+    ):
+        total = front_weight + composite_weight + crowd_weight
+        self.front_weight = front_weight / total
+        self.composite_weight = composite_weight / total
+        self.crowd_weight = crowd_weight / total
 
     def rank(self, fitnesses: List[PairFitness]) -> List[PairFitness]:
         if not fitnesses:
@@ -193,6 +211,10 @@ class NSGA2Matchmaker:
         objectives = np.array([f.objectives for f in fitnesses], dtype=float)
         fronts = fast_non_dominated_sort(objectives)
         n_fronts = max(len(fronts), 1)
+
+        composites = np.array([f.pair_composite for f in fitnesses], dtype=float)
+        c_min, c_max = float(composites.min()), float(composites.max())
+        c_span = c_max - c_min
 
         for front_idx, front in enumerate(fronts):
             cds = crowding_distance(objectives, front)
@@ -209,9 +231,14 @@ class NSGA2Matchmaker:
                 else:
                     crowd_norm = 0.5
                 rank_score = 1.0 if n_fronts == 1 else (n_fronts - 1 - front_idx) / (n_fronts - 1)
+                composite_norm = (
+                    (f.pair_composite - c_min) / c_span if c_span > 1e-12 else 1.0
+                )
                 f.selection_score = float(
                     np.clip(
-                        self.front_weight * rank_score + (1.0 - self.front_weight) * crowd_norm,
+                        self.front_weight * rank_score
+                        + self.composite_weight * composite_norm
+                        + self.crowd_weight * crowd_norm,
                         0.0,
                         1.0,
                     )
