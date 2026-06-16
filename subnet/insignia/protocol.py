@@ -17,12 +17,35 @@ from enum import Enum
 from typing import Optional, List, Dict, Any
 from dataclasses import dataclass, field
 
-import bittensor as bt
+try:
+    import bittensor as bt
+    _SynapseBase = bt.Synapse
+except ImportError:
+    # bittensor is only required by the live neurons. The scoring/tuning/
+    # simulation stack imports this module purely for the enums (MinerRole,
+    # InstrumentId, ...), so degrade gracefully when the chain SDK is absent.
+    bt = None
+
+    class _SynapseBase:  # minimal stand-in so the Synapse classes still define
+        """Fallback base used when bittensor is unavailable."""
+
+        class Config:
+            arbitrary_types_allowed = True
 
 
 # ---------------------------------------------------------------------------
 # Enums
 # ---------------------------------------------------------------------------
+
+class MinerRole(str, Enum):
+    """
+    Role a miner declares at registration/commit in the single paired
+    mechanism. Both roles share one subnet UID space and one weight vector.
+    """
+
+    RESEARCHER = "researcher"  # submits ML model artifacts
+    TRADER = "trader"          # submits trading-operation logic consuming a model
+
 
 class ModelType(str, Enum):
     GBDT = "gbdt"
@@ -49,7 +72,7 @@ class InstrumentId(str, Enum):
 # Layer 1: Model Generation Synapses
 # ---------------------------------------------------------------------------
 
-class L1ModelSubmission(bt.Synapse):
+class L1ModelSubmission(_SynapseBase):
     """
     Layer 1 miner -> validator: Submit a trained ML model for evaluation.
 
@@ -84,7 +107,7 @@ class L1ModelSubmission(bt.Synapse):
         arbitrary_types_allowed = True
 
 
-class L1EvaluationRequest(bt.Synapse):
+class L1EvaluationRequest(_SynapseBase):
     """
     Validator -> miner: Request current model for evaluation epoch.
 
@@ -102,7 +125,7 @@ class L1EvaluationRequest(bt.Synapse):
     model_metadata: Dict[str, Any] = {}
 
 
-class L1ScoreReport(bt.Synapse):
+class L1ScoreReport(_SynapseBase):
     """
     Validator -> miner: Report evaluation scores back to the miner.
 
@@ -123,7 +146,7 @@ class L1ScoreReport(bt.Synapse):
 # Layer 2: Strategy Deployment Synapses
 # ---------------------------------------------------------------------------
 
-class L2StrategySubmission(bt.Synapse):
+class L2StrategySubmission(_SynapseBase):
     """
     Layer 2 miner -> validator: Submit live/paper trading strategy results.
 
@@ -152,7 +175,7 @@ class L2StrategySubmission(bt.Synapse):
     accepted: bool = False
 
 
-class L2ModelPool(bt.Synapse):
+class L2ModelPool(_SynapseBase):
     """
     L2 miner -> validator: Request the current pool of promoted L1 models.
 
@@ -169,7 +192,7 @@ class L2ModelPool(bt.Synapse):
     pool_updated_at: str = ""
 
 
-class L2PositionUpdate(bt.Synapse):
+class L2PositionUpdate(_SynapseBase):
     """
     L2 miner -> validator: Real-time position update for continuous scoring.
 
@@ -188,17 +211,17 @@ class L2PositionUpdate(bt.Synapse):
 
 
 # ---------------------------------------------------------------------------
-# Cross-Layer Synapses
+# Cross-Layer Synapses (DEPRECATED — retained for backward compatibility)
+#
+# The single paired mechanism replaces L1->promotion->L2 with chain-seeded
+# pairing + joint evaluation, so cross-layer retroactive feedback is no longer
+# part of the active protocol. See the Pairing Synapses below.
 # ---------------------------------------------------------------------------
 
-class CrossLayerFeedback(bt.Synapse):
+class CrossLayerFeedback(_SynapseBase):
     """
-    Internal synapse for cross-layer feedback propagation.
-
-    When L2 strategies perform well (or poorly) using specific L1 models,
-    this feedback adjusts L1 model scores retroactively. Models that
-    translate simulation quality into real-world performance get boosted;
-    models that fail in deployment get penalized.
+    DEPRECATED. Internal synapse for cross-layer feedback propagation in the
+    old two-layer design. Superseded by joint pair evaluation.
     """
 
     model_id: str = ""
@@ -206,3 +229,76 @@ class CrossLayerFeedback(bt.Synapse):
     l1_score_adjustment: float = 0.0
     feedback_epoch: int = 0
     evidence: Dict[str, Any] = {}
+
+
+# ---------------------------------------------------------------------------
+# Pairing Synapses (single paired mechanism)
+# ---------------------------------------------------------------------------
+
+class PairAssignment(_SynapseBase):
+    """
+    Validator -> miners: announce the chain-seeded pairing for an epoch.
+
+    The assignment is derived deterministically from chain block state so it is
+    not chooseable by miners or validators, and the partner identity is only
+    revealed at evaluation time (latency-arbitrage and collusion defense).
+    """
+
+    epoch_id: int = 0
+    generation: int = 0
+    pairing_seed: str = ""
+    researcher_uid: str = ""
+    trader_uid: str = ""
+    target_instrument: str = InstrumentId.BTC_USDT_PERP.value
+
+
+class PairEvaluationRequest(_SynapseBase):
+    """
+    Validator -> researcher/trader: request the artifact/strategy for a pair.
+
+    ``role`` tells the recipient which side of the pair it is being queried for.
+    The researcher returns a model artifact; the trader returns its trading
+    strategy parameters and (post-window) its revealed position log.
+    """
+
+    epoch_id: int = 0
+    generation: int = 0
+    role: str = MinerRole.RESEARCHER.value
+    researcher_uid: str = ""
+    trader_uid: str = ""
+    pairing_seed: str = ""
+
+    # Response (researcher side)
+    model_artifact: Optional[bytes] = None
+    model_metadata: Dict[str, Any] = {}
+
+    # Response (trader side)
+    strategy_id: str = ""
+    strategy_params: Dict[str, Any] = {}
+    position_log: List[Dict[str, Any]] = []
+
+    class Config:
+        arbitrary_types_allowed = True
+
+
+class PairScoreReport(_SynapseBase):
+    """
+    Validator -> miners: report a pair's joint score and the per-miner credit.
+
+    Both members of the pair receive the same pair-level breakdown; the
+    ``miner_credit`` reflects the variance-penalized marginal contribution that
+    feeds the single Yuma weight vector.
+    """
+
+    epoch_id: int = 0
+    generation: int = 0
+    researcher_uid: str = ""
+    trader_uid: str = ""
+    model_composite: float = 0.0
+    trading_composite: float = 0.0
+    pair_composite: float = 0.0
+    objectives: List[float] = []
+    pareto_rank: int = -1
+    selection_score: float = 0.0
+    collusion_flagged: bool = False
+    miner_credit: float = 0.0
