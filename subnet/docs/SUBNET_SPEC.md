@@ -120,10 +120,10 @@
 
 ## 4. Technical Interfaces
 
-### Layer 1 Model Submission
+### Model Submission (researcher)
 
 ```python
-class L1ModelSubmission(bt.Synapse):
+class ModelSubmission(bt.Synapse):
     model_artifact: bytes          # Serialized model (ONNX/joblib, max 50MB)
     model_type: str                # gbdt | neural | ensemble | other
     features_used: List[str]       # From published feature registry
@@ -134,12 +134,12 @@ class L1ModelSubmission(bt.Synapse):
     target_horizon_minutes: int    # Prediction horizon
 ```
 
-### Layer 2 Strategy Submission
+### Trading Strategy Submission (trader)
 
 ```python
-class L2StrategySubmission(bt.Synapse):
+class TradingStrategySubmission(bt.Synapse):
     strategy_id: str               # Unique strategy identifier
-    model_ids_used: List[str]      # Which L1 models are inferenced
+    model_ids_used: List[str]      # Which assigned model(s) are inferenced
     trading_mode: str              # "paper" | "live_capital"
     position_log: List[Dict]       # Signed position records
     realized_pnl: float            # Total P&L
@@ -212,15 +212,17 @@ Everything else — the scoring framework, synapse definitions, incentive design
 subnet/
 ├── insignia/
 │   ├── __init__.py           # Package definition
-│   ├── protocol.py           # Bittensor Synapse definitions (L1 + L2 + commit/reveal)
-│   ├── scoring.py            # Composite scoring engine (L1: 7 metrics, L2: 10 metrics)
+│   ├── protocol.py           # Bittensor Synapse definitions (model + trading + pairing + commit/reveal)
+│   ├── scoring.py            # Composite scoring engine (model: 7 metrics, trading: 9 metrics)
 │   ├── incentive.py          # Anti-gaming mechanisms + commit-reveal + attack/defense matrix
-│   └── cross_layer.py        # Model promotion + feedback loop engine
+│   ├── pairing.py            # Paired genetic mechanism (NSGA-II matchmaking + marginal credit)
+│   └── cross_layer.py        # Model promotion + feedback loop engine (legacy two-layer)
 ├── neurons/
-│   ├── l1_miner.py           # Layer 1 miner template (model training + commit/reveal)
-│   ├── l1_validator.py       # Layer 1 validator (evaluation + commitment verification)
-│   ├── l2_miner.py           # Layer 2 miner template (paper trading + commit/reveal)
-│   └── l2_validator.py       # Layer 2 validator (P&L tracking + scoring)
+│   ├── researcher_miner.py   # Researcher miner template (model training + commit/reveal)
+│   ├── trader_miner.py       # Trader miner template (paper trading + commit/reveal)
+│   ├── model_validator.py    # Model evaluator + legacy model validator
+│   ├── trading_validator.py  # Trading validator (P&L tracking + scoring, legacy)
+│   └── validator.py          # Unified PairedValidator (assign → eval → NSGA-II → credit → set_weights)
 ├── tuning/
 │   ├── attack_detector.py    # 19-vector post-commit-reveal attack detection
 │   ├── parameter_space.py    # 73-parameter tuning space with defense and routing parameters

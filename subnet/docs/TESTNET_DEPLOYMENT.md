@@ -119,9 +119,9 @@ bash testnet/scripts/check_wallet_balances.sh
 - validator nodes / wallets: 1
 - miner nodes / wallets: 12
 - simulated benchmark population: 14 agents
-  - L1: 6 honest + 4 adversarial
-  - L2: 3 honest + 1 adversarial
+  - Researchers: 6 honest + 4 adversarial
+  - Traders: 3 honest + 1 adversarial
 
 ## Note on parameter counts
 
-The orchestration brief references a 75-parameter optimization headline. The repository still exposes a broader parameter surface in code because the 10-metric L2 scorer and additional safeguards remain enabled for realism.
+The orchestration brief references a 75-parameter optimization headline. The repository still exposes a broader parameter surface in code because the 9-metric trading scorer and additional safeguards remain enabled for realism.

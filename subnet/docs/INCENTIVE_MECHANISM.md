@@ -1,23 +1,26 @@
 # Insignia Subnet — Incentive Mechanism Design
 
-> **Migration note:** The two independent Yuma cycles described below are being
+> **Migration note:** The two independent Yuma cycles described below have been
 > unified into a **single paired genetic mechanism**. Researcher and trader
 > miners share one UID space and one weight vector; a candidate strategy is a
 > `(researcher, trader)` pair that is jointly evaluated and ranked with NSGA-II,
 > then credited via a variance-penalized marginal contribution. The 7 model
-> metrics and 10 trading metrics, their weights, and the commit-reveal and
-> consensus-integrity defenses documented here are all preserved. See
+> metrics and 9 trading metrics, their weights, and the commit-reveal and
+> consensus-integrity defenses documented here are all preserved — the sections
+> below describe the **model** (researcher) and **trading** (trader) scoring
+> components that the paired mechanism evaluates jointly. The standalone
+> per-layer emission and the cross-layer feedback loop are legacy. See
 > [PAIRING_MECHANISM.md](PAIRING_MECHANISM.md).
 
 ## Overview
 
 The Insignia incentive mechanism ensures that miners are rewarded proportionally to the genuine quality and deployability of their contributions, while making all known gaming strategies unprofitable.
 
-The design operates across two independent layers, each with its own Yuma consensus cycle, connected by a cross-layer feedback loop.
+Two miner roles share one subnet: **researcher miners** (who submit ML models) and **trader miners** (who run trading strategies on an assigned model). Each `(researcher, trader)` pair is jointly evaluated using the model scoring vector and the trading scoring vector documented below, then ranked and credited by the paired genetic mechanism (see [PAIRING_MECHANISM.md](PAIRING_MECHANISM.md)).
 
 ---
 
-## Layer 1: Model Generation Incentives
+## Model Scoring (Researcher Miners)
 
 ### Scoring Vector (7 Dimensions)
 
@@ -41,13 +44,13 @@ All metrics use a **variance-penalized formulation** (`mean − λ·std`) across
 - **Variance Score** ensures models work across market regimes, not just the current one.
 - **Feature efficiency** discourages models that depend on data sources that won't be available in production.
 
-### Emission Distribution
+### How Model Scores Are Used
 
-Top-performing L1 miners earn alpha token emissions via Yuma consensus. Weights are proportional to composite scores. The top-N models are also promoted to the Layer 2 pool, creating a second revenue stream.
+A researcher's model composite is one half of every `(researcher, trader)` pair it appears in. Pairs are ranked with NSGA-II and each miner's single Yuma emission weight is the variance-penalized marginal contribution of its model across the partners it was paired with. There is no separate promotion pool — pairing is chain-seeded by the genetic algorithm.
 
 ---
 
-## Layer 2: Strategy Deployment Incentives
+## Trading Scoring (Trader Miners)
 
 ### Scoring Vector (9 Dimensions)
 
@@ -87,7 +90,7 @@ score = clamp((pnl - baseline) / max(|baseline|, 1.0), 0, 1)
 
 - Strategies at or below the baseline receive a score of zero.
 - The denominator scales by the absolute baseline value so that the metric is meaningful across different capital levels and market conditions.
-- Carries the highest single L2 weight (20%, tied with consistency) because realized returns are the ultimate objective of the subnet.
+- Carries the highest single trading weight (20%, tied with consistency) because realized returns are the ultimate objective of the subnet.
 
 **Normalization**: Already in [0, 1] from the scoring function itself.
 
@@ -256,7 +259,7 @@ sortino = (mean(daily_excess_returns) / downside_dev) * sqrt(365)
 
 ### Composite Score Formula
 
-The L2 composite score is a weighted sum of all nine normalized metrics:
+The trading composite score is a weighted sum of all nine normalized metrics:
 
 ```
 composite = 0.20 * realized_pnl
@@ -274,7 +277,7 @@ Weights are published and configurable via `WeightConfig`. They are balanced so 
 
 ### Why This Drives Good Behavior
 
-- **Real outcomes only**: L2 scores are based on actual (paper/live) trading results, not simulations.
+- **Real outcomes only**: trading scores are based on actual (paper/live) trading results, not simulations.
 - **Drawdown elimination**: Strategies that breach the drawdown limit (default 20%) are immediately eliminated, mirroring institutional prop trading standards.
 - **Consistency requirements** prevent strategies that take one lucky trade and coast.
 - **Omega ratio** captures tail risk that Sharpe ratio misses, preventing strategies that look good on average but carry hidden blow-up risk.
@@ -286,9 +289,14 @@ Weights are published and configurable via `WeightConfig`. They are balanced so 
 
 ---
 
-## Cross-Layer Feedback Loop
+## Cross-Layer Feedback Loop (legacy)
 
-The two layers create a self-reinforcing quality signal:
+> **Legacy.** This retroactive feedback loop belonged to the old two-layer
+> design. Under the single paired mechanism it is replaced by joint
+> `(researcher, trader)` pair evaluation, so models are judged together with a
+> trader's strategy in the same generation rather than via delayed feedback.
+
+The two layers created a self-reinforcing quality signal:
 
 ```
 L1 Models ──> Promotion ──> L2 Strategies ──> L2 Scores ──┐
@@ -322,7 +330,7 @@ This closes the simulation-to-reality gap: models are ultimately judged by deplo
 | **Defense** | Rate limited to 1 submission per miner per epoch (24h minimum). Each submission requires a full metadata manifest. |
 | **Why it fails** | At 1 submission/day, brute-forcing is impractical. Each attempt costs compute time. |
 
-### 3. Model Plagiarism (L1)
+### 3. Model Plagiarism (Researcher)
 
 | | |
 |---|---|
@@ -330,11 +338,11 @@ This closes the simulation-to-reality gap: models are ultimately judged by deplo
 | **Defense** | SHA-256 fingerprinting detects exact duplicates. Prediction correlation analysis detects behavioral clones. Correlated models share rewards. |
 | **Why it fails** | No incentive to copy — you only get a fraction of the reward. Original work pays more. |
 
-### 4. Copy-Trading (L2)
+### 4. Copy-Trading (Trader)
 
 | | |
 |---|---|
-| **Attack** | L2 miner mirrors another miner's positions instead of building their own strategy. |
+| **Attack** | Trader miner mirrors another miner's positions instead of building their own strategy. |
 | **Defense** | Position correlation analysis with time/size tolerance. Correlated strategies share rewards. |
 | **Why it fails** | Same as model plagiarism — copying dilutes your reward. |
 
@@ -343,7 +351,7 @@ This closes the simulation-to-reality gap: models are ultimately judged by deplo
 | | |
 |---|---|
 | **Attack** | Miner optimizes for one dominant metric while ignoring others. |
-| **Defense** | Composite scoring across 7 L1 / 9 L2 metrics. No single metric dominates (max weight 22% L1, 20% L2). |
+| **Defense** | Composite scoring across 7 model / 9 trading metrics. No single metric dominates (max weight 22% model, 20% trading). |
 | **Why it fails** | High accuracy with high drawdown scores poorly. High Sharpe with overfitting scores poorly. High P&L with poor execution quality or high volatility scores poorly. |
 
 ### 6. Validator Data Leakage
@@ -354,11 +362,11 @@ This closes the simulation-to-reality gap: models are ultimately judged by deplo
 | **Defense** | Only aggregate scores returned, never raw predictions or data. Rolling windows change each epoch. Historical windows released 30 days after evaluation. |
 | **Why it fails** | Aggregate scores reveal almost no information about the underlying data distribution. |
 
-### 7. L2 Paper Trading Manipulation
+### 7. Trader Paper Trading Manipulation
 
 | | |
 |---|---|
-| **Attack** | L2 miner fabricates paper trading results or cherry-picks favorable reporting windows. |
+| **Attack** | Trader miner fabricates paper trading results or cherry-picks favorable reporting windows. |
 | **Defense** | Validators track positions via continuous streaming. All positions are timestamped. Reporting gaps are penalized. |
 | **Why it fails** | Validators independently verify position state — fabricated results are immediately detected. |
 
@@ -402,11 +410,11 @@ This closes the simulation-to-reality gap: models are ultimately judged by deplo
 | **Defense** | Weight entropy minimum rejects concentrated weight distributions. Cross-validator score variance caps flag miners with inconsistent scores across validators. Validator rotation limits prevent repeated scoring of the same miner. Five detection methods: weight entropy analysis, cross-validator score comparison, weight-non-performance correlation, temporal coordination, network graph cluster analysis. |
 | **Why it fails** | Multi-validator consensus means a single colluding validator cannot unilaterally inflate scores. The 5-method detection approach catches different collusion strategies. |
 
-### 13. L1/L2 Weight Skew Exploitation
+### 13. Researcher/Trader Weight Skew Exploitation (legacy)
 
 | | |
 |---|---|
-| **Attack** | Adversarial miners exploit the emission split between L1 and L2 to capture disproportionate rewards by concentrating effort in the more rewarding layer. |
+| **Attack** | (Legacy two-layer attack.) Adversarial miners exploit the emission split between the model and trading layers to capture disproportionate rewards by concentrating effort in the more rewarding layer. The single paired mechanism has no emission split — both roles share one weight vector — so this surface no longer exists. |
 | **Defense** | `cross_layer_penalty_strength` penalizes deviations from the configured `l1_l2_emission_split`. Cross-layer feedback ensures both layers must perform well. |
 | **Why it fails** | The penalty is proportional to the deviation, making exploitation unprofitable. |
 
@@ -521,7 +529,7 @@ This creates a direct link between the subnet's economic output and miner token 
 | **Internal Deployment** (Primary) | Subnet owner's firm deploys winning pairs in live prop trading. Direct P&L justifies infrastructure costs. |
 | **Emissions Bootstrap** | Bittensor network emissions fund miner participation before external revenue scales. |
 | **Buyback Loop** | Deployment profits → token buybacks → higher miner incentives → better models. |
-| **External Signal API** (Future) | Package L2 strategy outputs as subscription service for external quant funds. |
+| **External Signal API** (Future) | Package trading strategy outputs as subscription service for external quant funds. |
 | **Model Marketplace** (Future) | License winning model architectures to external ML teams. |
 
-The subnet owner being the primary consumer of L2 output creates a demand floor that does not depend on external market adoption.
+The subnet owner being the primary consumer of trader output creates a demand floor that does not depend on external market adoption.

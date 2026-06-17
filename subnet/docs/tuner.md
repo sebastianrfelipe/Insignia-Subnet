@@ -52,7 +52,7 @@ The implementation stores these as minimization targets:
 
 ## Report-aligned defaults
 
-### L1 weights
+### Model weights (researcher)
 
 - directional accuracy: 0.22
 - sharpe ratio: 0.18
@@ -62,9 +62,9 @@ The implementation stores these as minimization targets:
 - feature efficiency: 0.06
 - latency: 0.10
 
-### L2 weights in code
+### Trading weights (trader) in code
 
-The report summarizes a 6-metric headline allocation, but the repository keeps a 9-metric L2 scorer for risk controls. The `model_attribution` metric was removed when pairing became genetic-algorithm-assigned (a miner cannot influence which model it is paired with), and its weight was redistributed. The checked-in defaults are:
+The report summarizes a 6-metric headline allocation, but the repository keeps a 9-metric trading scorer for risk controls. The `model_attribution` metric was removed when pairing became genetic-algorithm-assigned (a miner cannot influence which model it is paired with), and its weight was redistributed. The checked-in defaults are:
 
 - realized_pnl: 0.20
 - omega: 0.13
