@@ -59,20 +59,19 @@ Insignia is a two-layer competitive network for producing high-quality ML models
 
 ## L2 weights used in repository defaults
 
-The orchestration report summarizes a 6-metric headline split, but the codebase intentionally keeps a 10-metric L2 scorer for additional risk controls. The updated compatible defaults are:
+The orchestration report summarizes a 6-metric headline split, but the codebase intentionally keeps a 9-metric L2 scorer for additional risk controls. The `model_attribution` metric was removed when the subnet migrated to the single paired genetic mechanism (the model is now assigned to the trader by the genetic algorithm rather than self-selected, so a miner cannot influence it). Its weight was redistributed across the remaining performance metrics. The updated compatible defaults are:
 
 | Metric | Weight |
 |---|---:|
-| realized_pnl | 0.16 |
-| omega_ratio | 0.11 |
-| max_drawdown | 0.12 |
-| win_rate | 0.05 |
-| consistency | 0.19 |
-| model_attribution | 0.13 |
-| execution_quality | 0.09 |
+| realized_pnl | 0.20 |
+| omega_ratio | 0.13 |
+| max_drawdown | 0.14 |
+| win_rate | 0.06 |
+| consistency | 0.20 |
+| execution_quality | 0.10 |
 | annualized_volatility | 0.05 |
-| sharpe_ratio | 0.05 |
-| sortino_ratio | 0.05 |
+| sharpe_ratio | 0.06 |
+| sortino_ratio | 0.06 |
 
 ---
 

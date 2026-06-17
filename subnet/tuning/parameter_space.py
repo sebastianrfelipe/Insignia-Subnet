@@ -51,13 +51,12 @@ PARAMETER_DEFINITIONS: List[ParameterBounds] = [
     ParameterBounds("l1_feature_efficiency",   0.01, 0.15, "l1_weights", "Weight for feature efficiency"),
     ParameterBounds("l1_latency",              0.01, 0.20, "l1_weights", "Weight for latency score"),
 
-    # L2 Scoring Weights (10 params, must sum to 1.0)
+    # L2 Scoring Weights (9 params, must sum to 1.0)
     ParameterBounds("l2_realized_pnl",            0.05, 0.40, "l2_weights", "Weight for realized P&L"),
     ParameterBounds("l2_omega",                   0.05, 0.30, "l2_weights", "Weight for Omega ratio"),
     ParameterBounds("l2_max_drawdown",            0.05, 0.30, "l2_weights", "Weight for max drawdown"),
     ParameterBounds("l2_win_rate",                0.02, 0.25, "l2_weights", "Weight for win rate"),
     ParameterBounds("l2_consistency",             0.05, 0.30, "l2_weights", "Weight for consistency"),
-    ParameterBounds("l2_model_attribution",       0.01, 0.25, "l2_weights", "Weight for model attribution"),
     ParameterBounds("l2_execution_quality",       0.05, 0.30, "l2_weights", "Weight for execution quality (latency, reliability, slippage)"),
     ParameterBounds("l2_annualized_volatility",   0.02, 0.15, "l2_weights", "Weight for annualized volatility (inverted — lower vol = higher score)"),
     ParameterBounds("l2_sharpe_ratio",            0.02, 0.15, "l2_weights", "Weight for Sharpe ratio (risk-adjusted return per unit total vol)"),
@@ -212,7 +211,6 @@ def decode(x: np.ndarray) -> Dict[str, Any]:
         l2_max_drawdown=p["l2_max_drawdown"],
         l2_win_rate=p["l2_win_rate"],
         l2_consistency=p["l2_consistency"],
-        l2_model_attribution=p["l2_model_attribution"],
         l2_execution_quality=p["l2_execution_quality"],
         l2_annualized_volatility=p["l2_annualized_volatility"],
         l2_sharpe_ratio=p["l2_sharpe_ratio"],
@@ -361,10 +359,10 @@ def encode_defaults() -> np.ndarray:
         "l1_penalized_f1": 0.22, "l1_penalized_sharpe": 0.18, "l1_max_drawdown": 0.14,
         "l1_variance_score": 0.16, "l1_overfitting_penalty": 0.14, "l1_feature_efficiency": 0.06,
         "l1_latency": 0.10,
-        "l2_realized_pnl": 0.18, "l2_omega": 0.12, "l2_max_drawdown": 0.12,
-        "l2_win_rate": 0.05, "l2_consistency": 0.18, "l2_model_attribution": 0.11,
-        "l2_execution_quality": 0.09,
-        "l2_annualized_volatility": 0.05, "l2_sharpe_ratio": 0.05, "l2_sortino_ratio": 0.05,
+        "l2_realized_pnl": 0.20, "l2_omega": 0.13, "l2_max_drawdown": 0.14,
+        "l2_win_rate": 0.06, "l2_consistency": 0.20,
+        "l2_execution_quality": 0.10,
+        "l2_annualized_volatility": 0.05, "l2_sharpe_ratio": 0.06, "l2_sortino_ratio": 0.06,
         "overfit_gap_threshold": 0.15, "overfit_decay_rate": 5.0,
         "promotion_top_n": 8, "promotion_min_consecutive_epochs": 3,
         "promotion_max_overfitting_score": 0.35, "promotion_max_score_decay_pct": 0.15,
@@ -433,7 +431,7 @@ def summarize_config(config: Dict[str, Any]) -> str:
 
     lines.append("=== L2 Scoring Weights ===")
     for k in ["l2_realized_pnl", "l2_omega", "l2_max_drawdown",
-              "l2_win_rate", "l2_consistency", "l2_model_attribution",
+              "l2_win_rate", "l2_consistency",
               "l2_execution_quality", "l2_annualized_volatility",
               "l2_sharpe_ratio", "l2_sortino_ratio"]:
         lines.append(f"  {k}: {p[k]:.4f}")
@@ -512,7 +510,7 @@ if __name__ == "__main__":
     print("L2 weights sum:", sum(
         config["raw_params"][k] for k in
         ["l2_realized_pnl", "l2_omega", "l2_max_drawdown",
-         "l2_win_rate", "l2_consistency", "l2_model_attribution",
+         "l2_win_rate", "l2_consistency",
          "l2_execution_quality", "l2_annualized_volatility",
          "l2_sharpe_ratio", "l2_sortino_ratio"]
     ))

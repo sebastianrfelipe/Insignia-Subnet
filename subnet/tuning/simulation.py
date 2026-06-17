@@ -762,7 +762,6 @@ class SimulationHarness:
                 max_dd=engine.current_drawdown,
                 trades=trades,
                 daily_returns=returns,
-                model_attribution_score=0.5,
             )
 
         # --- Paired genetic generations ---

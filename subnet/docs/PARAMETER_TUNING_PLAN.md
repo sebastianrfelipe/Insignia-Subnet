@@ -65,12 +65,12 @@ Together these form a **94-parameter optimization surface**. Tuning by hand is i
 
 **Goal:** Enumerate every tunable parameter, define its bounds, and categorize by layer.
 
-#### Insignia Application-Level Parameters (68 total, tuned by emulator)
+#### Insignia Application-Level Parameters (67 total, tuned by emulator)
 
 | Category | Parameters | Count |
 |----------|-----------|-------|
 | L1 Scoring Weights | penalized_f1, penalized_sharpe, max_drawdown, variance_score, overfitting_penalty, feature_efficiency, latency | 7 |
-| L2 Scoring Weights | realized_pnl, omega, max_drawdown, win_rate, consistency, model_attribution, execution_quality, annualized_volatility, sharpe_ratio, sortino_ratio | 10 |
+| L2 Scoring Weights | realized_pnl, omega, max_drawdown, win_rate, consistency, execution_quality, annualized_volatility, sharpe_ratio, sortino_ratio | 9 |
 | Overfitting Detector | gap_threshold, decay_rate | 2 |
 | Cross-Layer Promotion | top_n, min_consecutive_epochs, max_overfitting_score, max_score_decay_pct, expiry_epochs | 5 |
 | Cross-Layer Feedback | feedback_bonus_weight, feedback_penalty_weight | 2 |
@@ -88,7 +88,7 @@ Together these form a **94-parameter optimization surface**. Tuning by hand is i
 | Market Data | dominant_pair_warning_ratio | 1 |
 | Model Routing | model_routing_enabled, model_routing_assignment_seed, model_routing_stable_per_run, model_routing_route_count | 4 |
 | Cross-Layer Defense | cross_layer_penalty_strength, cross_layer_latency | 2 |
-| **Subtotal** | | **68** |
+| **Subtotal** | | **67** |
 
 #### Bittensor On-Chain Subnet Hyperparameters (39 total, set via btcli)
 

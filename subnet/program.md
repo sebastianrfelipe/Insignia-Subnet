@@ -204,18 +204,20 @@ Use these as the default L1 priorities unless a run explicitly overrides them:
 
 ### L2 weights kept in repository defaults
 
-The codebase preserves a 10-metric L2 scorer. Current compatible defaults are:
+The codebase preserves a 9-metric L2 scorer. The `model_attribution` metric was
+removed in the migration to the single paired genetic mechanism (the model is
+assigned to the trader by the genetic algorithm, not self-selected), and its
+weight was redistributed. Current compatible defaults are:
 
-- `l2_realized_pnl = 0.21`
-- `l2_omega = 0.15`
-- `l2_max_drawdown = 0.12`
-- `l2_win_rate = 0.07`
-- `l2_consistency = 0.17`
-- `l2_model_attribution = 0.08`
-- `l2_execution_quality = 0.05`
+- `l2_realized_pnl = 0.20`
+- `l2_omega = 0.13`
+- `l2_max_drawdown = 0.14`
+- `l2_win_rate = 0.06`
+- `l2_consistency = 0.20`
+- `l2_execution_quality = 0.10`
 - `l2_annualized_volatility = 0.05`
-- `l2_sharpe_ratio = 0.05`
-- `l2_sortino_ratio = 0.05`
+- `l2_sharpe_ratio = 0.06`
+- `l2_sortino_ratio = 0.06`
 
 ### Validation timing defaults
 

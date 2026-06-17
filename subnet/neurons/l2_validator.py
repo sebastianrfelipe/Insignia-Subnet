@@ -5,13 +5,12 @@ Validates Layer 2 miner strategies by scoring their real/paper trading
 outcomes. L2 validators track positions in real-time, compute risk-adjusted
 performance metrics, and assign scores for Yuma consensus.
 
-Scoring Dimensions (10):
+Scoring Dimensions (9):
   - Realized P&L (absolute returns)
   - Omega Ratio (full distribution measure, captures tail behavior)
   - Max Drawdown (hard ceiling — breach = elimination)
   - Win Rate & Trade Quality (signal precision)
   - Consistency (rolling sub-window analysis)
-  - Model Attribution (which L1 models contributed to performance)
   - Execution Quality (latency, reliability, slippage)
   - Annualized Volatility (cumulative realized volatility — lower = better)
   - Sharpe Ratio (risk-adjusted return per unit total volatility)
@@ -190,62 +189,6 @@ class StrategyTracker:
 
 
 # ---------------------------------------------------------------------------
-# Model Attribution Engine
-# ---------------------------------------------------------------------------
-
-class ModelAttributionEngine:
-    """
-    Tracks which Layer 1 models contributed to Layer 2 performance.
-
-    When an L2 strategy using model X performs well, model X gets credit.
-    This attribution feeds back into L1 scoring (cross-layer feedback).
-    """
-
-    def __init__(self):
-        self._model_pnl: Dict[str, List[float]] = {}
-
-    def record(self, model_ids: List[str], pnl: float):
-        share = pnl / max(len(model_ids), 1)
-        for mid in model_ids:
-            if mid not in self._model_pnl:
-                self._model_pnl[mid] = []
-            self._model_pnl[mid].append(share)
-
-    def get_attribution_scores(self) -> Dict[str, float]:
-        """
-        Returns a normalized attribution score per model.
-        Models with positive total contribution get higher scores.
-        """
-        scores = {}
-        for mid, pnls in self._model_pnl.items():
-            total = sum(pnls)
-            n_uses = len(pnls)
-            scores[mid] = {
-                "total_pnl_contribution": total,
-                "n_strategy_uses": n_uses,
-                "avg_pnl_per_use": total / max(n_uses, 1),
-            }
-        return scores
-
-    def get_miner_attribution_score(self, model_ids: List[str]) -> float:
-        """
-        Compute a single [0, 1] attribution score for a set of models.
-        Higher if the miner used models with strong track records.
-        """
-        if not model_ids:
-            return 0.0
-        individual_scores = []
-        for mid in model_ids:
-            pnls = self._model_pnl.get(mid, [])
-            if pnls:
-                avg = sum(pnls) / len(pnls)
-                individual_scores.append(min(1.0, max(0.0, 0.5 + avg * 10)))
-            else:
-                individual_scores.append(0.5)
-        return float(np.mean(individual_scores))
-
-
-# ---------------------------------------------------------------------------
 # L2 Validator
 # ---------------------------------------------------------------------------
 
@@ -273,7 +216,6 @@ class L2Validator:
         self.scorer = scorer or CompositeScorer()
         self.max_drawdown_limit = max_drawdown_limit
         self.copy_detector = CopyTradeDetector()
-        self.attribution_engine = ModelAttributionEngine()
         self.feedback_engine = CrossLayerFeedbackEngine()
 
         self.trackers: Dict[str, StrategyTracker] = {}
@@ -306,9 +248,7 @@ class L2Validator:
             return
 
         if update.get("type") == "close":
-            pnl = update.get("pnl", 0.0)
             tracker.record_trade(update)
-            self.attribution_engine.record(tracker.model_ids_used, pnl)
         elif update.get("type") in (
             "latency", "reject", "cancel", "partial_fill", "stuck", "reconnect",
         ):
@@ -340,10 +280,6 @@ class L2Validator:
             returns = np.array(trades_pnl) / 100_000 if trades_pnl else np.array([0.0])
             daily_ret = np.array(tracker.daily_returns) if tracker.daily_returns else returns
 
-            attr_score = self.attribution_engine.get_miner_attribution_score(
-                tracker.model_ids_used
-            )
-
             exec_metrics = tracker.build_execution_metrics()
 
             score = self.scorer.score_l2(
@@ -352,7 +288,6 @@ class L2Validator:
                 max_dd=tracker.max_drawdown,
                 trades=trades_pnl,
                 daily_returns=daily_ret,
-                model_attribution_score=attr_score,
                 execution_metrics=exec_metrics,
             )
             scores[miner_uid] = score
@@ -393,7 +328,6 @@ class L2Validator:
                 for uid, sv in ranked
             },
             "weights": weights,
-            "model_attribution": self.attribution_engine.get_attribution_scores(),
         }
 
         self.epoch_history.append(epoch_summary)
@@ -498,11 +432,6 @@ def demo():
     logger.info("\n--- Epoch Summary ---")
     logger.info("  Active: %d", epoch_result["n_active"])
     logger.info("  Eliminated: %d", epoch_result["n_eliminated"])
-
-    logger.info("\n--- Model Attribution ---")
-    for mid, attr in epoch_result["model_attribution"].items():
-        logger.info("  %s: pnl_contribution=%.2f, uses=%d",
-                     mid, attr["total_pnl_contribution"], attr["n_strategy_uses"])
 
     logger.info("\n--- L1 Feedback Adjustments ---")
     for mid, adj in validator.get_l1_feedback().items():

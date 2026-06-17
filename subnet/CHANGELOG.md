@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-06-17 - Remove Model Attribution from trading score
+
+- removed the `model_attribution` metric from the L2/trading scorer: under the single paired genetic mechanism the model is *assigned* to a trader by the chain-seeded genetic algorithm rather than self-selected, so a miner cannot influence which model it is paired with and should not be rewarded or penalized for that assignment
+- redistributed the removed weight across the remaining performance metrics; the L2 scorer is now 9 metrics (`realized_pnl` 0.20, `omega` 0.13, `max_drawdown` 0.14, `win_rate` 0.06, `consistency` 0.20, `execution_quality` 0.10, `annualized_volatility` 0.05, `sharpe_ratio` 0.06, `sortino_ratio` 0.06)
+- dropped `model_attribution_score` from `CompositeScorer.score_l2`, removed `WeightConfig.l2_model_attribution`, and removed the `l2_model_attribution` tuning parameter (`tuning/parameter_space.py`)
+- removed the now-unused `ModelAttributionEngine` from `neurons/l2_validator.py`
+- cross-partner model quality is still expressed structurally via NSGA-II pair selection and the variance-penalized marginal-contribution credit, not as a per-miner scoring dimension
+- updated `docs/INCENTIVE_MECHANISM.md`, `docs/SUBNET_SPEC.md`, `docs/PARAMETER_TUNING_PLAN.md`, `docs/tuner.md`, `README.md`, and `program.md` accordingly
+
 ## 2026-06-16 - Single paired genetic incentive mechanism
 
 - migrated from the two-layer (L1 model -> promotion -> L2 strategy) design to a single incentive mechanism in which researcher and trader miners are matched into `(model, strategy)` pairs, jointly evaluated, and selected with an NSGA-II-style genetic algorithm (`docs/PAIRING_MECHANISM.md`)
