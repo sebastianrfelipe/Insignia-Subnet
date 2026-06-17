@@ -13,8 +13,8 @@ Agent Types:
   - SingleMetricGamer: optimizes only one metric dimension
   - SybilMiner: creates correlated submissions across identities
   - RandomMiner: noise baseline with random models
-  - HonestTrader: standard L2 paper trading strategy
-  - CopyTrader: mirrors another L2 miner's positions
+  - HonestTrader: standard paper trading strategy
+  - CopyTrader: mirrors another trader miner's positions
 """
 
 from __future__ import annotations
@@ -43,11 +43,11 @@ from insignia.incentive import (
     SubmissionRateLimit, ModelFingerprinter, CopyTradeDetector,
 )
 from insignia.pairing import PairingConfig, PairFitness
-from neurons.l1_miner import (
-    L1Miner, L1ModelTrainer, generate_demo_data, PUBLIC_FEATURE_REGISTRY,
+from neurons.researcher_miner import (
+    ResearcherMiner, ModelTrainer, generate_demo_data, PUBLIC_FEATURE_REGISTRY,
 )
-from neurons.l1_validator import ModelEvaluator, DemoBenchmarkProvider
-from neurons.l2_miner import L2StrategyMiner, PaperTradingEngine, SlippageConfig, Side
+from neurons.model_validator import ModelEvaluator, DemoBenchmarkProvider
+from neurons.trader_miner import TraderMiner, PaperTradingEngine, SlippageConfig, Side
 from neurons.validator import PairedValidator
 
 from insignia.protocol import InstrumentId
@@ -73,7 +73,7 @@ DEFAULT_TRADING_PAIRS = [
 # ---------------------------------------------------------------------------
 
 class MinerAgent(ABC):
-    """Base class for all simulated L1 miner agents."""
+    """Base class for all simulated researcher miner agents."""
 
     agent_type: str = "base"
 
@@ -145,7 +145,7 @@ class HonestMiner(MinerAgent):
             seed=self.seed + epoch * 13,
         )
         profile = self.assigned_model_profile
-        trainer = L1ModelTrainer(
+        trainer = ModelTrainer(
             n_estimators=int(profile.get("n_estimators", 10 + epoch * 2)),
             max_depth=int(profile.get("max_depth", 3)),
             learning_rate=float(profile.get("learning_rate", 0.08)),
@@ -154,7 +154,7 @@ class HonestMiner(MinerAgent):
             features=PUBLIC_FEATURE_REGISTRY[:self.n_features],
             random_state=self.seed + epoch,
         )
-        miner = L1Miner(trainer=trainer)
+        miner = ResearcherMiner(trainer=trainer)
         submission = miner.train_and_submit(data)
         submission.update(self.routing_metadata())
         return submission
@@ -168,7 +168,7 @@ class OverfittingMiner(MinerAgent):
     def produce_submission(self, epoch: int) -> Dict[str, Any]:
         data = generate_demo_data(n_samples=200, n_features=15, seed=self.seed + epoch)
         profile = self.assigned_model_profile
-        trainer = L1ModelTrainer(
+        trainer = ModelTrainer(
             n_estimators=int(profile.get("n_estimators", 50)),
             max_depth=int(profile.get("max_depth", 8)),
             learning_rate=float(profile.get("learning_rate", 0.3)),
@@ -178,7 +178,7 @@ class OverfittingMiner(MinerAgent):
             features=PUBLIC_FEATURE_REGISTRY[:15],
             random_state=self.seed + epoch,
         )
-        miner = L1Miner(trainer=trainer)
+        miner = ResearcherMiner(trainer=trainer)
         submission = miner.train_and_submit(data)
         submission.update(self.routing_metadata())
         return submission
@@ -223,10 +223,10 @@ class CopycatMiner(MinerAgent):
             features_used = PUBLIC_FEATURE_REGISTRY[:n_feat]
         else:
             data = generate_demo_data(n_samples=500, n_features=10, seed=self.seed + epoch)
-            trainer = L1ModelTrainer(
+            trainer = ModelTrainer(
                 features=PUBLIC_FEATURE_REGISTRY[:10], random_state=self.seed + epoch,
             )
-            miner = L1Miner(trainer=trainer)
+            miner = ResearcherMiner(trainer=trainer)
             sub = miner.train_and_submit(data)
             artifact = sub["model_artifact"]
             features_used = sub.get("features_used", PUBLIC_FEATURE_REGISTRY[:10])
@@ -271,7 +271,7 @@ class SingleMetricGamer(MinerAgent):
     def produce_submission(self, epoch: int) -> Dict[str, Any]:
         data = generate_demo_data(n_samples=800, n_features=5, seed=self.seed + epoch)
         profile = self.assigned_model_profile
-        trainer = L1ModelTrainer(
+        trainer = ModelTrainer(
             n_estimators=int(profile.get("n_estimators", 30)),
             max_depth=int(profile.get("max_depth", 6)),
             learning_rate=float(profile.get("learning_rate", 0.15)),
@@ -280,7 +280,7 @@ class SingleMetricGamer(MinerAgent):
             features=PUBLIC_FEATURE_REGISTRY[:5],
             random_state=self.seed + epoch,
         )
-        miner = L1Miner(trainer=trainer)
+        miner = ResearcherMiner(trainer=trainer)
         submission = miner.train_and_submit(data)
         submission.update(self.routing_metadata())
         return submission
@@ -297,7 +297,7 @@ class RandomMiner(MinerAgent):
     def produce_submission(self, epoch: int) -> Dict[str, Any]:
         data = generate_demo_data(n_samples=100, n_features=3, seed=self.seed + epoch * 97)
         profile = self.assigned_model_profile
-        trainer = L1ModelTrainer(
+        trainer = ModelTrainer(
             n_estimators=int(profile.get("n_estimators", 3)),
             max_depth=int(profile.get("max_depth", 1)),
             learning_rate=float(profile.get("learning_rate", 0.5)),
@@ -305,7 +305,7 @@ class RandomMiner(MinerAgent):
             features=PUBLIC_FEATURE_REGISTRY[:3],
             random_state=self.seed + epoch * 97,
         )
-        miner = L1Miner(trainer=trainer)
+        miner = ResearcherMiner(trainer=trainer)
         submission = miner.train_and_submit(data)
         submission.update(self.routing_metadata())
         return submission
@@ -342,7 +342,7 @@ class SybilMiner(MinerAgent):
             seed=self.cluster_seed + epoch,
         )
         profile = self.assigned_model_profile
-        trainer = L1ModelTrainer(
+        trainer = ModelTrainer(
             n_estimators=int(profile.get("n_estimators", 10 + self.identity_idx)),
             max_depth=int(profile.get("max_depth", 3)),
             learning_rate=float(
@@ -352,7 +352,7 @@ class SybilMiner(MinerAgent):
             features=PUBLIC_FEATURE_REGISTRY[:10],
             random_state=self.cluster_seed + self.identity_idx,
         )
-        miner = L1Miner(trainer=trainer)
+        miner = ResearcherMiner(trainer=trainer)
         submission = miner.train_and_submit(data)
         submission.update(self.routing_metadata())
         return submission
@@ -374,7 +374,7 @@ class ColludingResearcher(MinerAgent):
     def produce_submission(self, epoch: int) -> Dict[str, Any]:
         data = generate_demo_data(n_samples=500, n_features=10, seed=self.seed + epoch * 17)
         profile = self.assigned_model_profile
-        trainer = L1ModelTrainer(
+        trainer = ModelTrainer(
             n_estimators=int(profile.get("n_estimators", 12)),
             max_depth=int(profile.get("max_depth", 3)),
             learning_rate=float(profile.get("learning_rate", 0.08)),
@@ -383,7 +383,7 @@ class ColludingResearcher(MinerAgent):
             features=PUBLIC_FEATURE_REGISTRY[:10],
             random_state=self.seed + epoch,
         )
-        miner = L1Miner(trainer=trainer)
+        miner = ResearcherMiner(trainer=trainer)
         submission = miner.train_and_submit(data)
         submission.update(self.routing_metadata())
         return submission
@@ -393,7 +393,7 @@ class ColludingResearcher(MinerAgent):
 
 
 # ---------------------------------------------------------------------------
-# L2 Trader Agent Base
+# Trader Agent Base
 # ---------------------------------------------------------------------------
 
 class TraderAgent(ABC):
@@ -415,9 +415,9 @@ class TraderAgent(ABC):
         self.collusion_id = collusion_id
 
     @abstractmethod
-    def create_l2_miner(
+    def create_trader_miner(
         self, promoted_artifacts: Dict[str, bytes], trading_config: Dict,
-    ) -> L2StrategyMiner:
+    ) -> TraderMiner:
         ...
 
     def is_adversarial(self) -> bool:
@@ -442,9 +442,9 @@ class TraderAgent(ABC):
 class HonestTrader(TraderAgent):
     agent_type = "honest_trader"
 
-    def create_l2_miner(
+    def create_trader_miner(
         self, promoted_artifacts: Dict[str, bytes], trading_config: Dict,
-    ) -> L2StrategyMiner:
+    ) -> TraderMiner:
         profile = self.assigned_model_profile
         engine = PaperTradingEngine(
             initial_capital=100_000,
@@ -457,12 +457,12 @@ class HonestTrader(TraderAgent):
                 fee_bps=trading_config.get("fee_bps", 5.0),
             ),
         )
-        l2 = L2StrategyMiner(engine=engine)
+        trader = TraderMiner(engine=engine)
         model_load_count = int(profile.get("model_load_count", 3))
         for mid, artifact in list(promoted_artifacts.items())[:model_load_count]:
-            l2.load_model(mid, artifact)
-        l2.route_metadata = self.routing_metadata()
-        return l2
+            trader.load_model(mid, artifact)
+        trader.route_metadata = self.routing_metadata()
+        return trader
 
 
 class CopyTrader(TraderAgent):
@@ -470,21 +470,21 @@ class CopyTrader(TraderAgent):
 
     agent_type = "copy_trader"
 
-    def create_l2_miner(
+    def create_trader_miner(
         self, promoted_artifacts: Dict[str, bytes], trading_config: Dict,
-    ) -> L2StrategyMiner:
+    ) -> TraderMiner:
         profile = self.assigned_model_profile
         engine = PaperTradingEngine(
             initial_capital=100_000,
             max_position_pct=float(profile.get("max_position_pct", trading_config.get("max_position_pct", 0.10))),
             max_drawdown_pct=float(profile.get("max_drawdown_pct", trading_config.get("max_drawdown_pct", 0.20))),
         )
-        l2 = L2StrategyMiner(engine=engine)
+        trader = TraderMiner(engine=engine)
         model_load_count = int(profile.get("model_load_count", 3))
         for mid, artifact in list(promoted_artifacts.items())[:model_load_count]:
-            l2.load_model(mid, artifact)
-        l2.route_metadata = self.routing_metadata()
-        return l2
+            trader.load_model(mid, artifact)
+        trader.route_metadata = self.routing_metadata()
+        return trader
 
     def is_adversarial(self) -> bool:
         return True
@@ -501,19 +501,19 @@ class ColludingTrader(TraderAgent):
 
     agent_type = "colluder_trader"
 
-    def create_l2_miner(
+    def create_trader_miner(
         self, promoted_artifacts: Dict[str, bytes], trading_config: Dict,
-    ) -> L2StrategyMiner:
+    ) -> TraderMiner:
         engine = PaperTradingEngine(
             initial_capital=100_000,
             max_position_pct=float(trading_config.get("max_position_pct", 0.10)),
             max_drawdown_pct=float(trading_config.get("max_drawdown_pct", 0.20)),
         )
-        l2 = L2StrategyMiner(engine=engine)
+        trader = TraderMiner(engine=engine)
         for mid, artifact in list(promoted_artifacts.items())[:3]:
-            l2.load_model(mid, artifact)
-        l2.route_metadata = self.routing_metadata()
-        return l2
+            trader.load_model(mid, artifact)
+        trader.route_metadata = self.routing_metadata()
+        return trader
 
     def is_adversarial(self) -> bool:
         return True
@@ -529,19 +529,19 @@ class PartnerGamingTrader(TraderAgent):
 
     agent_type = "partner_gamer"
 
-    def create_l2_miner(
+    def create_trader_miner(
         self, promoted_artifacts: Dict[str, bytes], trading_config: Dict,
-    ) -> L2StrategyMiner:
+    ) -> TraderMiner:
         engine = PaperTradingEngine(
             initial_capital=100_000,
             max_position_pct=float(trading_config.get("max_position_pct", 0.10)),
             max_drawdown_pct=float(trading_config.get("max_drawdown_pct", 0.20)),
         )
-        l2 = L2StrategyMiner(engine=engine)
+        trader = TraderMiner(engine=engine)
         for mid, artifact in list(promoted_artifacts.items())[:3]:
-            l2.load_model(mid, artifact)
-        l2.route_metadata = self.routing_metadata()
-        return l2
+            trader.load_model(mid, artifact)
+        trader.route_metadata = self.routing_metadata()
+        return trader
 
     def is_adversarial(self) -> bool:
         return True
@@ -554,20 +554,20 @@ class PartnerGamingTrader(TraderAgent):
 @dataclass
 class SimulationResult:
     """Results from a single simulation run."""
-    l1_epoch_results: List[Dict] = field(default_factory=list)
-    l2_epoch_result: Optional[Dict] = None
+    model_epoch_results: List[Dict] = field(default_factory=list)
+    trading_epoch_result: Optional[Dict] = None
     promotion_summary: Optional[Dict] = None
-    l1_feedback: Dict[str, float] = field(default_factory=dict)
+    model_feedback: Dict[str, float] = field(default_factory=dict)
 
     miner_scores: Dict[str, float] = field(default_factory=dict)
     miner_types: Dict[str, str] = field(default_factory=dict)
-    l2_scores: Dict[str, float] = field(default_factory=dict)
-    l2_types: Dict[str, str] = field(default_factory=dict)
+    trader_scores: Dict[str, float] = field(default_factory=dict)
+    trader_types: Dict[str, str] = field(default_factory=dict)
 
-    honest_l1_scores: List[float] = field(default_factory=list)
-    adversarial_l1_scores: List[float] = field(default_factory=list)
-    honest_l2_scores: List[float] = field(default_factory=list)
-    adversarial_l2_scores: List[float] = field(default_factory=list)
+    honest_researcher_scores: List[float] = field(default_factory=list)
+    adversarial_researcher_scores: List[float] = field(default_factory=list)
+    honest_trader_scores: List[float] = field(default_factory=list)
+    adversarial_trader_scores: List[float] = field(default_factory=list)
     epoch_commitments: Dict[int, Dict[str, bool]] = field(default_factory=dict)
     miner_commit_status: Dict[str, str] = field(default_factory=dict)
     miner_commit_rates: Dict[str, float] = field(default_factory=dict)
@@ -592,9 +592,7 @@ class SimulationResult:
     convergence_indexes: List[str] = field(default_factory=list)
     trading_pair_counts: Dict[str, int] = field(default_factory=dict)
     ensemble_signals: Dict[str, Dict[str, float]] = field(default_factory=dict)
-    l1_route_assignments: Dict[str, Dict[str, Any]] = field(default_factory=dict)
-    l2_route_assignments: Dict[str, Dict[str, Any]] = field(default_factory=dict)
-    miner_route_assignments: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    researcher_route_assignments: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     trader_route_assignments: Dict[str, Dict[str, Any]] = field(default_factory=dict)
 
     # --- Paired genetic mechanism telemetry ---
@@ -616,13 +614,13 @@ class SimulationHarness:
 
     def __init__(
         self,
-        l1_agents: List[MinerAgent],
-        l2_agents: List[TraderAgent],
+        researcher_agents: List[MinerAgent],
+        trader_agents: List[TraderAgent],
         n_epochs: int = 3,
         n_trading_steps: int = 200,
     ):
-        self.l1_agents = l1_agents
-        self.l2_agents = l2_agents
+        self.researcher_agents = researcher_agents
+        self.trader_agents = trader_agents
         self.n_epochs = n_epochs
         self.n_trading_steps = n_trading_steps
         self._last_config: Optional[Dict] = None
@@ -675,11 +673,11 @@ class SimulationHarness:
 
         result.trading_pair_counts = {pair: 0 for pair in trading_pairs}
         validator_ids = [f"validator_{i}" for i in range(3)]
-        no_reveal_streaks = {agent.uid: 0 for agent in self.l1_agents}
-        commit_counts = {agent.uid: 0 for agent in self.l1_agents}
-        accuracy_when_committed = {agent.uid: [] for agent in self.l1_agents}
-        accuracy_when_not_committed = {agent.uid: [] for agent in self.l1_agents}
-        scoring_history = {agent.uid: [] for agent in self.l1_agents}
+        no_reveal_streaks = {agent.uid: 0 for agent in self.researcher_agents}
+        commit_counts = {agent.uid: 0 for agent in self.researcher_agents}
+        accuracy_when_committed = {agent.uid: [] for agent in self.researcher_agents}
+        accuracy_when_not_committed = {agent.uid: [] for agent in self.researcher_agents}
+        scoring_history = {agent.uid: [] for agent in self.researcher_agents}
 
         ovf_detector = ReferenceOverfittingDetector(
             gap_threshold=ovf_params["gap_threshold"],
@@ -695,20 +693,20 @@ class SimulationHarness:
             weights=weight_config,
         )
 
-        researcher_agents = {a.uid: a for a in self.l1_agents}
-        trader_agents = {a.uid: a for a in self.l2_agents}
+        researcher_agents = {a.uid: a for a in self.researcher_agents}
+        trader_agents = {a.uid: a for a in self.trader_agents}
         researcher_uids = list(researcher_agents)
         trader_uids = list(trader_agents)
         result.pairing_seed_source = config.get("pairing", {}).get(
             "pairing_seed_source", "chain_block_hash"
         )
 
-        for agent in self.l1_agents:
+        for agent in self.researcher_agents:
             result.miner_types[agent.uid] = agent.agent_type
-            result.l1_route_assignments[agent.uid] = agent.route_manifest()
-        for agent in self.l2_agents:
-            result.l2_types[agent.uid] = agent.agent_type
-            result.l2_route_assignments[agent.uid] = agent.route_manifest()
+            result.researcher_route_assignments[agent.uid] = agent.route_manifest()
+        for agent in self.trader_agents:
+            result.trader_types[agent.uid] = agent.agent_type
+            result.trader_route_assignments[agent.uid] = agent.route_manifest()
 
         # Pre-compute one shared price/feature path so every pair trades against
         # identical market conditions (deterministic, fair joint evaluation).
@@ -747,7 +745,7 @@ class SimulationHarness:
             return ScoreVector(raw=dict(sv.raw), normalized=norm, composite=sv.composite * factor)
 
         def _trading_score(trader_agent, model_id: str, artifact: bytes) -> "ScoreVector":
-            l2 = trader_agent.create_l2_miner({model_id: artifact}, trading_config)
+            l2 = trader_agent.create_trader_miner({model_id: artifact}, trading_config)
             for instrument, px, feats, ts in price_path:
                 l2.execute_step(instrument, px, feats, ts)
             engine = l2.engine
@@ -756,7 +754,7 @@ class SimulationHarness:
                 np.array(trades, dtype=float) / engine.initial_capital
                 if trades else np.array([0.0])
             )
-            return scorer.score_l2(
+            return scorer.score_trading(
                 realized_pnl=engine.realized_pnl,
                 returns=returns,
                 max_dd=engine.current_drawdown,
@@ -809,7 +807,7 @@ class SimulationHarness:
                         result.no_reveal_miners.append(uid)
 
                 if isinstance(agent, HonestMiner) and generation == 0:
-                    for other in self.l1_agents:
+                    for other in self.researcher_agents:
                         if isinstance(other, CopycatMiner) and other.target_uid == uid:
                             other.set_target_artifact(sub["model_artifact"])
 
@@ -865,7 +863,7 @@ class SimulationHarness:
 
                 # Anti-plagiarism / anti-copy: correlated submissions share reward
                 # (fingerprint + copy-trade detection carried over from the old
-                # L1/L2 validators), so duplicates cannot earn full credit.
+                # model/trading validators), so duplicates cannot earn full credit.
                 if isinstance(r_agent, CopycatMiner):
                     model_eff = _scaled(model_eff, 0.50)
                 if isinstance(t_agent, CopyTrader):
@@ -918,17 +916,17 @@ class SimulationHarness:
             score = researcher_quality[uid]
             result.miner_scores[uid] = score
             if agent.is_adversarial():
-                result.adversarial_l1_scores.append(score)
+                result.adversarial_researcher_scores.append(score)
             else:
-                result.honest_l1_scores.append(score)
+                result.honest_researcher_scores.append(score)
 
         for uid, agent in trader_agents.items():
             score = trader_quality[uid]
-            result.l2_scores[uid] = score
+            result.trader_scores[uid] = score
             if agent.is_adversarial():
-                result.adversarial_l2_scores.append(score)
+                result.adversarial_trader_scores.append(score)
             else:
-                result.honest_l2_scores.append(score)
+                result.honest_trader_scores.append(score)
 
         # Colluder "credit" in the same per-role quality space as the honest
         # baseline, so the pair_collusion vector can judge whether the ring's
@@ -995,13 +993,13 @@ class SimulationHarness:
             "n_pairs": result.n_pairs,
             "n_generations": n_generations,
         }
-        result.l2_epoch_result = final_summary
+        result.trading_epoch_result = final_summary
 
         # --- Pairing latency telemetry (replaces cross-layer feedback) ---
-        result.l1_feedback = {}
+        result.model_feedback = {}
         result.cross_layer_latencies = {
             uid: float(90 + idx * 20 + (140 if uid.startswith("copy_trader") else 0))
-            for idx, uid in enumerate(result.l2_types)
+            for idx, uid in enumerate(result.trader_types)
         }
 
         warning_streak = int(validation_timing.get("selective_reveal_warning_streak", 1))
@@ -1121,8 +1119,8 @@ class SimulationHarness:
             "symbol_diversity_threshold": symbol_diversity_threshold,
             "pc_vh_006_symbol_diversity": symbol_assessment.to_dict(),
             "bayesian_weight": bayesian_weight,
-            "l1_route_assignments": result.l1_route_assignments,
-            "l2_route_assignments": result.l2_route_assignments,
+            "researcher_route_assignments": result.researcher_route_assignments,
+            "trader_route_assignments": result.trader_route_assignments,
         }
         result.breach_trends = {
             "moving_average_breach_rate": [2.5e-5, 1.8e-5, 1.1e-5, 5.0e-6, 3.5e-6],
@@ -1210,51 +1208,51 @@ def create_default_agents(
             route = str(rng.choice(route_names))
         return route, build_profile(route, uid, agent_kind)
 
-    l1_agents: List[MinerAgent] = []
+    researcher_agents: List[MinerAgent] = []
     idx = 0
 
     for i in range(n_honest):
         uid = f"honest_{i}"
         route, profile = assign_route(uid, "l1")
-        l1_agents.append(HonestMiner(uid, seed=100 + i, n_features=8 + i, assigned_route=route, assigned_model_profile=profile))
+        researcher_agents.append(HonestMiner(uid, seed=100 + i, n_features=8 + i, assigned_route=route, assigned_model_profile=profile))
         idx += 1
 
     for i in range(n_overfitters):
         uid = f"overfitter_{i}"
         route, profile = assign_route(uid, "l1")
-        l1_agents.append(OverfittingMiner(uid, seed=200 + i, assigned_route=route, assigned_model_profile=profile))
+        researcher_agents.append(OverfittingMiner(uid, seed=200 + i, assigned_route=route, assigned_model_profile=profile))
         idx += 1
 
     for i in range(n_copycats):
         target = f"honest_0"
         uid = f"copycat_{i}"
         route, profile = assign_route(uid, "l1")
-        l1_agents.append(CopycatMiner(uid, target_uid=target, seed=300 + i, assigned_route=route, assigned_model_profile=profile))
+        researcher_agents.append(CopycatMiner(uid, target_uid=target, seed=300 + i, assigned_route=route, assigned_model_profile=profile))
         idx += 1
 
     for i in range(n_gamers):
         uid = f"gamer_{i}"
         route, profile = assign_route(uid, "l1")
-        l1_agents.append(SingleMetricGamer(uid, seed=400 + i, assigned_route=route, assigned_model_profile=profile))
+        researcher_agents.append(SingleMetricGamer(uid, seed=400 + i, assigned_route=route, assigned_model_profile=profile))
         idx += 1
 
     for i in range(n_sybils):
         uid = f"sybil_{i}"
         route, profile = assign_route(uid, "l1")
-        l1_agents.append(SybilMiner(uid, cluster_seed=500, identity_idx=i, assigned_route=route, assigned_model_profile=profile))
+        researcher_agents.append(SybilMiner(uid, cluster_seed=500, identity_idx=i, assigned_route=route, assigned_model_profile=profile))
         idx += 1
 
     for i in range(n_random):
         uid = f"random_{i}"
         route, profile = assign_route(uid, "l1")
-        l1_agents.append(RandomMiner(uid, seed=600 + i, assigned_route=route, assigned_model_profile=profile))
+        researcher_agents.append(RandomMiner(uid, seed=600 + i, assigned_route=route, assigned_model_profile=profile))
         idx += 1
 
     # Colluding researchers (matched trader added below with the same ring id).
     for i in range(n_colluding_rings):
         uid = f"colluder_{i}"
         route, profile = assign_route(uid, "l1")
-        l1_agents.append(
+        researcher_agents.append(
             ColludingResearcher(
                 uid, seed=900 + i, assigned_route=route,
                 assigned_model_profile=profile, collusion_id=f"ring_{i}",
@@ -1262,22 +1260,22 @@ def create_default_agents(
         )
         idx += 1
 
-    l2_agents: List[TraderAgent] = []
+    trader_agents: List[TraderAgent] = []
     for i in range(n_honest_traders):
         uid = f"trader_{i}"
         route, profile = assign_route(uid, "l2")
-        l2_agents.append(HonestTrader(uid, seed=700 + i, assigned_route=route, assigned_model_profile=profile))
+        trader_agents.append(HonestTrader(uid, seed=700 + i, assigned_route=route, assigned_model_profile=profile))
 
     for i in range(n_copy_traders):
         uid = f"copy_trader_{i}"
         route, profile = assign_route(uid, "l2")
-        l2_agents.append(CopyTrader(uid, seed=800 + i, assigned_route=route, assigned_model_profile=profile))
+        trader_agents.append(CopyTrader(uid, seed=800 + i, assigned_route=route, assigned_model_profile=profile))
 
     # Colluding traders sharing a ring id with the colluding researchers.
     for i in range(n_colluding_rings):
         uid = f"colluder_trader_{i}"
         route, profile = assign_route(uid, "l2")
-        l2_agents.append(
+        trader_agents.append(
             ColludingTrader(
                 uid, seed=850 + i, assigned_route=route,
                 assigned_model_profile=profile, collusion_id=f"ring_{i}",
@@ -1287,9 +1285,9 @@ def create_default_agents(
     for i in range(n_partner_gamers):
         uid = f"partner_gamer_{i}"
         route, profile = assign_route(uid, "l2")
-        l2_agents.append(PartnerGamingTrader(uid, seed=950 + i, assigned_route=route, assigned_model_profile=profile))
+        trader_agents.append(PartnerGamingTrader(uid, seed=950 + i, assigned_route=route, assigned_model_profile=profile))
 
-    return l1_agents, l2_agents
+    return researcher_agents, trader_agents
 
 
 # ---------------------------------------------------------------------------
@@ -1303,18 +1301,18 @@ if __name__ == "__main__":
     logging.getLogger().setLevel(logging.WARNING)
 
     print("Running paired-mechanism simulation with default parameters...")
-    l1_agents, l2_agents = create_default_agents(
+    researcher_agents, trader_agents = create_default_agents(
         n_honest=6, n_overfitters=1, n_copycats=1,
         n_gamers=1, n_sybils=1, n_random=0,
         n_honest_traders=3, n_copy_traders=1,
         n_colluding_rings=1, n_partner_gamers=1,
     )
-    print(f"Researcher miners: {len(l1_agents)} ({', '.join(a.agent_type for a in l1_agents)})")
-    print(f"Trader miners:     {len(l2_agents)} ({', '.join(a.agent_type for a in l2_agents)})")
+    print(f"Researcher miners: {len(researcher_agents)} ({', '.join(a.agent_type for a in researcher_agents)})")
+    print(f"Trader miners:     {len(trader_agents)} ({', '.join(a.agent_type for a in trader_agents)})")
 
     harness = SimulationHarness(
-        l1_agents=l1_agents,
-        l2_agents=l2_agents,
+        researcher_agents=researcher_agents,
+        trader_agents=trader_agents,
         n_epochs=3,
         n_trading_steps=120,
     )
@@ -1323,16 +1321,16 @@ if __name__ == "__main__":
     result = harness.run(defaults)
 
     print(f"\n=== Researcher credits (single emission vector) ===")
-    print(f"Honest:      {[round(s, 4) for s in result.honest_l1_scores]}")
-    print(f"Adversarial: {[round(s, 4) for s in result.adversarial_l1_scores]}")
-    if result.honest_l1_scores:
-        print(f"Mean honest researcher:      {np.mean(result.honest_l1_scores):.4f}")
-    if result.adversarial_l1_scores:
-        print(f"Mean adversarial researcher: {np.mean(result.adversarial_l1_scores):.4f}")
+    print(f"Honest:      {[round(s, 4) for s in result.honest_researcher_scores]}")
+    print(f"Adversarial: {[round(s, 4) for s in result.adversarial_researcher_scores]}")
+    if result.honest_researcher_scores:
+        print(f"Mean honest researcher:      {np.mean(result.honest_researcher_scores):.4f}")
+    if result.adversarial_researcher_scores:
+        print(f"Mean adversarial researcher: {np.mean(result.adversarial_researcher_scores):.4f}")
 
     print(f"\n=== Trader credits ===")
-    print(f"Honest:      {[round(s, 4) for s in result.honest_l2_scores]}")
-    print(f"Adversarial: {[round(s, 4) for s in result.adversarial_l2_scores]}")
+    print(f"Honest:      {[round(s, 4) for s in result.honest_trader_scores]}")
+    print(f"Adversarial: {[round(s, 4) for s in result.adversarial_trader_scores]}")
 
     print(f"\n=== Pairing ===")
     print(f"Pairs evaluated (final gen): {result.n_pairs}")

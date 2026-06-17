@@ -1,9 +1,9 @@
 """
-Layer 2 Validator — Strategy Performance Scoring
+Trading Validator — Strategy Performance Scoring
 
-Validates Layer 2 miner strategies by scoring their real/paper trading
-outcomes. L2 validators track positions in real-time, compute risk-adjusted
-performance metrics, and assign scores for Yuma consensus.
+Validates trader miner strategies by scoring their real/paper trading
+outcomes. Trading validators track positions in real-time, compute
+risk-adjusted performance metrics, and assign scores for Yuma consensus.
 
 Scoring Dimensions (9):
   - Realized P&L (absolute returns)
@@ -16,11 +16,14 @@ Scoring Dimensions (9):
   - Sharpe Ratio (risk-adjusted return per unit total volatility)
   - Sortino Ratio (risk-adjusted return per unit downside volatility)
 
-L2 validators also feed performance data back to Layer 1 via the
-cross-layer feedback engine, closing the simulation-to-reality loop.
+Under the single paired mechanism, the unified ``PairedValidator``
+(``neurons/validator.py``) scores the trading half of each pair using
+``CompositeScorer.score_trading``; this module is the legacy standalone
+trading validator retained for the emulator and demos. The cross-layer
+feedback engine it references is legacy two-layer machinery.
 
 Usage:
-    python neurons/l2_validator.py --netuid <NETUID> --wallet.name <WALLET> --subtensor.network test
+    python neurons/trading_validator.py --netuid <NETUID> --wallet.name <WALLET> --subtensor.network test
 """
 
 from __future__ import annotations
@@ -46,7 +49,7 @@ from insignia.incentive import (
     CrossLayerFeedbackEngine,
 )
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [L2-Validator] %(message)s")
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [Trading-Validator] %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -57,7 +60,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class StrategyTracker:
     """
-    Tracks a single L2 miner's strategy in real-time.
+    Tracks a single trader miner's strategy in real-time.
 
     Maintains position state, equity curve, execution telemetry, and all
     metrics needed for scoring. Updated incrementally as position updates
@@ -121,7 +124,7 @@ class StrategyTracker:
 
     def record_execution_event(self, event: Dict):
         """
-        Record an execution telemetry event from the L2 miner.
+        Record an execution telemetry event from the trader miner.
 
         Supported event types:
           - "latency": records end-to-end intent latency in ms
@@ -189,23 +192,26 @@ class StrategyTracker:
 
 
 # ---------------------------------------------------------------------------
-# L2 Validator
+# Trading Validator (legacy standalone trading validator)
 # ---------------------------------------------------------------------------
 
-class L2Validator:
+class TradingValidator:
     """
-    Layer 2 Validator neuron.
+    Trading Validator neuron (legacy standalone trading validator).
 
     Manages continuous strategy tracking, periodic scoring, and
-    cross-layer feedback for all registered L2 miners.
+    cross-layer feedback for all registered trader miners.
 
     The validator:
-      1. Receives position updates from L2 miners (streaming)
+      1. Receives position updates from trader miners (streaming)
       2. Tracks equity curves and risk metrics in real-time
       3. Computes scores at epoch boundaries (e.g., daily or weekly)
       4. Eliminates strategies that breach drawdown limits
-      5. Feeds performance data back to L1 via CrossLayerFeedbackEngine
+      5. (Legacy) feeds performance data back via CrossLayerFeedbackEngine
       6. Computes Yuma consensus weights
+
+    Under the single paired mechanism this role is subsumed by
+    ``PairedValidator``.
     """
 
     def __init__(
@@ -238,7 +244,7 @@ class L2Validator:
         logger.info("Registered strategy %s for miner %s", strategy_id, miner_uid)
 
     def process_position_update(self, miner_uid: str, update: Dict):
-        """Process a real-time position update from an L2 miner."""
+        """Process a real-time position update from a trader miner."""
         tracker = self.trackers.get(miner_uid)
         if not tracker:
             logger.warning("Unknown miner %s", miner_uid)
@@ -268,7 +274,7 @@ class L2Validator:
         Returns epoch summary with per-miner scores and rankings.
         """
         logger.info("=" * 50)
-        logger.info("L2 Epoch %d — Scoring %d strategies", self.current_epoch, len(self.trackers))
+        logger.info("Trading Epoch %d — Scoring %d strategies", self.current_epoch, len(self.trackers))
 
         scores = {}
         for miner_uid, tracker in self.trackers.items():
@@ -282,7 +288,7 @@ class L2Validator:
 
             exec_metrics = tracker.build_execution_metrics()
 
-            score = self.scorer.score_l2(
+            score = self.scorer.score_trading(
                 realized_pnl=tracker.total_pnl,
                 returns=returns,
                 max_dd=tracker.max_drawdown,
@@ -370,27 +376,27 @@ class L2Validator:
 # ---------------------------------------------------------------------------
 
 def demo():
-    """Demonstrate L2 validator scoring with multiple strategy miners."""
+    """Demonstrate trading validator scoring with multiple trader miners."""
     logger.info("=" * 60)
-    logger.info("Insignia L2 Validator — Demo Mode")
+    logger.info("Insignia Trading Validator — Demo Mode")
     logger.info("=" * 60)
 
-    from neurons.l2_miner import L2StrategyMiner, PaperTradingEngine, Side
-    from neurons.l1_miner import L1Miner, generate_demo_data
+    from neurons.trader_miner import TraderMiner, PaperTradingEngine, Side
+    from neurons.researcher_miner import ResearcherMiner, generate_demo_data
 
-    logger.info("Step 1: Train and promote L1 models...")
+    logger.info("Step 1: Researchers train models...")
     models = {}
     for i in range(3):
         data = generate_demo_data(n_samples=3000, seed=42 + i)
-        miner = L1Miner()
+        miner = ResearcherMiner()
         sub = miner.train_and_submit(data)
         model_id = f"model_{i}"
         models[model_id] = sub["model_artifact"]
-        logger.info("  Promoted model %s", model_id)
+        logger.info("  Trained model %s", model_id)
 
-    logger.info("Step 2: Initialize L2 miners with different strategies...")
-    validator = L2Validator()
-    l2_miners = {}
+    logger.info("Step 2: Initialize trader miners with different strategies...")
+    validator = TradingValidator()
+    traders = {}
 
     for j in range(4):
         engine = PaperTradingEngine(
@@ -398,16 +404,16 @@ def demo():
             max_position_pct=0.05 + j * 0.02,
             max_drawdown_pct=0.20,
         )
-        l2 = L2StrategyMiner(engine=engine)
+        trader = TraderMiner(engine=engine)
         for mid, artifact in list(models.items())[:2 + (j % 2)]:
-            l2.load_model(mid, artifact)
+            trader.load_assigned_model(mid, artifact)
 
-        miner_uid = f"l2_miner_{j}"
-        l2_miners[miner_uid] = l2
+        miner_uid = f"trader_{j}"
+        traders[miner_uid] = trader
         validator.register_strategy(
             miner_uid=miner_uid,
-            strategy_id=l2.strategy_id,
-            model_ids=list(l2.models.keys()),
+            strategy_id=trader.strategy_id,
+            model_ids=list(trader.models.keys()),
         )
 
     logger.info("Step 3: Simulate paper trading across all miners...")
@@ -421,8 +427,8 @@ def demo():
         features[0] = ret
         ts = time.time() + step * 3600
 
-        for uid, l2 in l2_miners.items():
-            update = l2.execute_step("BTC-USDT-PERP", price, features, ts)
+        for uid, trader in traders.items():
+            update = trader.execute_step("BTC-USDT-PERP", price, features, ts)
             if update:
                 validator.process_position_update(uid, update)
 
@@ -433,7 +439,7 @@ def demo():
     logger.info("  Active: %d", epoch_result["n_active"])
     logger.info("  Eliminated: %d", epoch_result["n_eliminated"])
 
-    logger.info("\n--- L1 Feedback Adjustments ---")
+    logger.info("\n--- Cross-layer Feedback Adjustments (legacy) ---")
     for mid, adj in validator.get_l1_feedback().items():
         logger.info("  %s: %.4f", mid, adj)
 

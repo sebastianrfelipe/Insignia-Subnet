@@ -6,13 +6,13 @@ constraints, and provides encoding/decoding between flat numeric vectors
 (for the optimizer) and structured configuration objects (for the subnet).
 
 The parameter space is organized into groups:
-  - L1 scoring weights (must sum to 1.0)
-  - L2 scoring weights (must sum to 1.0)
+  - Model scoring weights (must sum to 1.0)
+  - Trading scoring weights (must sum to 1.0)
   - Overfitting detector thresholds
-  - Cross-layer promotion criteria
-  - Cross-layer feedback weights
+  - Cross-layer promotion criteria (legacy two-layer machinery)
+  - Cross-layer feedback weights (legacy two-layer machinery)
   - Anti-gaming thresholds
-  - L2 trading engine parameters
+  - Trading engine parameters
   - Buyback mechanism parameters
 """
 
@@ -42,25 +42,25 @@ class ParameterBounds:
 
 # All tunable parameters with bounds
 PARAMETER_DEFINITIONS: List[ParameterBounds] = [
-    # L1 Scoring Weights (7 params, must sum to 1.0)
-    ParameterBounds("l1_penalized_f1",         0.05, 0.40, "l1_weights", "Weight for Penalized F1"),
-    ParameterBounds("l1_penalized_sharpe",     0.05, 0.40, "l1_weights", "Weight for Penalized Sharpe Ratio"),
-    ParameterBounds("l1_max_drawdown",         0.05, 0.30, "l1_weights", "Weight for max drawdown penalty"),
-    ParameterBounds("l1_variance_score",       0.05, 0.30, "l1_weights", "Weight for Variance Score (cross-regime consistency)"),
-    ParameterBounds("l1_overfitting_penalty",  0.05, 0.35, "l1_weights", "Weight for overfitting penalty"),
-    ParameterBounds("l1_feature_efficiency",   0.01, 0.15, "l1_weights", "Weight for feature efficiency"),
-    ParameterBounds("l1_latency",              0.01, 0.20, "l1_weights", "Weight for latency score"),
+    # Model Scoring Weights (7 params, must sum to 1.0)
+    ParameterBounds("model_penalized_f1",         0.05, 0.40, "model_weights", "Weight for Penalized F1"),
+    ParameterBounds("model_penalized_sharpe",     0.05, 0.40, "model_weights", "Weight for Penalized Sharpe Ratio"),
+    ParameterBounds("model_max_drawdown",         0.05, 0.30, "model_weights", "Weight for max drawdown penalty"),
+    ParameterBounds("model_variance_score",       0.05, 0.30, "model_weights", "Weight for Variance Score (cross-regime consistency)"),
+    ParameterBounds("model_overfitting_penalty",  0.05, 0.35, "model_weights", "Weight for overfitting penalty"),
+    ParameterBounds("model_feature_efficiency",   0.01, 0.15, "model_weights", "Weight for feature efficiency"),
+    ParameterBounds("model_latency",              0.01, 0.20, "model_weights", "Weight for latency score"),
 
-    # L2 Scoring Weights (9 params, must sum to 1.0)
-    ParameterBounds("l2_realized_pnl",            0.05, 0.40, "l2_weights", "Weight for realized P&L"),
-    ParameterBounds("l2_omega",                   0.05, 0.30, "l2_weights", "Weight for Omega ratio"),
-    ParameterBounds("l2_max_drawdown",            0.05, 0.30, "l2_weights", "Weight for max drawdown"),
-    ParameterBounds("l2_win_rate",                0.02, 0.25, "l2_weights", "Weight for win rate"),
-    ParameterBounds("l2_consistency",             0.05, 0.30, "l2_weights", "Weight for consistency"),
-    ParameterBounds("l2_execution_quality",       0.05, 0.30, "l2_weights", "Weight for execution quality (latency, reliability, slippage)"),
-    ParameterBounds("l2_annualized_volatility",   0.02, 0.15, "l2_weights", "Weight for annualized volatility (inverted — lower vol = higher score)"),
-    ParameterBounds("l2_sharpe_ratio",            0.02, 0.15, "l2_weights", "Weight for Sharpe ratio (risk-adjusted return per unit total vol)"),
-    ParameterBounds("l2_sortino_ratio",           0.02, 0.15, "l2_weights", "Weight for Sortino ratio (risk-adjusted return per unit downside vol)"),
+    # Trading Scoring Weights (9 params, must sum to 1.0)
+    ParameterBounds("trading_realized_pnl",            0.05, 0.40, "trading_weights", "Weight for realized P&L"),
+    ParameterBounds("trading_omega",                   0.05, 0.30, "trading_weights", "Weight for Omega ratio"),
+    ParameterBounds("trading_max_drawdown",            0.05, 0.30, "trading_weights", "Weight for max drawdown"),
+    ParameterBounds("trading_win_rate",                0.02, 0.25, "trading_weights", "Weight for win rate"),
+    ParameterBounds("trading_consistency",             0.05, 0.30, "trading_weights", "Weight for consistency"),
+    ParameterBounds("trading_execution_quality",       0.05, 0.30, "trading_weights", "Weight for execution quality (latency, reliability, slippage)"),
+    ParameterBounds("trading_annualized_volatility",   0.02, 0.15, "trading_weights", "Weight for annualized volatility (inverted — lower vol = higher score)"),
+    ParameterBounds("trading_sharpe_ratio",            0.02, 0.15, "trading_weights", "Weight for Sharpe ratio (risk-adjusted return per unit total vol)"),
+    ParameterBounds("trading_sortino_ratio",           0.02, 0.15, "trading_weights", "Weight for Sortino ratio (risk-adjusted return per unit downside vol)"),
 
     # Overfitting Detector
     ParameterBounds("overfit_gap_threshold", 0.05, 0.40, "overfitting", "IS/OOS gap before penalty kicks in"),
@@ -83,7 +83,7 @@ PARAMETER_DEFINITIONS: List[ParameterBounds] = [
     ParameterBounds("copy_trade_size_tolerance",         0.01, 0.15,  "anti_gaming", "Size tolerance (%) for copy-trade matching"),
     ParameterBounds("copy_trade_correlation_threshold",  0.75, 0.98,  "anti_gaming", "Correlation threshold for copy-trade detection"),
 
-    # L2 Trading Engine
+    # Trading Engine
     ParameterBounds("slippage_base_spread_bps",     0.5,  10.0, "trading", "Base spread in basis points"),
     ParameterBounds("slippage_vol_impact_factor",   0.1,   2.0, "trading", "Volatility impact multiplier"),
     ParameterBounds("slippage_size_impact_factor",  0.01,  0.5, "trading", "Size impact multiplier"),
@@ -172,13 +172,13 @@ def get_group_indices() -> Dict[str, List[int]]:
 
 def repair_weights(x: np.ndarray) -> np.ndarray:
     """
-    Repair operator: normalize L1 and L2 weight groups to sum to 1.0.
+    Repair operator: normalize model and trading weight groups to sum to 1.0.
     Preserves relative proportions while enforcing the constraint.
     """
     x = x.copy()
     groups = get_group_indices()
 
-    for group_name in ("l1_weights", "l2_weights"):
+    for group_name in ("model_weights", "trading_weights"):
         indices = groups[group_name]
         vals = x[indices]
         total = vals.sum()
@@ -199,22 +199,22 @@ def decode(x: np.ndarray) -> Dict[str, Any]:
     p = {name: float(val) for name, val in zip(PARAM_NAMES, x)}
 
     weight_config = WeightConfig(
-        l1_penalized_f1=p["l1_penalized_f1"],
-        l1_penalized_sharpe=p["l1_penalized_sharpe"],
-        l1_max_drawdown=p["l1_max_drawdown"],
-        l1_variance_score=p["l1_variance_score"],
-        l1_overfitting_penalty=p["l1_overfitting_penalty"],
-        l1_feature_efficiency=p["l1_feature_efficiency"],
-        l1_latency=p["l1_latency"],
-        l2_realized_pnl=p["l2_realized_pnl"],
-        l2_omega=p["l2_omega"],
-        l2_max_drawdown=p["l2_max_drawdown"],
-        l2_win_rate=p["l2_win_rate"],
-        l2_consistency=p["l2_consistency"],
-        l2_execution_quality=p["l2_execution_quality"],
-        l2_annualized_volatility=p["l2_annualized_volatility"],
-        l2_sharpe_ratio=p["l2_sharpe_ratio"],
-        l2_sortino_ratio=p["l2_sortino_ratio"],
+        model_penalized_f1=p["model_penalized_f1"],
+        model_penalized_sharpe=p["model_penalized_sharpe"],
+        model_max_drawdown=p["model_max_drawdown"],
+        model_variance_score=p["model_variance_score"],
+        model_overfitting_penalty=p["model_overfitting_penalty"],
+        model_feature_efficiency=p["model_feature_efficiency"],
+        model_latency=p["model_latency"],
+        trading_realized_pnl=p["trading_realized_pnl"],
+        trading_omega=p["trading_omega"],
+        trading_max_drawdown=p["trading_max_drawdown"],
+        trading_win_rate=p["trading_win_rate"],
+        trading_consistency=p["trading_consistency"],
+        trading_execution_quality=p["trading_execution_quality"],
+        trading_annualized_volatility=p["trading_annualized_volatility"],
+        trading_sharpe_ratio=p["trading_sharpe_ratio"],
+        trading_sortino_ratio=p["trading_sortino_ratio"],
         pair_blend_alpha=p["pair_blend_alpha"],
     )
 
@@ -356,13 +356,13 @@ def decode(x: np.ndarray) -> Dict[str, Any]:
 def encode_defaults() -> np.ndarray:
     """Encode the default parameter configuration as a flat vector."""
     defaults = {
-        "l1_penalized_f1": 0.22, "l1_penalized_sharpe": 0.18, "l1_max_drawdown": 0.14,
-        "l1_variance_score": 0.16, "l1_overfitting_penalty": 0.14, "l1_feature_efficiency": 0.06,
-        "l1_latency": 0.10,
-        "l2_realized_pnl": 0.20, "l2_omega": 0.13, "l2_max_drawdown": 0.14,
-        "l2_win_rate": 0.06, "l2_consistency": 0.20,
-        "l2_execution_quality": 0.10,
-        "l2_annualized_volatility": 0.05, "l2_sharpe_ratio": 0.06, "l2_sortino_ratio": 0.06,
+        "model_penalized_f1": 0.22, "model_penalized_sharpe": 0.18, "model_max_drawdown": 0.14,
+        "model_variance_score": 0.16, "model_overfitting_penalty": 0.14, "model_feature_efficiency": 0.06,
+        "model_latency": 0.10,
+        "trading_realized_pnl": 0.20, "trading_omega": 0.13, "trading_max_drawdown": 0.14,
+        "trading_win_rate": 0.06, "trading_consistency": 0.20,
+        "trading_execution_quality": 0.10,
+        "trading_annualized_volatility": 0.05, "trading_sharpe_ratio": 0.06, "trading_sortino_ratio": 0.06,
         "overfit_gap_threshold": 0.15, "overfit_decay_rate": 5.0,
         "promotion_top_n": 8, "promotion_min_consecutive_epochs": 3,
         "promotion_max_overfitting_score": 0.35, "promotion_max_score_decay_pct": 0.15,
@@ -424,16 +424,16 @@ def summarize_config(config: Dict[str, Any]) -> str:
     lines = []
     p = config["raw_params"]
 
-    lines.append("=== L1 Scoring Weights ===")
-    for k in ["l1_penalized_f1", "l1_penalized_sharpe", "l1_max_drawdown",
-              "l1_variance_score", "l1_overfitting_penalty", "l1_feature_efficiency", "l1_latency"]:
+    lines.append("=== Model Scoring Weights ===")
+    for k in ["model_penalized_f1", "model_penalized_sharpe", "model_max_drawdown",
+              "model_variance_score", "model_overfitting_penalty", "model_feature_efficiency", "model_latency"]:
         lines.append(f"  {k}: {p[k]:.4f}")
 
-    lines.append("=== L2 Scoring Weights ===")
-    for k in ["l2_realized_pnl", "l2_omega", "l2_max_drawdown",
-              "l2_win_rate", "l2_consistency",
-              "l2_execution_quality", "l2_annualized_volatility",
-              "l2_sharpe_ratio", "l2_sortino_ratio"]:
+    lines.append("=== Trading Scoring Weights ===")
+    for k in ["trading_realized_pnl", "trading_omega", "trading_max_drawdown",
+              "trading_win_rate", "trading_consistency",
+              "trading_execution_quality", "trading_annualized_volatility",
+              "trading_sharpe_ratio", "trading_sortino_ratio"]:
         lines.append(f"  {k}: {p[k]:.4f}")
 
     lines.append("=== Overfitting Detector ===")
@@ -502,15 +502,15 @@ if __name__ == "__main__":
     print("\nDefault configuration:")
     print(summarize_config(config))
 
-    print("\nL1 weights sum:", sum(
+    print("\nModel weights sum:", sum(
         config["raw_params"][k] for k in
-        ["l1_penalized_f1", "l1_penalized_sharpe", "l1_max_drawdown",
-         "l1_variance_score", "l1_overfitting_penalty", "l1_feature_efficiency", "l1_latency"]
+        ["model_penalized_f1", "model_penalized_sharpe", "model_max_drawdown",
+         "model_variance_score", "model_overfitting_penalty", "model_feature_efficiency", "model_latency"]
     ))
-    print("L2 weights sum:", sum(
+    print("Trading weights sum:", sum(
         config["raw_params"][k] for k in
-        ["l2_realized_pnl", "l2_omega", "l2_max_drawdown",
-         "l2_win_rate", "l2_consistency",
-         "l2_execution_quality", "l2_annualized_volatility",
-         "l2_sharpe_ratio", "l2_sortino_ratio"]
+        ["trading_realized_pnl", "trading_omega", "trading_max_drawdown",
+         "trading_win_rate", "trading_consistency",
+         "trading_execution_quality", "trading_annualized_volatility",
+         "trading_sharpe_ratio", "trading_sortino_ratio"]
     ))

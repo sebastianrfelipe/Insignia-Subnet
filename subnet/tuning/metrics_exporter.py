@@ -90,13 +90,13 @@ class MetricsRegistry:
 REGISTRY = MetricsRegistry()
 
 # Pre-defined metrics
-L1_SCORE = REGISTRY.gauge("insignia_l1_composite_score", "L1 miner composite score")
-L1_WEIGHT = REGISTRY.gauge("insignia_l1_consensus_weight", "L1 miner consensus weight")
-L2_SCORE = REGISTRY.gauge("insignia_l2_composite_score", "L2 strategy composite score")
-L2_PNL = REGISTRY.gauge("insignia_l2_realized_pnl", "L2 strategy realized P&L")
-L2_DRAWDOWN = REGISTRY.gauge("insignia_l2_max_drawdown", "L2 strategy max drawdown")
-PROMOTION_COUNT = REGISTRY.gauge("insignia_promotion_active_count", "Active models in L2 pool")
-FEEDBACK_ADJ = REGISTRY.gauge("insignia_feedback_adjustment", "Cross-layer feedback adjustment")
+RESEARCHER_SCORE = REGISTRY.gauge("insignia_researcher_composite_score", "Researcher miner model composite score")
+RESEARCHER_WEIGHT = REGISTRY.gauge("insignia_researcher_consensus_weight", "Researcher miner consensus weight")
+TRADER_SCORE = REGISTRY.gauge("insignia_trader_composite_score", "Trader miner strategy composite score")
+TRADER_PNL = REGISTRY.gauge("insignia_trader_realized_pnl", "Trader miner strategy realized P&L")
+TRADER_DRAWDOWN = REGISTRY.gauge("insignia_trader_max_drawdown", "Trader miner strategy max drawdown")
+PROMOTION_COUNT = REGISTRY.gauge("insignia_promotion_active_count", "Active models (legacy promotion pool)")
+FEEDBACK_ADJ = REGISTRY.gauge("insignia_feedback_adjustment", "Cross-layer feedback adjustment (legacy)")
 COMMIT_TIMESTAMP = REGISTRY.gauge("insignia_commit_timestamp", "Commit timestamp by miner and epoch")
 REVEAL_TIMESTAMP = REGISTRY.gauge("insignia_reveal_timestamp", "Reveal timestamp by miner and epoch")
 NO_REVEAL_STREAK = REGISTRY.gauge("insignia_no_reveal_streak", "Consecutive no-reveal streak by miner")
@@ -126,11 +126,11 @@ def export_simulation_metrics(
 
     for uid, score in sim_result.miner_scores.items():
         mtype = sim_result.miner_types.get(uid, "unknown")
-        L1_SCORE.set(score, miner=uid, agent_type=mtype, generation=gen_label)
+        RESEARCHER_SCORE.set(score, miner=uid, agent_type=mtype, generation=gen_label)
 
-    for uid, score in sim_result.l2_scores.items():
-        ltype = sim_result.l2_types.get(uid, "unknown")
-        L2_SCORE.set(score, miner=uid, agent_type=ltype, generation=gen_label)
+    for uid, score in sim_result.trader_scores.items():
+        ltype = sim_result.trader_types.get(uid, "unknown")
+        TRADER_SCORE.set(score, miner=uid, agent_type=ltype, generation=gen_label)
 
     for pair, count in getattr(sim_result, "trading_pair_counts", {}).items():
         TRADING_PAIR_ACTIVITY.set(float(count), pair=pair, generation=gen_label)
@@ -141,7 +141,7 @@ def export_simulation_metrics(
             generation=gen_label,
         )
 
-    for mid, adj in sim_result.l1_feedback.items():
+    for mid, adj in sim_result.model_feedback.items():
         FEEDBACK_ADJ.set(adj, model=mid, generation=gen_label)
 
     for key, ts in getattr(sim_result, "commit_timestamps", {}).items():
@@ -251,8 +251,8 @@ if __name__ == "__main__":
 
     ATTACK_BREACH.set(1.0, attack="overfitting", generation="0")
     ATTACK_SEVERITY.set(0.35, attack="overfitting", generation="0")
-    L1_SCORE.set(0.72, miner="honest_0", agent_type="honest", generation="0")
-    L1_SCORE.set(0.65, miner="overfitter_0", agent_type="overfitter", generation="0")
+    RESEARCHER_SCORE.set(0.72, miner="honest_0", agent_type="honest", generation="0")
+    RESEARCHER_SCORE.set(0.65, miner="overfitter_0", agent_type="overfitter", generation="0")
     GEN_COUNTER.set(5.0)
 
     start_metrics_server(8000)
