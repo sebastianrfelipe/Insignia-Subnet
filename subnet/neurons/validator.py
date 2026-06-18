@@ -2,7 +2,7 @@
 Insignia Paired Validator — Single-Mechanism Joint Evaluation
 
 The unified validator for the paired genetic incentive mechanism. It replaces
-the separate L1 and L2 validators + cross-layer feedback with one pipeline:
+the separate model and trading validators + cross-layer feedback with one pipeline:
 
     chain-seeded pairing
         -> joint evaluation (model on benchmark + strategy using that model)
@@ -12,10 +12,11 @@ the separate L1 and L2 validators + cross-layer feedback with one pipeline:
         -> a single Yuma `set_weights` vector over all miner UIDs
 
 The validator is agnostic about *how* the two halves of a pair are scored: the
-caller supplies a model `ScoreVector` (typically from `ModelEvaluator` against
-the proprietary benchmark) and a trading `ScoreVector` (typically from running
-the trader's strategy with the paired model through paper/live trading). This
-mirrors the granular APIs of the old `L1Validator`/`L2Validator` and lets both
+    caller supplies a model `ScoreVector` (typically from `ModelEvaluator` against
+the proprietary benchmark, see `neurons/model_validator.py`) and a trading
+`ScoreVector` (typically from running the trader's strategy with the paired
+model through paper/live trading). This
+mirrors the granular APIs of the legacy `ModelValidator`/`TradingValidator` and lets both
 the live neuron and the simulation harness reuse the same code.
 
 Usage:

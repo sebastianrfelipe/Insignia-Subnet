@@ -9,7 +9,7 @@ Modules:
     config          – Network endpoints, wallet names, subnet hyperparameters
     wallet_manager  – btcli wallet creation and funding helpers
     subnet_manager  – Subnet lifecycle (create, register, configure)
-    emulator        – Full L1/L2 emulator bridging simulation agents to the chain
+    emulator        – Full researcher/trader emulator bridging simulation agents to the chain
     run_emulator    – CLI entry point
 """
 

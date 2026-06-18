@@ -260,14 +260,14 @@ class EmulatorConfig:
     market_data: MarketDataConfig = field(default_factory=MarketDataConfig)
     model_routing: ModelRoutingConfig = field(default_factory=ModelRoutingConfig)
 
-    n_l1_epochs: int = 5
-    n_l2_trading_steps: int = 300
+    n_epochs: int = 5
+    n_trading_steps: int = 300
     epoch_interval_seconds: int = 120
 
-    n_honest_l1: int = 6
-    n_adversarial_l1: int = 4
-    n_honest_l2: int = 3
-    n_adversarial_l2: int = 1
+    n_honest_researchers: int = 6
+    n_adversarial_researchers: int = 4
+    n_honest_traders: int = 3
+    n_adversarial_traders: int = 1
 
     output_dir: str = "testnet_results"
     enable_metrics: bool = True
@@ -291,12 +291,12 @@ class EmulatorConfig:
             "network": self.network.value,
             "endpoint": self.endpoint,
             "netuid": self.netuid,
-            "n_l1_epochs": self.n_l1_epochs,
-            "n_l2_trading_steps": self.n_l2_trading_steps,
-            "n_honest_l1": self.n_honest_l1,
-            "n_adversarial_l1": self.n_adversarial_l1,
-            "n_honest_l2": self.n_honest_l2,
-            "n_adversarial_l2": self.n_adversarial_l2,
+            "n_epochs": self.n_epochs,
+            "n_trading_steps": self.n_trading_steps,
+            "n_honest_researchers": self.n_honest_researchers,
+            "n_adversarial_researchers": self.n_adversarial_researchers,
+            "n_honest_traders": self.n_honest_traders,
+            "n_adversarial_traders": self.n_adversarial_traders,
             "wallets": {
                 "owner": self.wallets.owner_coldkey,
                 "n_validators": self.wallets.n_validators,
@@ -327,9 +327,9 @@ def load_config_from_env() -> EmulatorConfig:
     return EmulatorConfig(
         network=network,
         netuid=int(os.environ["INSIGNIA_NETUID"]) if "INSIGNIA_NETUID" in os.environ else None,
-        n_l1_epochs=int(os.environ.get("INSIGNIA_L1_EPOCHS", "5")),
-        n_l2_trading_steps=int(os.environ.get("INSIGNIA_L2_STEPS", "300")),
-        n_honest_l1=int(os.environ.get("INSIGNIA_HONEST_L1", "6")),
-        n_adversarial_l1=int(os.environ.get("INSIGNIA_ADVERSARIAL_L1", "4")),
+        n_epochs=int(os.environ.get("INSIGNIA_EPOCHS", "5")),
+        n_trading_steps=int(os.environ.get("INSIGNIA_TRADING_STEPS", "300")),
+        n_honest_researchers=int(os.environ.get("INSIGNIA_HONEST_RESEARCHERS", "6")),
+        n_adversarial_researchers=int(os.environ.get("INSIGNIA_ADVERSARIAL_RESEARCHERS", "4")),
         output_dir=os.environ.get("INSIGNIA_OUTPUT_DIR", "testnet_results"),
     )

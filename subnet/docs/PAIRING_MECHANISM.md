@@ -73,9 +73,9 @@ For each pair `(R, T)` a validator:
 
 1. Queries `R` for its model artifact and `T` for its trading-operation logic.
 2. Runs the model on the proprietary benchmark → the **7 model metrics**
-   (`CompositeScorer.score_l1`, unchanged).
+   (`CompositeScorer.score_model`).
 3. Runs `T`'s strategy **using `R`'s model signals** through paper/live trading
-   → the **10 trading metrics** (`CompositeScorer.score_l2`, unchanged).
+   → the **9 trading metrics** (`CompositeScorer.score_trading`).
 4. Combines the two `ScoreVector`s into a `PairScore` (see
    `CompositeScorer.combine_pair_scores`):
    - `pair_composite = alpha * model_composite + (1 - alpha) * trading_composite`
@@ -86,7 +86,7 @@ For each pair `(R, T)` a validator:
 
 No evaluation formula or weight changes; the scoring engine in
 [scoring.py](../insignia/scoring.py) is reused verbatim and the existing
-`WeightConfig` (7 model weights + 10 trading weights) is preserved.
+`WeightConfig` (7 model weights + 9 trading weights) is preserved.
 
 ### 2.2 NSGA-II selection over pairs
 
@@ -217,7 +217,7 @@ Added — `pairing` group:
 - `pairing_seed_source` — source of pairing randomness (`chain_block_hash`).
 - `max_pairs` — population cap per generation.
 
-The 7 model weights and 10 trading weights, the commit-reveal parameters, the
+The 7 model weights and 9 trading weights, the commit-reveal parameters, the
 consensus-integrity parameters, the symbol-diversity (PC-VH-006) parameters, and
 the economic-mechanism parameters are all preserved.
 

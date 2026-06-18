@@ -26,7 +26,7 @@ This document is the MCP swarm prompt for the Insignia subnet repository.
   - target status: **5e-6 target achieved**
 - Historical harder-environment simulation benchmark remains relevant as a stress test:
   - epochs: `100`
-  - population: `14 agents` (`6 honest + 4 adversarial` in L1, `3 honest + 1 adversarial` in L2)
+  - population: `14 agents` (`6 honest + 4 adversarial` researchers, `3 honest + 1 adversarial` traders)
   - trading pairs: `BTCUSDT`, `ETHUSDT`, `SOLUSDT`, `AVAXUSDT`, `ADAUSDT`
   - breach_rate: `0.124`
   - honest_score: `0.847`
@@ -57,11 +57,11 @@ This document is the MCP swarm prompt for the Insignia subnet repository.
 
 The orchestration report uses a compact **75-parameter headline** in its summaries.
 The repository still retains a broader implementation surface, including a
-**10-metric L2 scorer** and extra operational knobs. Swarm agents should:
+**9-metric trading scorer** and extra operational knobs. Swarm agents should:
 
 1. preserve the broader implementation in code,
 2. use the report headline in narrative summaries when helpful, and
-3. never remove L2 risk controls just to match a smaller summary table.
+3. never remove trading risk controls just to match a smaller summary table.
 
 ---
 
@@ -148,7 +148,7 @@ Responsibilities:
 
 The simulator currently assumes 8 implemented agent archetypes:
 
-### Layer 1
+### Researcher agents (model)
 - Honest
 - Overfitter
 - Copycat
@@ -156,15 +156,15 @@ The simulator currently assumes 8 implemented agent archetypes:
 - Sybil
 - Random
 
-### Layer 2
+### Trader agents (trading)
 - HonestTrader
 - CopyTrader
 
 Default operational mix in the repository:
-- 6 honest L1
-- 4 adversarial L1 aggregate pressure
-- 3 honest L2
-- 1 adversarial L2
+- 6 honest researchers
+- 4 adversarial researchers (aggregate pressure)
+- 3 honest traders
+- 1 adversarial trader
 - total active benchmark population: 14 agents
 
 The testnet wallet layout now assumes:
@@ -190,32 +190,34 @@ Required behavior:
 
 ## 5. Parameter and weighting guidance
 
-### L1 weights
+### Model weights (researcher)
 
-Use these as the default L1 priorities unless a run explicitly overrides them:
+Use these as the default model priorities unless a run explicitly overrides them:
 
-- `l1_penalized_f1 = 0.22`
-- `l1_penalized_sharpe = 0.18`
-- `l1_max_drawdown = 0.14`
-- `l1_variance_score = 0.16`
-- `l1_overfitting_penalty = 0.14`
-- `l1_feature_efficiency = 0.06`
-- `l1_latency = 0.10`
+- `model_penalized_f1 = 0.22`
+- `model_penalized_sharpe = 0.18`
+- `model_max_drawdown = 0.14`
+- `model_variance_score = 0.16`
+- `model_overfitting_penalty = 0.14`
+- `model_feature_efficiency = 0.06`
+- `model_latency = 0.10`
 
-### L2 weights kept in repository defaults
+### Trading weights (trader) kept in repository defaults
 
-The codebase preserves a 10-metric L2 scorer. Current compatible defaults are:
+The codebase preserves a 9-metric trading scorer. The `model_attribution` metric was
+removed in the migration to the single paired genetic mechanism (the model is
+assigned to the trader by the genetic algorithm, not self-selected), and its
+weight was redistributed. Current compatible defaults are:
 
-- `l2_realized_pnl = 0.21`
-- `l2_omega = 0.15`
-- `l2_max_drawdown = 0.12`
-- `l2_win_rate = 0.07`
-- `l2_consistency = 0.17`
-- `l2_model_attribution = 0.08`
-- `l2_execution_quality = 0.05`
-- `l2_annualized_volatility = 0.05`
-- `l2_sharpe_ratio = 0.05`
-- `l2_sortino_ratio = 0.05`
+- `trading_realized_pnl = 0.20`
+- `trading_omega = 0.13`
+- `trading_max_drawdown = 0.14`
+- `trading_win_rate = 0.06`
+- `trading_consistency = 0.20`
+- `trading_execution_quality = 0.10`
+- `trading_annualized_volatility = 0.05`
+- `trading_sharpe_ratio = 0.06`
+- `trading_sortino_ratio = 0.06`
 
 ### Validation timing defaults
 
@@ -371,8 +373,8 @@ Primary endpoints:
 
 ### Core metrics to preserve
 
-- `insignia_l1_composite_score`
-- `insignia_l2_composite_score`
+- `insignia_researcher_composite_score`
+- `insignia_trader_composite_score`
 - `insignia_attack_breach`
 - `insignia_attack_severity`
 - `insignia_total_breaches`
@@ -559,7 +561,7 @@ python3 -m unittest discover -s tests -p "test_*.py"
 
 ## 13. Hard rules for the swarm
 
-1. do not remove the 10-metric L2 scorer to fit a smaller summary table
+1. do not remove the 9-metric trading scorer to fit a smaller summary table
 2. do not reintroduce BTC-only assumptions in new simulation code
 3. do not let `program.md` drift from actual repo behavior
 4. prefer the detector names in code over older historical numbering in archived notes

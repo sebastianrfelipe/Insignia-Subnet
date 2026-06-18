@@ -80,8 +80,8 @@ def run_full_demo(
     logger.info("  Trader miners:     %s", ", ".join(a.uid for a in traders))
 
     harness = SimulationHarness(
-        l1_agents=researchers,
-        l2_agents=traders,
+        researcher_agents=researchers,
+        trader_agents=traders,
         n_epochs=n_generations,
         n_trading_steps=n_trading_steps,
     )
@@ -113,8 +113,8 @@ def run_full_demo(
         logger.info("  %-22s (%-10s): %.4f", uid, role, w)
 
     section("ANTI-GAMING OUTCOMES")
-    honest_mean = float(np.mean(result.honest_l1_scores)) if result.honest_l1_scores else 0.0
-    adv_mean = float(np.mean(result.adversarial_l1_scores)) if result.adversarial_l1_scores else 0.0
+    honest_mean = float(np.mean(result.honest_researcher_scores)) if result.honest_researcher_scores else 0.0
+    adv_mean = float(np.mean(result.adversarial_researcher_scores)) if result.adversarial_researcher_scores else 0.0
     logger.info("  Mean honest researcher quality:      %.4f", honest_mean)
     logger.info("  Mean adversarial researcher quality: %.4f", adv_mean)
     logger.info("  Collusion pairs flagged: %s", [k for k, _ in result.collusion_flags])
