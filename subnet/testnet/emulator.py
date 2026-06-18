@@ -396,7 +396,7 @@ class InsigniaEmulator:
                 n_random=1,
                 n_honest_traders=self.config.n_honest_traders,
                 n_copy_traders=self.config.n_adversarial_traders,
-                routing_config=self.config.model_routing.to_dict(),
+                model_routing=self.config.model_routing.to_dict(),
             )
 
         harness = SimulationHarness(

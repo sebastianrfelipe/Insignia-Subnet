@@ -241,6 +241,14 @@ class ModelRoutingConfig:
         default_factory=lambda: _env_bool("INSIGNIA_MODEL_ROUTING_STABLE_PER_RUN", True)
     )
 
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "enabled": self.enabled,
+            "route_names": list(self.route_names),
+            "assignment_seed": self.assignment_seed,
+            "stable_per_run": self.stable_per_run,
+        }
+
 
 @dataclass
 class EmulatorConfig:
@@ -306,12 +314,7 @@ class EmulatorConfig:
                 "trading_pairs": list(self.market_data.trading_pairs),
                 "dominant_pair_warning_ratio": self.market_data.dominant_pair_warning_ratio,
             },
-            "model_routing": {
-                "enabled": self.model_routing.enabled,
-                "route_names": list(self.model_routing.route_names),
-                "assignment_seed": self.model_routing.assignment_seed,
-                "stable_per_run": self.model_routing.stable_per_run,
-            },
+            "model_routing": self.model_routing.to_dict(),
             "output_dir": self.output_dir,
         }
 
