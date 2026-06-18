@@ -110,14 +110,14 @@ class ModelFingerprinter:
 
 
 # ---------------------------------------------------------------------------
-# L2 Copy-Trade Detection
+# Copy-Trade Detection (trading)
 # ---------------------------------------------------------------------------
 
 class CopyTradeDetector:
     """
-    Detects copy-trading in Layer 2 by analyzing position correlation.
+    Detects copy-trading among trader miners by analyzing position correlation.
 
-    If two L2 miners' position logs are highly correlated (same entries,
+    If two trader miners' position logs are highly correlated (same entries,
     exits, sizing within tolerance), they are flagged and share rewards.
     This mirrors Taoshi PTN's anti-plagiarism approach.
     """
@@ -428,21 +428,21 @@ ATTACK_DEFENSE_MATRIX: List[AttackDefense] = [
         mechanism="SubmissionRateLimit",
     ),
     AttackDefense(
-        attack="Model plagiarism (L1)",
-        description="Miner copies another miner's model artifact or training approach.",
+        attack="Model plagiarism (researcher)",
+        description="Researcher miner copies another miner's model artifact or training approach.",
         defense="SHA-256 fingerprinting detects exact duplicates. Prediction correlation analysis detects behavioral clones. Correlated models share rewards, removing the incentive to copy.",
         mechanism="ModelFingerprinter",
     ),
     AttackDefense(
-        attack="Copy-trading (L2)",
-        description="L2 miner mirrors another miner's positions instead of building their own strategy.",
+        attack="Copy-trading (trader)",
+        description="Trader miner mirrors another miner's positions instead of building their own strategy.",
         defense="Position correlation analysis with time/size tolerance. Correlated strategies share rewards. Mirrors Taoshi PTN's proven approach.",
         mechanism="CopyTradeDetector",
     ),
     AttackDefense(
         attack="Single-metric gaming",
         description="Miner optimizes for one dominant metric (e.g., accuracy) while ignoring others.",
-        defense="Composite scoring across 7 L1 metrics and 7 L2 metrics. No single metric dominates (max weight 20%). Weight configuration is published but balanced.",
+        defense="Composite scoring across 7 model metrics and 9 trading metrics. No single metric dominates (max weight 20%). Weight configuration is published but balanced.",
         mechanism="CompositeScorer + WeightConfig",
     ),
     AttackDefense(
@@ -452,10 +452,10 @@ ATTACK_DEFENSE_MATRIX: List[AttackDefense] = [
         mechanism="Score-only feedback + delayed window release",
     ),
     AttackDefense(
-        attack="L2 paper trading manipulation",
-        description="L2 miner fabricates paper trading results or cherry-picks favorable reporting windows.",
+        attack="Trader paper trading manipulation",
+        description="Trader miner fabricates paper trading results or cherry-picks favorable reporting windows.",
         defense="Validators track real-time position updates via continuous streaming. All positions timestamped and signed. Reporting gaps are penalized.",
-        mechanism="L2PositionUpdate synapse + continuous tracking",
+        mechanism="TradingPositionUpdate synapse + continuous tracking",
     ),
     AttackDefense(
         attack="Sybil attack (multiple identities)",

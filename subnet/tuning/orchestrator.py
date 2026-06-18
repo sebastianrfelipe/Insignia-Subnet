@@ -63,7 +63,7 @@ def run_single_simulation(
     defaults = encode_defaults()
     config = decode(defaults)
 
-    l1_agents, l2_agents = create_default_agents(
+    researcher_agents, trader_agents = create_default_agents(
         n_honest=n_honest,
         n_overfitters=1, n_copycats=1, n_gamers=1,
         n_sybils=1, n_random=0,
@@ -71,7 +71,7 @@ def run_single_simulation(
     )
 
     harness = SimulationHarness(
-        l1_agents=l1_agents, l2_agents=l2_agents,
+        researcher_agents=researcher_agents, trader_agents=trader_agents,
         n_epochs=n_epochs, n_trading_steps=n_trading_steps,
     )
 
@@ -91,20 +91,20 @@ def run_single_simulation(
     report = {
         "mode": "single_simulation",
         "elapsed_seconds": round(elapsed, 2),
-        "n_l1_miners": len(l1_agents),
-        "n_l2_miners": len(l2_agents),
+        "n_researcher_miners": len(researcher_agents),
+        "n_trader_miners": len(trader_agents),
         "n_epochs": n_epochs,
         "n_trading_steps": n_trading_steps,
-        "l1_scores": {
+        "researcher_scores": {
             uid: round(s, 6) for uid, s in sim_result.miner_scores.items()
         },
-        "l1_types": sim_result.miner_types,
-        "honest_l1_mean": round(float(np.mean(sim_result.honest_l1_scores)), 6) if sim_result.honest_l1_scores else 0,
-        "adversarial_l1_mean": round(float(np.mean(sim_result.adversarial_l1_scores)), 6) if sim_result.adversarial_l1_scores else 0,
-        "l2_scores": {
-            uid: round(s, 6) for uid, s in sim_result.l2_scores.items()
+        "researcher_types": sim_result.miner_types,
+        "honest_researcher_mean": round(float(np.mean(sim_result.honest_researcher_scores)), 6) if sim_result.honest_researcher_scores else 0,
+        "adversarial_researcher_mean": round(float(np.mean(sim_result.adversarial_researcher_scores)), 6) if sim_result.adversarial_researcher_scores else 0,
+        "trader_scores": {
+            uid: round(s, 6) for uid, s in sim_result.trader_scores.items()
         },
-        "l2_types": sim_result.l2_types,
+        "trader_types": sim_result.trader_types,
         "fitness": {
             name: round(float(val), 6)
             for name, val in zip(OBJECTIVE_NAMES, fitness)
@@ -120,8 +120,8 @@ def run_single_simulation(
     logger.info("  SINGLE SIMULATION REPORT")
     logger.info("=" * 70)
     logger.info("  Time: %.1fs", elapsed)
-    logger.info("  L1 Honest mean: %.4f", report["honest_l1_mean"])
-    logger.info("  L1 Adversarial mean: %.4f", report["adversarial_l1_mean"])
+    logger.info("  Researcher Honest mean: %.4f", report["honest_researcher_mean"])
+    logger.info("  Researcher Adversarial mean: %.4f", report["adversarial_researcher_mean"])
     logger.info("")
     logger.info("  Fitness:")
     for name, val in zip(OBJECTIVE_NAMES, fitness):
@@ -149,7 +149,7 @@ def run_attack_analysis(
     for trial in range(n_trials):
         logger.info("  Trial %d/%d", trial + 1, n_trials)
 
-        l1_agents, l2_agents = create_default_agents(
+        researcher_agents, trader_agents = create_default_agents(
             n_honest=n_honest,
             n_overfitters=1, n_copycats=1, n_gamers=1,
             n_sybils=1, n_random=0,
@@ -157,7 +157,7 @@ def run_attack_analysis(
         )
 
         harness = SimulationHarness(
-            l1_agents=l1_agents, l2_agents=l2_agents,
+            researcher_agents=researcher_agents, trader_agents=trader_agents,
             n_epochs=100, n_trading_steps=150,
         )
 
@@ -236,7 +236,7 @@ def run_optimization(
         yaml_config = {
             "weight_config": {
                 k: round(v, 6) for k, v in config["raw_params"].items()
-                if k.startswith("l1_") or k.startswith("l2_")
+                if k.startswith("model_") or k.startswith("trading_")
             },
             "overfitting": config["overfitting"],
             "promotion": {
@@ -366,10 +366,10 @@ Examples:
             emu_config = EmulatorConfig(
                 network=NetworkTarget(args.network),
                 netuid=args.netuid,
-                n_l1_epochs=args.n_epochs,
-                n_l2_trading_steps=args.n_steps,
-                n_honest_l1=args.n_honest,
-                n_adversarial_l1=args.n_adversarial,
+                n_epochs=args.n_epochs,
+                n_trading_steps=args.n_steps,
+                n_honest_researchers=args.n_honest,
+                n_adversarial_researchers=args.n_adversarial,
                 output_dir=args.output,
             )
             emulator = InsigniaEmulator(emu_config)

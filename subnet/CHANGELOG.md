@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026-06-17 - Rename L1/L2 nomenclature to researcher/trader
+
+- there are no L1/L2 miners under the single paired mechanism, so the two-layer naming was renamed to the role/skill it denotes throughout the code and docs
+- scoring: `score_l1`/`score_l2` → `score_model`/`score_trading`; `WeightConfig.l1_*`/`l2_*` → `model_*`/`trading_*`; normalization helpers renamed
+- neurons: consolidated `l1_miner.py` → `researcher_miner.py` (`L1Miner` → `ResearcherMiner`, `L1ModelTrainer` → `ModelTrainer`) and `l2_miner.py` → `trader_miner.py` (`L2StrategyMiner` → `TraderMiner`); renamed `l1_validator.py` → `model_validator.py` (`L1Validator` → `ModelValidator`) and `l2_validator.py` → `trading_validator.py` (`L2Validator` → `TradingValidator`)
+- protocol: `L1ModelSubmission`/`L1EvaluationRequest`/`L1ScoreReport`/`L2StrategySubmission`/`L2ModelPool`/`L2PositionUpdate` → `ModelSubmission`/`ModelEvaluationRequest`/`ModelScoreReport`/`TradingStrategySubmission`/`ModelPool`/`TradingPositionUpdate`
+- tuning/testnet: parameter group names (`l1_weights`/`l2_weights` → `model_weights`/`trading_weights`) and weight param names, `SimulationResult`/`SimulationHarness` fields (`l1_agents`/`l2_agents` → `researcher_agents`/`trader_agents`, `honest_l1_scores` → `honest_researcher_scores`, etc.), `EmulatorConfig` fields, Prometheus metric names (`insignia_l1_*`/`insignia_l2_*` → `insignia_researcher_*`/`insignia_trader_*`), and the Grafana dashboard
+- the deprecated cross-layer/promotion subsystem keeps its legacy `l1`/`l2`/`cross_layer` names since it no longer exists in the paired design
+
+## 2026-06-17 - Remove Model Attribution from trading score
+
+- removed the `model_attribution` metric from the L2/trading scorer: under the single paired genetic mechanism the model is *assigned* to a trader by the chain-seeded genetic algorithm rather than self-selected, so a miner cannot influence which model it is paired with and should not be rewarded or penalized for that assignment
+- redistributed the removed weight across the remaining performance metrics; the L2 scorer is now 9 metrics (`realized_pnl` 0.20, `omega` 0.13, `max_drawdown` 0.14, `win_rate` 0.06, `consistency` 0.20, `execution_quality` 0.10, `annualized_volatility` 0.05, `sharpe_ratio` 0.06, `sortino_ratio` 0.06)
+- dropped `model_attribution_score` from `CompositeScorer.score_l2`, removed `WeightConfig.l2_model_attribution`, and removed the `l2_model_attribution` tuning parameter (`tuning/parameter_space.py`)
+- removed the now-unused `ModelAttributionEngine` from `neurons/l2_validator.py`
+- cross-partner model quality is still expressed structurally via NSGA-II pair selection and the variance-penalized marginal-contribution credit, not as a per-miner scoring dimension
+- updated `docs/INCENTIVE_MECHANISM.md`, `docs/SUBNET_SPEC.md`, `docs/PARAMETER_TUNING_PLAN.md`, `docs/tuner.md`, `README.md`, and `program.md` accordingly
+
 ## 2026-06-16 - Single paired genetic incentive mechanism
 
 - migrated from the two-layer (L1 model -> promotion -> L2 strategy) design to a single incentive mechanism in which researcher and trader miners are matched into `(model, strategy)` pairs, jointly evaluated, and selected with an NSGA-II-style genetic algorithm (`docs/PAIRING_MECHANISM.md`)

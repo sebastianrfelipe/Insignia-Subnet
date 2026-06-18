@@ -561,7 +561,7 @@ class AttackDetector:
         """
         flags = getattr(result, "collusion_flags", []) or []
         colluder_credit = getattr(result, "colluder_credit", {}) or {}
-        honest = result.honest_l1_scores + result.honest_l2_scores
+        honest = result.honest_researcher_scores + result.honest_trader_scores
         if not flags and not colluder_credit:
             return AttackBreach(
                 "pair_collusion", False, 0.0,
@@ -676,7 +676,7 @@ class AttackDetector:
             for uid, t in result.miner_types.items()
             if t == "overfitter" and uid in result.miner_scores
         ]
-        honest_scores = result.honest_l1_scores
+        honest_scores = result.honest_researcher_scores
 
         if not overfitter_scores or not honest_scores:
             return AttackBreach(
@@ -714,7 +714,7 @@ class AttackDetector:
                 "No copycat miners in simulation",
             )
 
-        honest_scores = result.honest_l1_scores
+        honest_scores = result.honest_researcher_scores
         mean_honest = np.mean(honest_scores) if honest_scores else 0
 
         # A copycat succeeds if they score comparably to honest miners
@@ -761,7 +761,7 @@ class AttackDetector:
             for uid, t in result.miner_types.items()
             if t == "sybil" and uid in result.miner_scores
         ]
-        honest_scores = result.honest_l1_scores
+        honest_scores = result.honest_researcher_scores
 
         if not sybil_scores or not honest_scores:
             return AttackBreach(
@@ -787,28 +787,28 @@ class AttackDetector:
         )
 
     def _check_copy_trading(self, result: SimulationResult) -> AttackBreach:
-        """Check if copy-traders evaded L2 detection."""
+        """Check if copy-traders evaded trading detection."""
         copy_trader_scores = [
-            result.l2_scores[uid]
-            for uid, t in result.l2_types.items()
-            if t == "copy_trader" and uid in result.l2_scores
+            result.trader_scores[uid]
+            for uid, t in result.trader_types.items()
+            if t == "copy_trader" and uid in result.trader_scores
         ]
-        honest_l2 = result.honest_l2_scores
+        honest_trader = result.honest_trader_scores
 
         if not copy_trader_scores:
             return AttackBreach(
                 "copy_trading", False, 0.0,
-                "No copy-traders in L2 simulation",
+                "No copy-traders in trading simulation",
             )
 
-        mean_honest = np.mean(honest_l2) if honest_l2 else 0
+        mean_honest = np.mean(honest_trader) if honest_trader else 0
         high_scoring = [s for s in copy_trader_scores if s > mean_honest * 0.7]
         breached = len(high_scoring) > 0
         severity = len(high_scoring) / max(len(copy_trader_scores), 1)
 
         return AttackBreach(
             "copy_trading", breached, severity,
-            f"{len(high_scoring)}/{len(copy_trader_scores)} copy-traders scored above 70% of honest L2 mean",
+            f"{len(high_scoring)}/{len(copy_trader_scores)} copy-traders scored above 70% of honest trader mean",
         )
 
     def _check_random_baseline(self, result: SimulationResult) -> AttackBreach:
@@ -821,7 +821,7 @@ class AttackDetector:
             for uid, t in result.miner_types.items()
             if t == "random" and uid in result.miner_scores
         ]
-        honest_scores = result.honest_l1_scores
+        honest_scores = result.honest_researcher_scores
 
         if not random_scores or not honest_scores:
             return AttackBreach(
@@ -876,8 +876,8 @@ class AttackDetector:
         and adversarial miners. If they're clustered together, the
         mechanism isn't providing enough differentiation signal.
         """
-        honest = result.honest_l1_scores
-        adversarial = result.adversarial_l1_scores
+        honest = result.honest_researcher_scores
+        adversarial = result.adversarial_researcher_scores
 
         if not honest or not adversarial:
             return AttackBreach(
@@ -1330,7 +1330,7 @@ class AttackDetector:
         """
         weights = getattr(result, "pairing_weights", {}) or {}
         researcher_uids = set(result.miner_types.keys())
-        trader_uids = set(result.l2_types.keys())
+        trader_uids = set(result.trader_types.keys())
         if not weights or not researcher_uids or not trader_uids:
             return AttackBreach(
                 "weight_manipulation", False, 0.0,
@@ -1370,17 +1370,17 @@ class AttackDetector:
         """
         cross_layer_latencies = getattr(result, "cross_layer_latencies", None)
         if not cross_layer_latencies:
-            adv_l1 = result.adversarial_l1_scores
-            adv_l2 = result.adversarial_l2_scores
+            adv_l1 = result.adversarial_researcher_scores
+            adv_l2 = result.adversarial_trader_scores
             if not adv_l1 or not adv_l2:
                 return AttackBreach(
                     "cross_layer_attack", False, 0.0,
                     "No cross-layer timing data available",
                 )
             mean_adv_l1 = np.mean(adv_l1)
-            mean_honest_l1 = np.mean(result.honest_l1_scores) if result.honest_l1_scores else 0
+            mean_honest_l1 = np.mean(result.honest_researcher_scores) if result.honest_researcher_scores else 0
             mean_adv_l2 = np.mean(adv_l2)
-            mean_honest_l2 = np.mean(result.honest_l2_scores) if result.honest_l2_scores else 0
+            mean_honest_l2 = np.mean(result.honest_trader_scores) if result.honest_trader_scores else 0
 
             l1_gap = mean_honest_l1 - mean_adv_l1
             l2_gap = mean_honest_l2 - mean_adv_l2

@@ -95,8 +95,8 @@ def compute_fitness(
 
     Returns: [neg_honest_score, breach_rate, score_variance, neg_separation]
     """
-    honest = sim_result.honest_l1_scores
-    adversarial = sim_result.adversarial_l1_scores
+    honest = sim_result.honest_researcher_scores
+    adversarial = sim_result.adversarial_researcher_scores
 
     mean_honest = float(np.mean(honest)) if honest else 0.0
     neg_honest_score = -mean_honest
@@ -126,7 +126,7 @@ OBJECTIVE_NAMES = [
 
 if PYMOO_AVAILABLE:
     class WeightRepairOperator(Repair):
-        """Repair L1/L2 weights to sum to 1.0 after crossover/mutation."""
+        """Repair model/trading weights to sum to 1.0 after crossover/mutation."""
 
         def _do(self, problem, X, **kwargs):
             for i in range(len(X)):

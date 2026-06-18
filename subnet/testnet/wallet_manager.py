@@ -39,7 +39,7 @@ class WalletManager:
 
     Wallet hierarchy for the emulator:
       - 1 owner wallet (creates and configures the subnet)
-      - N validator wallets (run L1/L2 validation and set weights)
+      - N validator wallets (run model/trading validation and set weights)
       - M miner wallets (simulated honest + adversarial agents)
     """
 

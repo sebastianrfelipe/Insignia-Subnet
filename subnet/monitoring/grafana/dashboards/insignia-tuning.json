@@ -7,12 +7,12 @@
   "links": [],
   "panels": [
     {
-      "title": "L1 Miner Composite Scores",
+      "title": "Researcher Miner Composite Scores",
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
       "targets": [
         {
-          "expr": "insignia_l1_composite_score",
+          "expr": "insignia_researcher_composite_score",
           "legendFormat": "{{miner}} ({{agent_type}})",
           "refId": "A"
         }
@@ -26,12 +26,12 @@
       }
     },
     {
-      "title": "L2 Strategy Composite Scores",
+      "title": "Trader Strategy Composite Scores",
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
       "targets": [
         {
-          "expr": "insignia_l2_composite_score",
+          "expr": "insignia_trader_composite_score",
           "legendFormat": "{{miner}} ({{agent_type}})",
           "refId": "A"
         }
@@ -163,7 +163,7 @@
       "targets": [
         {
           "expr": "insignia_promotion_active_count",
-          "legendFormat": "Active Models in L2 Pool",
+          "legendFormat": "Active Models (legacy promotion pool)",
           "refId": "A"
         }
       ]

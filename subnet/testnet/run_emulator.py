@@ -259,10 +259,10 @@ Examples:
     parser.add_argument("--population", type=int, default=15, help="Population size per generation")
     parser.add_argument("--n-configs", type=int, default=10, help="Number of configurations (sweep mode)")
 
-    parser.add_argument("--n-honest", type=int, default=6, help="Number of honest L1 agents")
-    parser.add_argument("--n-adversarial", type=int, default=4, help="Number of adversarial L1 agents")
-    parser.add_argument("--n-epochs", type=int, default=3, help="L1 epochs per simulation")
-    parser.add_argument("--n-steps", type=int, default=200, help="L2 trading steps per simulation")
+    parser.add_argument("--n-honest", type=int, default=6, help="Number of honest researcher agents")
+    parser.add_argument("--n-adversarial", type=int, default=4, help="Number of adversarial researcher agents")
+    parser.add_argument("--n-epochs", type=int, default=3, help="Epochs per simulation")
+    parser.add_argument("--n-steps", type=int, default=200, help="Trading steps per simulation")
 
     parser.add_argument("--metrics-port", type=int, default=8001, help="Prometheus metrics port")
     parser.add_argument("--no-metrics", action="store_true", help="Disable Prometheus metrics")
@@ -276,10 +276,10 @@ Examples:
     config = EmulatorConfig(
         network=NetworkTarget(args.network),
         netuid=args.netuid,
-        n_l1_epochs=args.n_epochs,
-        n_l2_trading_steps=args.n_steps,
-        n_honest_l1=args.n_honest,
-        n_adversarial_l1=args.n_adversarial,
+        n_epochs=args.n_epochs,
+        n_trading_steps=args.n_steps,
+        n_honest_researchers=args.n_honest,
+        n_adversarial_researchers=args.n_adversarial,
         output_dir=args.output,
         metrics_port=args.metrics_port,
     )

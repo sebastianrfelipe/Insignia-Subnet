@@ -4,12 +4,12 @@
 
 Built on [Bittensor](https://bittensor.com) for the Sovereign Infrastructure Hackathon (March 2026).
 
-> **Architecture migration (single paired mechanism).** Insignia is moving from the
-> two-layer (L1 model → promotion → L2 strategy) design to a *single* incentive
+> **Architecture (single paired mechanism).** Insignia uses a *single* incentive
 > mechanism in which **researcher miners and trader miners are matched into pairs,
 > jointly evaluated, and selected/rewarded with an NSGA-II-style genetic algorithm**.
-> The same evaluation metrics and weights are preserved; promotion and the
-> `l1_l2_emission_split` are removed. See
+> This replaced the original two-layer (model → promotion → strategy) design; the
+> same evaluation metrics and weights are preserved, while promotion and the
+> emission split between layers are removed. See
 > [docs/PAIRING_MECHANISM.md](docs/PAIRING_MECHANISM.md) for the full spec.
 
 **Status:** Phase 5 target achieved and under empirical validation  
@@ -20,11 +20,11 @@ Built on [Bittensor](https://bittensor.com) for the Sovereign Infrastructure Hac
 
 ## What Is This?
 
-Insignia is a two-layer competitive network for producing high-quality ML models and validating that they actually work when deployed.
+Insignia is a competitive network for producing high-quality ML models and validating that they actually work when deployed. Two miner roles share one subnet and are matched into `(researcher, trader)` pairs:
 
-- **Layer 1 (Model Competition):** miners train predictive models and are scored across 7 weighted metrics.
-- **Layer 2 (Deployment Validation):** promoted models are wrapped into strategies and scored with the repository's 10-metric L2 risk stack.
-- **Cross-Layer Feedback:** Layer 2 outcomes feed back into Layer 1 rankings.
+- **Researcher miners (model scoring):** train predictive models, scored across 7 weighted metrics.
+- **Trader miners (trading scoring):** run a trading strategy on an *assigned* model (chain-seeded pairing), scored with the repository's 9-metric trading risk stack.
+- **Paired genetic selection:** each pair is jointly evaluated, ranked with NSGA-II, and credited via a variance-penalized marginal contribution into a single Yuma weight vector.
 - **Commit-Reveal Validation:** the timing defense path now holds at system-level effectiveness `0.76`, above the `0.667` acceptance floor, with simulator stability analysis reaching `0.801` across pre/post-CR epochs.
 
 ---
@@ -33,19 +33,19 @@ Insignia is a two-layer competitive network for producing high-quality ML models
 
 - 6-agent architecture: deployer, simulator, sentinel, tuner, researcher, coder
 - 8 implemented agent archetypes in simulation: Honest, Overfitter, Copycat, SingleMetricGamer, Sybil, Random, HonestTrader, CopyTrader
-- 14-agent benchmark simulation mix: 9 honest, 5 adversarial across L1/L2
+- 14-agent benchmark simulation mix: 9 honest, 5 adversarial across researcher/trader roles
 - Emulator/testnet node layout: 1 validator wallet and 12 miner wallets
 - Stable per-run MCP model-route assignment is now supported for simulated miner agents to represent decentralized intelligence diversity during tuning
 - Active sentinel posture: breach_rate `0.0005`, honest_score `0.94`, score_separation `0.758`
 - No convergence detected and no reset triggers fired (`SOFT`, `HARD`, `FULL` all false)
-- 75-parameter orchestration headline, with the repository retaining a broader 10-metric L2 implementation and expanded parameter space in code
+- 75-parameter orchestration headline, with the repository retaining a broader 9-metric trading implementation and expanded parameter space in code
 - 41-variable NSGA-II v13 R2 surrogate profile runs on top of the repository's broader 67-parameter surface
 - Current optimization spec: 20 generations, population 30, 4 objectives, 93 empirical surrogate points, Gaussian Process surrogate `R^2 = 0.93`
 - The 5e-6 breach-rate target has been achieved at the surrogate-guided knee point: breach_rate `3.5e-6`, honest_score `0.9795`, separation `0.953`, variance `0.0009`
 - Persistent warning: Sybil pressure driven by BTCUSDT:ETHUSDT imbalance
 - Historical hard-environment simulation headline remains useful context: breach_rate `0.124`, honest_score `0.847`
 
-## L1 weights
+## Model weights (researcher)
 
 | Metric | Weight |
 |---|---:|
@@ -57,22 +57,21 @@ Insignia is a two-layer competitive network for producing high-quality ML models
 | feature_efficiency | 0.06 |
 | latency | 0.10 |
 
-## L2 weights used in repository defaults
+## Trading weights (trader) used in repository defaults
 
-The orchestration report summarizes a 6-metric headline split, but the codebase intentionally keeps a 10-metric L2 scorer for additional risk controls. The updated compatible defaults are:
+The orchestration report summarizes a 6-metric headline split, but the codebase intentionally keeps a 9-metric trading scorer for additional risk controls. The `model_attribution` metric was removed when the subnet migrated to the single paired genetic mechanism (the model is now assigned to the trader by the genetic algorithm rather than self-selected, so a miner cannot influence it). Its weight was redistributed across the remaining performance metrics. The updated compatible defaults are:
 
 | Metric | Weight |
 |---|---:|
-| realized_pnl | 0.16 |
-| omega_ratio | 0.11 |
-| max_drawdown | 0.12 |
-| win_rate | 0.05 |
-| consistency | 0.19 |
-| model_attribution | 0.13 |
-| execution_quality | 0.09 |
+| realized_pnl | 0.20 |
+| omega_ratio | 0.13 |
+| max_drawdown | 0.14 |
+| win_rate | 0.06 |
+| consistency | 0.20 |
+| execution_quality | 0.10 |
 | annualized_volatility | 0.05 |
-| sharpe_ratio | 0.05 |
-| sortino_ratio | 0.05 |
+| sharpe_ratio | 0.06 |
+| sortino_ratio | 0.06 |
 
 ---
 

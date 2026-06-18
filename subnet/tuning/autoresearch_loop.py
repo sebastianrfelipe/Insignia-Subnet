@@ -63,21 +63,21 @@ ATTACK_PARAM_MAP: Dict[str, List[str]] = {
     "overfitting_exploitation": [
         "overfit_gap_threshold",
         "overfit_decay_rate",
-        "l1_overfitting_penalty",
+        "model_overfitting_penalty",
         "promotion_max_overfitting_score",
     ],
     "model_plagiarism": [
         "fingerprint_correlation_threshold",
-        "l1_feature_efficiency",
+        "model_feature_efficiency",
     ],
     "single_metric_gaming": [
-        "l1_penalized_f1",
-        "l1_penalized_sharpe",
-        "l1_max_drawdown",
-        "l1_variance_score",
-        "l1_overfitting_penalty",
-        "l1_feature_efficiency",
-        "l1_latency",
+        "model_penalized_f1",
+        "model_penalized_sharpe",
+        "model_max_drawdown",
+        "model_variance_score",
+        "model_overfitting_penalty",
+        "model_feature_efficiency",
+        "model_latency",
     ],
     "sybil_attack": [
         "fingerprint_correlation_threshold",
@@ -86,21 +86,21 @@ ATTACK_PARAM_MAP: Dict[str, List[str]] = {
         "copy_trade_time_tolerance",
         "copy_trade_size_tolerance",
         "copy_trade_correlation_threshold",
-        "l2_execution_quality",
+        "trading_execution_quality",
     ],
     "random_baseline_discrimination": [
-        "l1_overfitting_penalty",
-        "l1_variance_score",
+        "model_overfitting_penalty",
+        "model_variance_score",
         "emission_sigmoid_steepness",
     ],
     "adversarial_dominance": [
-        "l1_overfitting_penalty",
+        "model_overfitting_penalty",
         "feedback_bonus_weight",
         "feedback_penalty_weight",
         "promotion_top_n",
     ],
     "insufficient_separation": [
-        "l1_overfitting_penalty",
+        "model_overfitting_penalty",
         "feedback_bonus_weight",
         "feedback_penalty_weight",
         "emission_sigmoid_steepness",
@@ -317,17 +317,17 @@ class ExperimentIdeaGenerator:
             )
 
         elif strategy == "invert_weights":
-            l1_indices = self._group_indices["l1_weights"]
+            model_indices = self._group_indices["model_weights"]
             mods = {}
-            vals = current[l1_indices]
+            vals = current[model_indices]
             inverted = 1.0 - vals
             inverted = inverted / inverted.sum()
-            for idx, new_val in zip(l1_indices, inverted):
+            for idx, new_val in zip(model_indices, inverted):
                 mods[PARAM_NAMES[idx]] = float(
                     np.clip(new_val, self._lower[idx], self._upper[idx])
                 )
             return ExperimentIdea(
-                description="RADICAL: invert L1 weight priorities",
+                description="RADICAL: invert model weight priorities",
                 param_modifications=mods,
                 idea_type=idea_type,
                 radical_level=radical_level,
@@ -345,17 +345,17 @@ class ExperimentIdeaGenerator:
             )
 
         else:  # swap_priorities
-            l1_indices = self._group_indices["l1_weights"]
+            model_indices = self._group_indices["model_weights"]
             mods = {}
-            vals = current[l1_indices].copy()
+            vals = current[model_indices].copy()
             self._rng.shuffle(vals)
             vals = vals / vals.sum()
-            for idx, new_val in zip(l1_indices, vals):
+            for idx, new_val in zip(model_indices, vals):
                 mods[PARAM_NAMES[idx]] = float(
                     np.clip(new_val, self._lower[idx], self._upper[idx])
                 )
             return ExperimentIdea(
-                description="RADICAL: shuffle L1 weight assignments",
+                description="RADICAL: shuffle model weight assignments",
                 param_modifications=mods,
                 idea_type=idea_type,
                 radical_level=radical_level,
@@ -495,7 +495,7 @@ class AutoresearchLoop:
             "weight_config": {
                 k: round(v, 6)
                 for k, v in config["raw_params"].items()
-                if k.startswith("l1_") or k.startswith("l2_")
+                if k.startswith("model_") or k.startswith("trading_")
             },
             "overfitting": config["overfitting"],
             "promotion": {
@@ -540,7 +540,7 @@ class AutoresearchLoop:
     def _run_simulation(self, param_vector: np.ndarray) -> Tuple[
         SimulationResult, BreachReport, np.ndarray
     ]:
-        l1_agents, l2_agents = create_default_agents(
+        researcher_agents, trader_agents = create_default_agents(
             n_honest=self.n_honest,
             n_overfitters=1,
             n_copycats=1,
@@ -552,8 +552,8 @@ class AutoresearchLoop:
         )
 
         harness = SimulationHarness(
-            l1_agents=l1_agents,
-            l2_agents=l2_agents,
+            researcher_agents=researcher_agents,
+            trader_agents=trader_agents,
             n_epochs=self.n_epochs,
             n_trading_steps=self.n_trading_steps,
         )
@@ -813,13 +813,13 @@ Examples:
         "--n-epochs",
         type=int,
         default=2,
-        help="L1 epochs per simulation (default: 2)",
+        help="Epochs per simulation (default: 2)",
     )
     parser.add_argument(
         "--n-steps",
         type=int,
         default=150,
-        help="L2 trading steps per simulation (default: 150)",
+        help="Trading steps per simulation (default: 150)",
     )
     parser.add_argument(
         "--focus-attack",

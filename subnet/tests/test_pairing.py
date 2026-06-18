@@ -142,24 +142,24 @@ class PairedSimulationTests(unittest.TestCase):
             n_colluding_rings=1, n_partner_gamers=1,
         )
         harness = SimulationHarness(
-            l1_agents=researchers, l2_agents=traders,
+            researcher_agents=researchers, trader_agents=traders,
             n_epochs=3, n_trading_steps=60,
         )
         result = harness.run(encode_defaults())
 
         self.assertGreater(result.n_pairs, 0)
-        self.assertTrue(result.honest_l1_scores)
-        self.assertTrue(result.adversarial_l1_scores)
+        self.assertTrue(result.honest_researcher_scores)
+        self.assertTrue(result.adversarial_researcher_scores)
         # Honest researchers should, on average, out-score adversarial ones.
         self.assertGreater(
-            float(np.mean(result.honest_l1_scores)),
-            float(np.mean(result.adversarial_l1_scores)),
+            float(np.mean(result.honest_researcher_scores)),
+            float(np.mean(result.adversarial_researcher_scores)),
         )
         # Emission weights form a valid single distribution.
         self.assertAlmostEqual(sum(result.pairing_weights.values()), 1.0, places=5)
         # Colluders should not beat the honest researcher mean.
         if result.colluder_credit:
-            honest_mean = float(np.mean(result.honest_l1_scores))
+            honest_mean = float(np.mean(result.honest_researcher_scores))
             self.assertLessEqual(max(result.colluder_credit.values()), honest_mean + 1e-6)
 
 

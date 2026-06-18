@@ -2,7 +2,8 @@
 Insignia Scoring Engine
 
 Defines the composite scoring framework used by validators to evaluate
-miner submissions across both layers. The framework is designed with
+miner submissions for both researcher (model) and trader (trading) roles.
+The framework is designed with
 pluggable metric functions so that proprietary evaluation components
 (e.g., the overfitting detection metric, benchmark dataset) remain
 private while the scoring *structure* is fully transparent.
@@ -91,8 +92,8 @@ def combine_pair_scores(
     alpha: float = 0.5,
 ) -> PairScore:
     """
-    Combine a researcher's model ``ScoreVector`` (from ``score_l1``) and a
-    trader's strategy ``ScoreVector`` (from ``score_l2``) into a single
+    Combine a researcher's model ``ScoreVector`` (from ``score_model``) and a
+    trader's strategy ``ScoreVector`` (from ``score_trading``) into a single
     ``PairScore``.
 
     The pair composite blends the two existing composites without altering any
@@ -130,7 +131,7 @@ def combine_pair_scores(
 
 
 # ---------------------------------------------------------------------------
-# Metric Definitions (Layer 1)
+# Metric Definitions (Model / Researcher)
 # ---------------------------------------------------------------------------
 
 def penalized_f1(predictions: np.ndarray, actuals: np.ndarray) -> float:
@@ -336,30 +337,33 @@ class ReferenceOverfittingDetector(OverfittingDetector):
 
 
 # ---------------------------------------------------------------------------
-# Layer 2 Metrics
+# Trading Metrics
 #
-# L2 scoring evaluates real/paper trading outcomes rather than model
-# predictions. The seven metrics below capture complementary dimensions
+# Trading scoring evaluates real/paper trading outcomes rather than model
+# predictions. The nine metrics below capture complementary dimensions
 # of strategy quality:
 #
-#   1. Realized P&L (18%)        — raw profitability vs. baseline
-#   2. Omega Ratio (12%)         — full-distribution risk (tail behavior)
-#   3. Max Drawdown (12%)        — peak-to-trough loss; hard elimination threshold
-#   4. Win Rate (5%)             — signal precision
-#   5. Consistency (18%)         — rolling sub-window steadiness
-#   6. Model Attribution (11%)   — credit for using strong L1 models
-#   7. Execution Quality (9%)    — latency, reliability, and slippage
+#   1. Realized P&L (20%)        — raw profitability vs. baseline
+#   2. Omega Ratio (13%)         — full-distribution risk (tail behavior)
+#   3. Max Drawdown (14%)        — peak-to-trough loss; hard elimination threshold
+#   4. Win Rate (6%)             — signal precision
+#   5. Consistency (20%)         — rolling sub-window steadiness
+#   6. Execution Quality (10%)   — latency, reliability, and slippage
 #
-# Max Drawdown reuses the L1 `max_drawdown_score` function applied to the
-# L2 equity curve. In L2 scoring it additionally serves as a hard ceiling:
+# Max Drawdown reuses the model `max_drawdown_score` function applied to the
+# trading equity curve. In trading scoring it additionally serves as a hard ceiling:
 # strategies that breach the drawdown limit (default 20%) are immediately
 # eliminated and receive a composite score of zero.
 #
-# Model Attribution is computed externally by `ModelAttributionEngine` in
-# `neurons/l2_validator.py` and passed into `score_l2` as a pre-computed
-# float in [0, 1]. It rewards L2 miners who select and combine L1 models
-# with strong deployment track records, creating incentive alignment
-# between the two layers.
+# NOTE: A "Model Attribution" metric was previously included to credit
+# traders for the deployment track record of the models they used. It was
+# removed when the subnet migrated to the single paired genetic mechanism
+# (see docs/PAIRING_MECHANISM.md): models are now *assigned* to traders by
+# the chain-seeded genetic algorithm rather than self-selected, so a miner
+# has no control over which model it is paired with. Rewarding a miner for
+# that assignment would credit luck of the draw rather than skill, so the
+# metric no longer belongs in the per-miner score. Its weight was
+# redistributed across the remaining performance metrics.
 #
 # Execution Quality evaluates the strategy's infrastructure health —
 # how cleanly and efficiently it interacts with the exchange. Strategies
@@ -395,7 +399,8 @@ def realized_pnl_score(pnl: float, baseline: float = 0.0) -> float:
         Float in [0, 1] where 0 = at or below baseline, 1 = strong
         outperformance.
 
-    Weight: 18% of L2 composite score (highest single weight).
+    Weight: 20% of trading composite score (highest single weight, tied with
+    consistency).
     """
     if pnl <= baseline:
         return 0.0
@@ -434,7 +439,7 @@ def omega_ratio(returns: np.ndarray, threshold: float = 0.0) -> float:
         During normalization, this is scaled to [0, 1] by dividing by 3.0
         (so Omega >= 3.0 maps to a perfect normalized score).
 
-    Weight: 12% of L2 composite score.
+    Weight: 13% of trading composite score.
     """
     gains = returns[returns > threshold] - threshold
     losses = threshold - returns[returns <= threshold]
@@ -455,7 +460,7 @@ def win_rate(trades: List[float]) -> float:
     meaningful directional skill.
 
     In the composite score, win rate carries a deliberately lower weight
-    (5%) because profitable strategies can legitimately have moderate
+    (6%) because profitable strategies can legitimately have moderate
     win rates (e.g., trend-following with ~40% wins but large risk/reward).
     Its primary role is to filter out strategies that generate excessive
     churn without directional edge.
@@ -471,7 +476,7 @@ def win_rate(trades: List[float]) -> float:
         Float in [0, 1] where 0 = no winning trades, 1 = all trades
         profitable.
 
-    Weight: 5% of L2 composite score.
+    Weight: 6% of trading composite score.
     """
     if not trades:
         return 0.0
@@ -487,7 +492,7 @@ def consistency_score(
 
     Measures whether a strategy performs *steadily* over time rather than
     generating returns through a single lucky streak. This is one of the
-    highest weighted L2 metrics (18%) because consistency is the strongest
+    highest weighted trading metrics (20%) because consistency is the strongest
     predictor of a strategy's viability in live deployment.
 
     The metric divides the return history into non-overlapping weekly
@@ -516,7 +521,7 @@ def consistency_score(
         Float in [0, 1] where 0 = inconsistent/insufficient data,
         1 = perfectly consistent positive returns across all windows.
 
-    Weight: 18% of L2 composite score.
+    Weight: 20% of trading composite score.
     """
     if len(daily_returns) < window_days * 2:
         return 0.0
@@ -566,7 +571,7 @@ def annualized_volatility(
         Float >= 0 representing annualized volatility as a decimal
         (e.g., 0.80 = 80% annualized vol).
 
-    Weight: 5% of L2 composite score.
+    Weight: 5% of trading composite score.
     """
     if len(daily_returns) < 2:
         return 0.0
@@ -605,7 +610,7 @@ def sharpe_ratio(
         for losing strategies. Capped at [-5, 10] to prevent
         degenerate cases.
 
-    Weight: 5% of L2 composite score.
+    Weight: 6% of trading composite score.
     """
     if len(daily_returns) < 2 or np.std(daily_returns) < 1e-12:
         return 0.0
@@ -649,7 +654,7 @@ def sortino_ratio(
         indicate the strategy has favorable skew (more upside than
         downside vol).
 
-    Weight: 5% of L2 composite score.
+    Weight: 6% of trading composite score.
     """
     if len(daily_returns) < 2:
         return 0.0
@@ -666,7 +671,7 @@ def sortino_ratio(
 @dataclass
 class ExecutionMetrics:
     """
-    Aggregated execution telemetry for an L2 strategy over one epoch.
+    Aggregated execution telemetry for a trader's strategy over one epoch.
 
     These fields mirror the operational metrics a production trading system
     tracks: latency breakdowns across the order lifecycle, reliability
@@ -674,7 +679,7 @@ class ExecutionMetrics:
     measures that capture real-world slippage and cost.
 
     Validators populate this from the continuous position-update stream
-    and exchange-level telemetry reported by L2 miners.
+    and exchange-level telemetry reported by trader miners.
     """
 
     # Latency (milliseconds) — measured across the order lifecycle
@@ -743,7 +748,7 @@ def execution_quality_score(metrics: ExecutionMetrics) -> float:
         Float in [0, 1] where 0 = poor execution infrastructure,
         1 = clean, fast, reliable execution.
 
-    Weight: 9% of L2 composite score.
+    Weight: 10% of trading composite score.
     """
     e2e = metrics.end_to_end_intent_ms
     target_latency_ms = 200.0
@@ -786,29 +791,31 @@ class WeightConfig:
     epoch and may be adjusted by the subnet owner.
     """
 
-    # Layer 1 weights (must sum to 1.0)
+    # Model (researcher) weights (must sum to 1.0)
     # PF-02 tuned values validated at breach_rate=0.012, honest_score=0.91
-    l1_penalized_f1: float = 0.22
-    l1_penalized_sharpe: float = 0.18
-    l1_max_drawdown: float = 0.14
-    l1_variance_score: float = 0.16
-    l1_overfitting_penalty: float = 0.14
-    l1_feature_efficiency: float = 0.06
-    l1_latency: float = 0.10
+    model_penalized_f1: float = 0.22
+    model_penalized_sharpe: float = 0.18
+    model_max_drawdown: float = 0.14
+    model_variance_score: float = 0.16
+    model_overfitting_penalty: float = 0.14
+    model_feature_efficiency: float = 0.06
+    model_latency: float = 0.10
 
-    # Layer 2 weights (must sum to 1.0)
-    # 2026-04-15 report update: shift emphasis toward consistency,
-    # attribution, and execution safety after EXP-140/141.
-    l2_realized_pnl: float = 0.18
-    l2_omega: float = 0.12
-    l2_max_drawdown: float = 0.12
-    l2_win_rate: float = 0.05
-    l2_consistency: float = 0.18
-    l2_model_attribution: float = 0.11
-    l2_execution_quality: float = 0.09
-    l2_annualized_volatility: float = 0.05
-    l2_sharpe_ratio: float = 0.05
-    l2_sortino_ratio: float = 0.05
+    # Trading (trader) weights (must sum to 1.0)
+    # 2026-04-15 report update: shift emphasis toward consistency and
+    # execution safety after EXP-140/141.
+    # 2026-06-17: removed model_attribution (pairing is now assigned by the
+    # genetic algorithm, not chosen by the miner) and redistributed its
+    # weight across the remaining performance metrics.
+    trading_realized_pnl: float = 0.20
+    trading_omega: float = 0.13
+    trading_max_drawdown: float = 0.14
+    trading_win_rate: float = 0.06
+    trading_consistency: float = 0.20
+    trading_execution_quality: float = 0.10
+    trading_annualized_volatility: float = 0.05
+    trading_sharpe_ratio: float = 0.06
+    trading_sortino_ratio: float = 0.06
 
     # Paired mechanism: blend weight on the model composite vs. the trading
     # composite when forming a pair's scalar composite. Does not alter any of
@@ -835,7 +842,7 @@ class CompositeScorer:
         self.weights = weights or WeightConfig()
         self.overfitting_detector = overfitting_detector or ReferenceOverfittingDetector()
 
-    def score_l1(
+    def score_model(
         self,
         predictions: np.ndarray,
         actuals: np.ndarray,
@@ -847,7 +854,7 @@ class CompositeScorer:
         model_complexity: Dict,
     ) -> ScoreVector:
         """
-        Compute the Layer 1 composite score for a single miner's model.
+        Compute the model composite score for a researcher miner's model.
 
         All metric computations are transparent. The only proprietary component
         is the OverfittingDetector implementation, which is pluggable.
@@ -864,52 +871,49 @@ class CompositeScorer:
             "latency": latency_score(inference_ms),
         }
 
-        normalized = self._normalize_l1(raw)
+        normalized = self._normalize_model(raw)
 
         w = self.weights
         composite = (
-            w.l1_penalized_f1 * normalized["penalized_f1"]
-            + w.l1_penalized_sharpe * normalized["penalized_sharpe"]
-            + w.l1_max_drawdown * normalized["max_drawdown"]
-            + w.l1_variance_score * normalized["variance_score"]
-            + w.l1_overfitting_penalty * normalized["overfitting_penalty"]
-            + w.l1_feature_efficiency * normalized["feature_efficiency"]
-            + w.l1_latency * normalized["latency"]
+            w.model_penalized_f1 * normalized["penalized_f1"]
+            + w.model_penalized_sharpe * normalized["penalized_sharpe"]
+            + w.model_max_drawdown * normalized["max_drawdown"]
+            + w.model_variance_score * normalized["variance_score"]
+            + w.model_overfitting_penalty * normalized["overfitting_penalty"]
+            + w.model_feature_efficiency * normalized["feature_efficiency"]
+            + w.model_latency * normalized["latency"]
         )
 
         return ScoreVector(raw=raw, normalized=normalized, composite=composite)
 
-    def score_l2(
+    def score_trading(
         self,
         realized_pnl: float,
         returns: np.ndarray,
         max_dd: float,
         trades: List[float],
         daily_returns: np.ndarray,
-        model_attribution_score: float,
         execution_metrics: ExecutionMetrics | None = None,
         baseline_pnl: float = 0.0,
     ) -> ScoreVector:
         """
-        Compute the Layer 2 composite score for a strategy miner.
+        Compute the trading composite score for a trader miner's strategy.
 
         All inputs are derived from real or paper trading outcomes — no
         simulation involved. This is the empirical proof layer that closes
-        the gap between backtested model quality (L1) and deployment
-        viability.
+        the gap between backtested model quality and deployment viability.
 
-        The composite score is a weighted sum of ten normalized metrics:
+        The composite score is a weighted sum of nine normalized metrics:
 
-            composite = 0.18 * realized_pnl
-                      + 0.12 * omega
-                      + 0.12 * max_drawdown
-                      + 0.05 * win_rate
-                      + 0.18 * consistency
-                      + 0.11 * model_attribution
-                      + 0.09 * execution_quality
+            composite = 0.20 * realized_pnl
+                      + 0.13 * omega
+                      + 0.14 * max_drawdown
+                      + 0.06 * win_rate
+                      + 0.20 * consistency
+                      + 0.10 * execution_quality
                       + 0.05 * annualized_volatility
-                      + 0.05 * sharpe_ratio
-                      + 0.05 * sortino_ratio
+                      + 0.06 * sharpe_ratio
+                      + 0.06 * sortino_ratio
 
         Args:
             realized_pnl: Total P&L of the strategy in quote currency
@@ -925,9 +929,6 @@ class CompositeScorer:
             daily_returns: Array of daily returns. Used to compute the
                 consistency score, annualized volatility, Sharpe ratio,
                 and Sortino ratio.
-            model_attribution_score: Pre-computed attribution score in
-                [0, 1] from ModelAttributionEngine, reflecting the
-                quality of L1 models the strategy relies on.
             execution_metrics: Aggregated execution telemetry for the
                 epoch (latency, reliability, slippage). If None, a
                 default ExecutionMetrics() is used, which yields a
@@ -949,27 +950,25 @@ class CompositeScorer:
             "max_drawdown": max_dd,
             "win_rate": win_rate(trades),
             "consistency": consistency_score(daily_returns),
-            "model_attribution": model_attribution_score,
             "execution_quality": execution_quality_score(exec_metrics),
             "annualized_volatility": annualized_volatility(daily_returns),
             "sharpe_ratio": sharpe_ratio(daily_returns),
             "sortino_ratio": sortino_ratio(daily_returns),
         }
 
-        normalized = self._normalize_l2(raw)
+        normalized = self._normalize_trading(raw)
 
         w = self.weights
         composite = (
-            w.l2_realized_pnl * normalized["realized_pnl"]
-            + w.l2_omega * normalized["omega"]
-            + w.l2_max_drawdown * normalized["max_drawdown"]
-            + w.l2_win_rate * normalized["win_rate"]
-            + w.l2_consistency * normalized["consistency"]
-            + w.l2_model_attribution * normalized["model_attribution"]
-            + w.l2_execution_quality * normalized["execution_quality"]
-            + w.l2_annualized_volatility * normalized["annualized_volatility"]
-            + w.l2_sharpe_ratio * normalized["sharpe_ratio"]
-            + w.l2_sortino_ratio * normalized["sortino_ratio"]
+            w.trading_realized_pnl * normalized["realized_pnl"]
+            + w.trading_omega * normalized["omega"]
+            + w.trading_max_drawdown * normalized["max_drawdown"]
+            + w.trading_win_rate * normalized["win_rate"]
+            + w.trading_consistency * normalized["consistency"]
+            + w.trading_execution_quality * normalized["execution_quality"]
+            + w.trading_annualized_volatility * normalized["annualized_volatility"]
+            + w.trading_sharpe_ratio * normalized["sharpe_ratio"]
+            + w.trading_sortino_ratio * normalized["sortino_ratio"]
         )
 
         return ScoreVector(raw=raw, normalized=normalized, composite=composite)
@@ -996,9 +995,9 @@ class CompositeScorer:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _normalize_l1(raw: Dict[str, float]) -> Dict[str, float]:
+    def _normalize_model(raw: Dict[str, float]) -> Dict[str, float]:
         """
-        Map raw L1 metrics to [0, 1] where 1 is best.
+        Map raw model metrics to [0, 1] where 1 is best.
 
         Penalized F1: already in [0, 1]
         Penalized Sharpe: sigmoid transform centered at 1.0
@@ -1022,9 +1021,9 @@ class CompositeScorer:
         }
 
     @staticmethod
-    def _normalize_l2(raw: Dict[str, float]) -> Dict[str, float]:
+    def _normalize_trading(raw: Dict[str, float]) -> Dict[str, float]:
         """
-        Map raw L2 metrics to [0, 1] where 1 is best.
+        Map raw trading metrics to [0, 1] where 1 is best.
 
         Normalization transforms per metric:
           - realized_pnl: Already in [0, 1]. Clamped.
@@ -1032,7 +1031,6 @@ class CompositeScorer:
           - max_drawdown: Inverted (1 - dd).
           - win_rate: Already in [0, 1]. Clamped.
           - consistency: Already in [0, 1]. Clamped.
-          - model_attribution: Already in [0, 1]. Clamped.
           - execution_quality: Already in [0, 1]. Clamped.
           - annualized_volatility: Inverted and scaled — lower vol =
             higher score. Vol <= 0.3 (30%) maps to 1.0; vol >= 1.5
@@ -1059,7 +1057,6 @@ class CompositeScorer:
             "max_drawdown": max(0.0, 1.0 - raw["max_drawdown"]),
             "win_rate": min(1.0, max(0.0, raw["win_rate"])),
             "consistency": min(1.0, max(0.0, raw["consistency"])),
-            "model_attribution": min(1.0, max(0.0, raw["model_attribution"])),
             "execution_quality": min(1.0, max(0.0, raw["execution_quality"])),
             "annualized_volatility": vol_norm,
             "sharpe_ratio": sharpe_norm,

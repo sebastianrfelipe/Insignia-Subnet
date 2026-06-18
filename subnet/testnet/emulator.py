@@ -4,19 +4,19 @@ Testnet Emulator
 The core emulator that bridges the Insignia simulation framework with a
 real (or local) Bittensor subtensor chain. This enables:
 
-  1. Running simulated L1/L2 miner agents against the actual Yuma consensus
+  1. Running simulated researcher/trader miner agents against the actual Yuma consensus
   2. Setting weights on-chain and observing emission distribution
   3. Iterating over parameter configurations with real consensus feedback
   4. Evaluating attack resilience under realistic network conditions
 
 Architecture:
                                 ┌──────────────┐
-    ┌──────────┐  submit models │              │  set weights
-    │ L1 Agents├───────────────►│  Emulator    ├──────────────► Subtensor
-    └──────────┘                │  Validator   │◄──────────────  (chain)
-    ┌──────────┐  submit trades │              │  query metagraph
-    │ L2 Agents├───────────────►│              │
-    └──────────┘                └──────┬───────┘
+    ┌──────────────┐ submit models │              │  set weights
+    │ Researcher   ├──────────────►│  Emulator    ├──────────────► Subtensor
+    │ Agents       │               │  Validator   │◄──────────────  (chain)
+    ┌──────────────┐ submit trades │              │  query metagraph
+    │ Trader Agents├──────────────►│              │
+    └──────────────┘               └──────┬───────┘
                                        │
                                ┌───────▼───────┐
                                │ Parameter      │
@@ -53,8 +53,8 @@ from insignia.incentive import (
 )
 from insignia.cross_layer import CrossLayerOrchestrator, PromotionEngine, PromotionConfig
 
-from neurons.l1_validator import L1Validator, ModelEvaluator, DemoBenchmarkProvider
-from neurons.l2_validator import L2Validator
+from neurons.model_validator import ModelValidator, ModelEvaluator, DemoBenchmarkProvider
+from neurons.trading_validator import TradingValidator
 
 from tuning.parameter_space import (
     decode,
@@ -113,22 +113,22 @@ class EmulatorEpochResult:
             }
 
         if self.sim_result:
-            result["l1_scores"] = {
+            result["researcher_scores"] = {
                 uid: round(s, 6)
                 for uid, s in self.sim_result.miner_scores.items()
             }
-            result["l2_scores"] = {
+            result["trader_scores"] = {
                 uid: round(s, 6)
-                for uid, s in self.sim_result.l2_scores.items()
+                for uid, s in self.sim_result.trader_scores.items()
             }
-            result["honest_l1_mean"] = (
-                round(float(np.mean(self.sim_result.honest_l1_scores)), 6)
-                if self.sim_result.honest_l1_scores
+            result["honest_researcher_mean"] = (
+                round(float(np.mean(self.sim_result.honest_researcher_scores)), 6)
+                if self.sim_result.honest_researcher_scores
                 else 0.0
             )
-            result["adversarial_l1_mean"] = (
-                round(float(np.mean(self.sim_result.adversarial_l1_scores)), 6)
-                if self.sim_result.adversarial_l1_scores
+            result["adversarial_researcher_mean"] = (
+                round(float(np.mean(self.sim_result.adversarial_researcher_scores)), 6)
+                if self.sim_result.adversarial_researcher_scores
                 else 0.0
             )
 
@@ -329,7 +329,7 @@ class InsigniaEmulator:
 
     Runs iterative epochs where:
       1. A parameter configuration is decoded
-      2. Simulated L1/L2 agents produce submissions
+      2. Simulated researcher/trader agents produce submissions
       3. The validator scores submissions using the Insignia scoring engine
       4. Weights are set on-chain (or logged in offline mode)
       5. Attack detection evaluates resilience
@@ -370,8 +370,8 @@ class InsigniaEmulator:
         self,
         param_vector: Optional[np.ndarray] = None,
         epoch_idx: int = 0,
-        l1_agents: Optional[List[MinerAgent]] = None,
-        l2_agents: Optional[List[TraderAgent]] = None,
+        researcher_agents: Optional[List[MinerAgent]] = None,
+        trader_agents: Optional[List[TraderAgent]] = None,
     ) -> EmulatorEpochResult:
         """
         Execute a single emulator epoch with the given parameter configuration.
@@ -386,28 +386,28 @@ class InsigniaEmulator:
 
         config = decode(param_vector)
 
-        if l1_agents is None or l2_agents is None:
-            l1_agents, l2_agents = create_default_agents(
-                n_honest=self.config.n_honest_l1,
-                n_overfitters=max(1, self.config.n_adversarial_l1 // 3),
-                n_copycats=max(1, self.config.n_adversarial_l1 // 4),
-                n_gamers=max(1, self.config.n_adversarial_l1 // 4),
-                n_sybils=max(1, self.config.n_adversarial_l1 // 3),
+        if researcher_agents is None or trader_agents is None:
+            researcher_agents, trader_agents = create_default_agents(
+                n_honest=self.config.n_honest_researchers,
+                n_overfitters=max(1, self.config.n_adversarial_researchers // 3),
+                n_copycats=max(1, self.config.n_adversarial_researchers // 4),
+                n_gamers=max(1, self.config.n_adversarial_researchers // 4),
+                n_sybils=max(1, self.config.n_adversarial_researchers // 3),
                 n_random=1,
-                n_honest_traders=self.config.n_honest_l2,
-                n_copy_traders=self.config.n_adversarial_l2,
+                n_honest_traders=self.config.n_honest_traders,
+                n_copy_traders=self.config.n_adversarial_traders,
                 routing_config=self.config.model_routing.to_dict(),
             )
 
         harness = SimulationHarness(
-            l1_agents=l1_agents,
-            l2_agents=l2_agents,
-            n_epochs=self.config.n_l1_epochs,
-            n_trading_steps=self.config.n_l2_trading_steps,
+            researcher_agents=researcher_agents,
+            trader_agents=trader_agents,
+            n_epochs=self.config.n_epochs,
+            n_trading_steps=self.config.n_trading_steps,
         )
 
-        logger.info("Epoch %d: Running simulation (%d L1, %d L2 agents)...",
-                     epoch_idx, len(l1_agents), len(l2_agents))
+        logger.info("Epoch %d: Running simulation (%d researchers, %d traders)...",
+                     epoch_idx, len(researcher_agents), len(trader_agents))
 
         sim_result = harness.run(param_vector)
         breach_report = self.detector.evaluate(sim_result)
@@ -447,7 +447,7 @@ class InsigniaEmulator:
         elapsed = time.time() - t0
 
         route_assignments: Dict[str, Dict[str, Any]] = {}
-        for agent in list(l1_agents) + list(l2_agents):
+        for agent in list(researcher_agents) + list(trader_agents):
             route_assignments[agent.uid] = {
                 "agent_type": agent.agent_type,
                 "assigned_route": getattr(agent, "assigned_route", None),
@@ -667,7 +667,7 @@ class InsigniaEmulator:
                 yaml_config = {
                     "weight_config": {
                         k: round(v, 6) for k, v in best_config["raw_params"].items()
-                        if k.startswith("l1_") or k.startswith("l2_")
+                        if k.startswith("model_") or k.startswith("trading_")
                     },
                     "overfitting": best_config["overfitting"],
                     "feedback": best_config["feedback"],
@@ -687,11 +687,11 @@ class InsigniaEmulator:
         breach = result.breach_report
 
         honest_mean = (
-            float(np.mean(sim.honest_l1_scores)) if sim and sim.honest_l1_scores else 0.0
+            float(np.mean(sim.honest_researcher_scores)) if sim and sim.honest_researcher_scores else 0.0
         )
         adv_mean = (
-            float(np.mean(sim.adversarial_l1_scores))
-            if sim and sim.adversarial_l1_scores
+            float(np.mean(sim.adversarial_researcher_scores))
+            if sim and sim.adversarial_researcher_scores
             else 0.0
         )
         n_breached = breach.n_breached if breach else 0

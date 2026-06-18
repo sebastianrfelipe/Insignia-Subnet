@@ -1,9 +1,16 @@
 """
-Layer 1 Validator — Model Evaluation
+Model Validator — Researcher-side Model Evaluation
 
-Template validator for Layer 1 of the Insignia subnet. Validators receive
-model submissions from miners, run them against a proprietary benchmark
-dataset, and assign composite scores used for Yuma consensus weight-setting.
+Template validator for the researcher (model) side of the Insignia subnet.
+Validators receive model submissions from researcher miners, run them against a
+proprietary benchmark dataset, and assign composite scores used for Yuma
+consensus weight-setting.
+
+Under the single paired mechanism, the unified ``PairedValidator``
+(``neurons/validator.py``) drives the per-epoch lifecycle; this module provides
+the reusable ``ModelEvaluator`` it calls to score the researcher half of each
+pair. The standalone ``ModelValidator`` below is the legacy single-layer
+evaluator retained for the emulator and demos.
 
 PROPRIETARY BOUNDARY:
   The validator's benchmark dataset (enterprise tick-by-tick data) is the
@@ -16,7 +23,7 @@ PROPRIETARY BOUNDARY:
   from the subnet owner's enterprise feed.
 
 Evaluation Flow:
-  1. Receive L1ModelSubmission from miner
+  1. Receive ModelSubmission from researcher miner
   2. Deserialize model artifact
   3. Validate model compatibility (ONNX inference test)
   4. Run model against proprietary holdout window
@@ -25,7 +32,7 @@ Evaluation Flow:
   7. Return composite score; set weights for Yuma consensus
 
 Usage:
-    python neurons/l1_validator.py --netuid <NETUID> --wallet.name <WALLET> --subtensor.network test
+    python neurons/model_validator.py --netuid <NETUID> --wallet.name <WALLET> --subtensor.network test
 """
 
 from __future__ import annotations
@@ -62,7 +69,7 @@ from insignia.incentive import (
     CrossLayerFeedbackEngine,
 )
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [L1-Validator] %(message)s")
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [Model-Validator] %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -114,7 +121,7 @@ class DemoBenchmarkProvider(BenchmarkDataProvider):
         rng = np.random.RandomState(self.seed + epoch_id)
         regime = self.REGIMES[epoch_id % len(self.REGIMES)]
 
-        from neurons.l1_miner import PUBLIC_FEATURE_REGISTRY
+        from neurons.researcher_miner import PUBLIC_FEATURE_REGISTRY
 
         features = PUBLIC_FEATURE_REGISTRY[:15]
         data = {}
@@ -212,7 +219,7 @@ class ModelEvaluator:
 
         model_complexity = self._extract_complexity(model)
 
-        score = self.scorer.score_l1(
+        score = self.scorer.score_model(
             predictions=predictions,
             actuals=actuals_clean,
             equity_curve=equity_curve,
@@ -261,22 +268,23 @@ class ModelEvaluator:
 
 
 # ---------------------------------------------------------------------------
-# L1 Validator Neuron
+# Model Validator Neuron (legacy single-layer evaluator)
 # ---------------------------------------------------------------------------
 
-class L1Validator:
+class ModelValidator:
     """
-    Layer 1 Validator neuron.
+    Model Validator neuron (legacy single-layer evaluator).
 
     Manages the full evaluation cycle:
-      - Receives miner model submissions
+      - Receives researcher miner model submissions
       - Applies anti-gaming checks
       - Runs model evaluation against proprietary benchmark
       - Computes weights for Yuma consensus
-      - Promotes top models to Layer 2 pool
+      - (Legacy) promotes top models for downstream trading use
 
     The validator maintains state across epochs: miner scores, model
-    fingerprints, promotion history, and cross-layer feedback.
+    fingerprints, promotion history, and cross-layer feedback. Under the
+    single paired mechanism this role is subsumed by ``PairedValidator``.
     """
 
     def __init__(
@@ -456,30 +464,30 @@ class L1Validator:
 # ---------------------------------------------------------------------------
 
 def demo():
-    """Run a standalone L1 validator demonstration with multiple miners."""
-    from neurons.l1_miner import L1Miner, L1ModelTrainer, generate_demo_data
+    """Run a standalone model validator demonstration with multiple miners."""
+    from neurons.researcher_miner import ResearcherMiner, ModelTrainer, generate_demo_data
 
     logger.info("=" * 60)
-    logger.info("Insignia L1 Validator — Demo Mode")
+    logger.info("Insignia Model Validator — Demo Mode")
     logger.info("=" * 60)
 
     miners = {}
     for i in range(5):
         data = generate_demo_data(n_samples=3000, seed=42 + i)
-        trainer = L1ModelTrainer(
+        trainer = ModelTrainer(
             n_estimators=200 + i * 50,
             max_depth=4 + i,
             learning_rate=0.03 + i * 0.01,
             random_state=42 + i,
         )
-        miner = L1Miner(trainer=trainer)
+        miner = ResearcherMiner(trainer=trainer)
         submission = miner.train_and_submit(data)
         miners[f"miner_{i}"] = submission
         logger.info("Miner %d trained: IS=%.4f OOS=%.4f",
                      i, miner.trainer.training_metrics["in_sample_accuracy"],
                      miner.trainer.training_metrics["out_of_sample_accuracy"])
 
-    validator = L1Validator(top_n_promote=3)
+    validator = ModelValidator(top_n_promote=3)
 
     for epoch in range(3):
         logger.info("\n--- Epoch %d ---", epoch)
