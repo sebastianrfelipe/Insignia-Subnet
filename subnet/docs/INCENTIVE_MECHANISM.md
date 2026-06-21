@@ -289,29 +289,6 @@ Weights are published and configurable via `WeightConfig`. They are balanced so 
 
 ---
 
-## Cross-Layer Feedback Loop (legacy)
-
-> **Legacy.** This retroactive feedback loop belonged to the old two-layer
-> design. Under the single paired mechanism it is replaced by joint
-> `(researcher, trader)` pair evaluation, so models are judged together with a
-> trader's strategy in the same generation rather than via delayed feedback.
-
-The two layers created a self-reinforcing quality signal:
-
-```
-L1 Models ──> Promotion ──> L2 Strategies ──> L2 Scores ──┐
-    ↑                                                       │
-    └──── Retroactive Bonus/Penalty ◄──────────────────────┘
-```
-
-1. **Bonus**: L1 models whose L2 strategies score > 0.6 receive a retroactive multiplier (up to +15%) in the next L1 epoch.
-2. **Penalty**: L1 models whose L2 strategies score < 0.3 receive a penalty (up to -10%) despite good simulation scores.
-3. **Minimum evidence**: Adjustments only apply after 3+ L2 epochs of data to prevent noise.
-
-This closes the simulation-to-reality gap: models are ultimately judged by deployment outcomes.
-
----
-
 ## Attack Vector Analysis
 
 ### 1. Overfitting to Public Data
