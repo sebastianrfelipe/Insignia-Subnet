@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-06-22 - Reproducible code submission for researcher miners
+
+- researcher miners now submit the **source code that produced/serves their model** alongside the serialized artifact, mirroring Metanova Labs' NOVA subnet (SN68): validators re-execute the code in an isolated sandbox and confirm it reproduces the artifact's predictions before scoring, making submissions auditable and ungameable by opaque/hard-coded/tampered artifacts
+- added `insignia/code_submission.py`: deterministic `tar.gz` bundle packaging (`build_code_bundle`/`build_code_bundle_from_dir`) with a per-file manifest; `CodeBundleVerifier` (hash + manifest + entrypoint checks, extraction safety against traversal/symlinks/zip-bombs, static scan rejecting sandbox-escaping source); `SandboxRunner` (subprocess isolation via POSIX rlimits, wall-clock budget, scrubbed env, and best-effort network-namespace drop with `unshare -n`); `ReproducibilityChecker` (re-runs the entrypoint and compares predictions); and `CodeFingerprinter` (normalized-source plagiarism detection)
+- `protocol.py`: `ModelSubmission` and `PairEvaluationRequest` carry `code_bundle`, `code_bundle_hash`, `code_entrypoint`, `code_manifest`, and `code_signature`, plus `code_verified`/`code_reproducible`/`reproducibility_score`/`code_rejection_reason` response fields
+- `neurons/researcher_miner.py`: `ModelTrainer.build_code_bundle()` packages an `inference.py` entrypoint + model + training source; `train_and_submit` attaches the bundle to every submission (NOVA `input.json` → `result.json` I/O convention)
+- `neurons/model_validator.py`: added `CodeSubmissionValidator` (verify → fingerprint → sandbox-reproduce); `ModelEvaluator.evaluate` accepts an optional `capture` for repro inputs and exposes a shared `predict` convention; `ModelValidator` gains `require_code` and `gate_on_reproducibility` (non-reproducible submissions are scored zero)
+- `insignia/incentive.py`: new attack/defense entry for opaque/unreproducible/tampered artifacts, and code-fingerprinting added to the model-plagiarism defense
+- added `tests/test_code_submission.py` (26 tests) and updated `docs/SUBNET_SPEC.md` + `docs/researcher.md`
+
 ## 2026-06-22 - Deterministic tiebreakers in pair selection
 
 - made cross-validator pair selection fully order-independent so every honest validator reproducing the same generation derives byte-identical pairings/weights (a Yuma-consensus requirement)
