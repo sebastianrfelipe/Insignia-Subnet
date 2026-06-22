@@ -430,8 +430,14 @@ ATTACK_DEFENSE_MATRIX: List[AttackDefense] = [
     AttackDefense(
         attack="Model plagiarism (researcher)",
         description="Researcher miner copies another miner's model artifact or training approach.",
-        defense="SHA-256 fingerprinting detects exact duplicates. Prediction correlation analysis detects behavioral clones. Correlated models share rewards, removing the incentive to copy.",
-        mechanism="ModelFingerprinter",
+        defense="SHA-256 fingerprinting detects exact duplicates. Prediction correlation analysis detects behavioral clones. Correlated models share rewards, removing the incentive to copy. Normalized-source code fingerprinting additionally catches a stolen pipeline that is re-serialized to change the artifact hash.",
+        mechanism="ModelFingerprinter + CodeFingerprinter",
+    ),
+    AttackDefense(
+        attack="Opaque / unreproducible / tampered artifact (researcher)",
+        description="Researcher miner submits a model artifact that is not the genuine output of a runnable pipeline — a hand-built lookup table keyed to the benchmark, a blob lifted from elsewhere, or hard-coded outputs — so its score cannot be attributed to real predictive work.",
+        defense="Metanova/NOVA-style code submission: the miner ships the signed source that produces/serves the model and the validator re-executes it in an isolated sandbox (resource limits, wall-clock budget, scrubbed env, best-effort network-namespace drop) over the same evaluation features. The reproduced predictions must match the submitted artifact's; submissions whose code cannot reproduce their artifact are gated out of scoring (zero weight). Static analysis rejects sandbox-escaping source before execution.",
+        mechanism="CodeBundleVerifier + SandboxRunner + ReproducibilityChecker + gate_on_reproducibility",
     ),
     AttackDefense(
         attack="Copy-trading (trader)",

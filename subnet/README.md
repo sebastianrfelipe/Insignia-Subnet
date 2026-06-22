@@ -22,7 +22,7 @@ Built on [Bittensor](https://bittensor.com) for the Sovereign Infrastructure Hac
 
 Insignia is a competitive network for producing high-quality ML models and validating that they actually work when deployed. Two miner roles share one subnet and are matched into `(researcher, trader)` pairs:
 
-- **Researcher miners (model scoring):** train predictive models, scored across 7 weighted metrics.
+- **Researcher miners (model scoring):** train predictive models, scored across 7 weighted metrics. Each submission ships the **source code that produced/serves the model** (Metanova/NOVA-style); validators re-run it in an isolated sandbox and gate scoring on whether it reproduces the submitted artifact. See `insignia/code_submission.py` and `docs/SUBNET_SPEC.md` → "Reproducible Code Submission".
 - **Trader miners (trading scoring):** run a trading strategy on an *assigned* model (chain-seeded pairing), scored with the repository's 9-metric trading risk stack.
 - **Paired genetic selection:** each pair is jointly evaluated, ranked with NSGA-II, and credited via a variance-penalized marginal contribution into a single Yuma weight vector.
 - **Commit-Reveal Validation:** the timing defense path now holds at system-level effectiveness `0.76`, above the `0.667` acceptance floor, with simulator stability analysis reaching `0.801` across pre/post-CR epochs.

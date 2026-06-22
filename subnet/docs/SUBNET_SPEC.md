@@ -47,9 +47,9 @@
 ### Miner Task
 **Specific, measurable, implementable task interface.**
 
-- **L1 Task**: Train and submit ML model artifacts (ONNX/joblib) for directional prediction
+- **L1 Task**: Train and submit ML model artifacts (ONNX/joblib) for directional prediction, plus a reproducible code bundle that regenerates them
   - Interface: `POST /l1/submit_model` with defined schema (see `protocol.py`)
-  - Measurable via composite score vector
+  - Measurable via composite score vector; gated on sandbox reproducibility of the submitted code
 - **L2 Task**: Build and operate paper/live trading strategy using promoted L1 models
   - Interface: `POST /l2/submit_strategy` with position log
   - Measurable via realized P&L, Omega, drawdown, consistency, execution quality
@@ -132,7 +132,41 @@ class ModelSubmission(bt.Synapse):
     hyperparams: Dict[str, Any]    # Full hyperparameter set
     target_instrument: str         # e.g., "BTC-USDT-PERP"
     target_horizon_minutes: int    # Prediction horizon
+
+    # Code submission (reproducibility) — see "Reproducible Code Submission"
+    code_bundle: bytes             # Deterministic tar.gz of source + model + entrypoint
+    code_bundle_hash: str          # SHA-256 of code_bundle (signed/committed)
+    code_entrypoint: str           # Script the validator runs in-sandbox (e.g. inference.py)
+    code_manifest: Dict[str, Any]  # Per-file hashes + metadata
+    code_signature: str            # Hotkey signature over code_bundle_hash
 ```
+
+### Reproducible Code Submission (researcher)
+
+Following Metanova Labs' NOVA subnet (SN68), a researcher miner submits **the
+code that produced/serves the model** alongside the serialized artifact. The
+miner packages a deterministic `tar.gz` (`insignia/code_submission.py`)
+containing an `inference.py` entrypoint, the serialized model, and the training
+source, then attaches it (plus its SHA-256 hash and manifest) to
+`ModelSubmission`.
+
+On receipt the validator:
+
+1. **Verifies** the bundle — hash match, manifest per-file hashes, entrypoint
+   presence, archive/extraction limits (size, file count, traversal, zip-bomb),
+   and a static safety scan that rejects sandbox-escaping source.
+2. **Fingerprints** the normalized source to flag verbatim/lightly-edited code
+   plagiarism across miners (re-serializing a stolen model no longer hides it).
+3. **Reproduces** the artifact — re-runs the entrypoint in an isolated sandbox
+   (POSIX resource limits, wall-clock budget, scrubbed env, best-effort
+   network-namespace drop via `unshare -n`) over the same evaluation features and
+   confirms the reproduced predictions match the submitted artifact's.
+
+With `gate_on_reproducibility`, a submission whose code cannot reproduce its
+artifact earns zero weight; with `require_code`, artifact-only submissions are
+rejected. The entrypoint follows the NOVA I/O convention: read `input.json`,
+write `result.json`. This makes submissions auditable and defeats opaque,
+hard-coded, or tampered artifacts.
 
 ### Trading Strategy Submission (trader)
 
@@ -212,15 +246,16 @@ Everything else — the scoring framework, synapse definitions, incentive design
 subnet/
 ├── insignia/
 │   ├── __init__.py           # Package definition
-│   ├── protocol.py           # Bittensor Synapse definitions (model + trading + pairing + commit/reveal)
+│   ├── protocol.py           # Bittensor Synapse definitions (model + trading + pairing + commit/reveal + code submission)
 │   ├── scoring.py            # Composite scoring engine (model: 7 metrics, trading: 9 metrics)
 │   ├── incentive.py          # Anti-gaming mechanisms + commit-reveal + attack/defense matrix
+│   ├── code_submission.py    # Reproducible code bundles (package + verify + sandbox + fingerprint)
 │   ├── pairing.py            # Paired genetic mechanism (NSGA-II matchmaking + marginal credit)
 │   └── cross_layer.py        # Model promotion + feedback loop engine (legacy two-layer)
 ├── neurons/
-│   ├── researcher_miner.py   # Researcher miner template (model training + commit/reveal)
+│   ├── researcher_miner.py   # Researcher miner template (model training + code bundle + commit/reveal)
 │   ├── trader_miner.py       # Trader miner template (paper trading + commit/reveal)
-│   ├── model_validator.py    # Model evaluator + legacy model validator
+│   ├── model_validator.py    # Model evaluator + code-submission validator + legacy model validator
 │   ├── trading_validator.py  # Trading validator (P&L tracking + scoring, legacy)
 │   └── validator.py          # Unified PairedValidator (assign → eval → NSGA-II → credit → set_weights)
 ├── tuning/
