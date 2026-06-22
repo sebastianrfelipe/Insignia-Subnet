@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-06-22 - Deterministic tiebreakers in pair selection
+
+- made cross-validator pair selection fully order-independent so every honest validator reproducing the same generation derives byte-identical pairings/weights (a Yuma-consensus requirement)
+- `ChainSeededPairing.reproduce`: elite selection now sorts by `(-selection_score, genome.key)` instead of `selection_score` alone; previously equal-score pairs kept whatever order `prev_fitnesses` arrived in, so two validators holding the same fitnesses in a different order could pick different elites and diverge
+- `crowding_distance`: objective-value ties now break on the row index so the NSGA-II crowding ordering is identical regardless of incidental front ordering
+- added `test_reproduce_tiebreak_is_order_independent` to `tests/test_pairing.py`
+
 ## 2026-06-17 - Rename L1/L2 nomenclature to researcher/trader
 
 - there are no L1/L2 miners under the single paired mechanism, so the two-layer naming was renamed to the role/skill it denotes throughout the code and docs
