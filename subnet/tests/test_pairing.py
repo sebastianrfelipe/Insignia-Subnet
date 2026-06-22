@@ -64,6 +64,27 @@ class ChainSeededPairingTests(unittest.TestCase):
         b = self.pairing.assign(self.researchers, self.traders, "block_2")
         self.assertNotEqual([g.key for g in a], [g.key for g in b])
 
+    def test_reproduce_tiebreak_is_order_independent(self):
+        # All pairs share an identical selection_score, so reproduction must
+        # rely on the deterministic genome-key tiebreaker rather than the input
+        # ordering. Two validators holding the same fitnesses in different
+        # orders must produce the same next generation.
+        fits = []
+        for r in self.researchers:
+            for t in self.traders:
+                f = PairFitness(
+                    genome=PairGenome(r, t),
+                    objectives=[-0.5, -0.5, 0.1, -0.5],
+                    pair_composite=0.5,
+                )
+                f.selection_score = 0.5
+                fits.append(f)
+
+        shuffled = list(reversed(fits))
+        a = self.pairing.reproduce(fits, self.researchers, self.traders, "block_7")
+        b = self.pairing.reproduce(shuffled, self.researchers, self.traders, "block_7")
+        self.assertEqual([g.key for g in a], [g.key for g in b])
+
     def test_partner_floor(self):
         genomes = self.pairing.assign(self.researchers, self.traders, "block_0")
         r_counts = {r: 0 for r in self.researchers}
