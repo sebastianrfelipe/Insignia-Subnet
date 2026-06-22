@@ -68,6 +68,14 @@ from insignia.incentive import (
     ModelFingerprinter,
     CrossLayerFeedbackEngine,
 )
+from insignia.code_submission import (
+    CodeBundleConfig,
+    CodeBundleVerifier,
+    CodeFingerprinter,
+    ReproducibilityChecker,
+    SandboxConfig,
+    SandboxRunner,
+)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [Model-Validator] %(message)s")
 logger = logging.getLogger(__name__)
@@ -180,11 +188,17 @@ class ModelEvaluator:
         model_artifact: bytes,
         features_used: List[str],
         epoch_id: int = 0,
+        capture: Optional[Dict[str, Any]] = None,
     ) -> Tuple[ScoreVector, Dict[str, Any]]:
         """
         Full evaluation pipeline for one miner's model.
 
         Returns (score_vector, diagnostics_dict).
+
+        When ``capture`` is provided it is populated with the cleaned feature
+        matrix, the features actually used, and the artifact's predictions so
+        the caller can drive an independent reproducibility check on the miner's
+        submitted code without re-deserializing or re-windowing.
         """
         model = self._deserialize(model_artifact)
         holdout_df, actuals = self.benchmark.get_holdout_window(epoch_id)
@@ -199,15 +213,13 @@ class ModelEvaluator:
         actuals_clean = actuals[mask]
 
         t0 = time.perf_counter()
-        if hasattr(model, "predict_proba"):
-            raw_preds = model.predict_proba(X_clean)
-            if raw_preds.ndim == 2:
-                predictions = raw_preds[:, 1] - 0.5
-            else:
-                predictions = raw_preds - 0.5
-        else:
-            predictions = model.predict(X_clean).astype(float)
+        predictions = self.predict(model, X_clean)
         inference_ms = (time.perf_counter() - t0) * 1000
+
+        if capture is not None:
+            capture["X_clean"] = X_clean
+            capture["available_features"] = available_features
+            capture["predictions"] = predictions
 
         position_returns = predictions * actuals_clean
         equity_curve = np.cumsum(position_returns) + 1.0
@@ -241,6 +253,21 @@ class ModelEvaluator:
 
         return score, diagnostics
 
+    @staticmethod
+    def predict(model, X: np.ndarray) -> np.ndarray:
+        """
+        Canonical prediction convention shared by the validator and the
+        sandboxed ``inference.py`` entrypoint (see
+        ``neurons.researcher_miner.INFERENCE_ENTRYPOINT_SOURCE``). Keeping the
+        two in sync is what makes the reproducibility comparison meaningful.
+        """
+        if hasattr(model, "predict_proba"):
+            raw_preds = np.asarray(model.predict_proba(X))
+            if raw_preds.ndim == 2:
+                return raw_preds[:, 1] - 0.5
+            return raw_preds - 0.5
+        return model.predict(X).astype(float)
+
     def _deserialize(self, artifact: bytes):
         buf = io.BytesIO(artifact)
         return joblib.load(buf)
@@ -268,6 +295,118 @@ class ModelEvaluator:
 
 
 # ---------------------------------------------------------------------------
+# Code Submission Validator
+# ---------------------------------------------------------------------------
+
+class CodeSubmissionValidator:
+    """
+    Validates the code half of a researcher submission.
+
+    Pipeline per submission:
+      1. **Structure + static safety** — ``CodeBundleVerifier`` confirms the
+         bundle hash, manifest, entrypoint, and that no source contains a
+         sandbox-escaping pattern.
+      2. **Plagiarism** — ``CodeFingerprinter`` flags miners shipping verbatim
+         or lightly-edited copies of another miner's source.
+      3. **Reproducibility** — ``ReproducibilityChecker`` re-runs the bundle's
+         entrypoint in an isolated sandbox over the validator's evaluation
+         features and verifies the reproduced predictions match the artifact's.
+
+    The validator can then gate scoring on reproducibility so opaque,
+    hard-coded, or tampered artifacts earn nothing.
+    """
+
+    def __init__(
+        self,
+        verifier: CodeBundleVerifier | None = None,
+        reproducibility: ReproducibilityChecker | None = None,
+        fingerprinter: CodeFingerprinter | None = None,
+        bundle_config: CodeBundleConfig | None = None,
+        sandbox_config: SandboxConfig | None = None,
+        reject_duplicates: bool = False,
+    ):
+        self.bundle_config = bundle_config or CodeBundleConfig()
+        self.verifier = verifier or CodeBundleVerifier(self.bundle_config)
+        self.reproducibility = reproducibility or ReproducibilityChecker(
+            runner=SandboxRunner(sandbox_config or SandboxConfig(), self.bundle_config)
+        )
+        self.fingerprinter = fingerprinter or CodeFingerprinter()
+        # By default, identical code is *reported* (so a validator can apply
+        # reward-sharing like ``ModelFingerprinter`` does for correlated models)
+        # rather than hard-rejected — many honest miners legitimately start from
+        # the public reference pipeline. Set True to reject verbatim copies.
+        self.reject_duplicates = reject_duplicates
+
+    def validate(
+        self,
+        miner_uid: str,
+        code_bundle: bytes,
+        code_entrypoint: str,
+        code_bundle_hash: str = "",
+        code_manifest: Dict[str, Any] | None = None,
+        repro_features: Optional[np.ndarray] = None,
+        repro_feature_names: Optional[List[str]] = None,
+        reference_predictions: Optional[np.ndarray] = None,
+    ) -> Dict[str, Any]:
+        result: Dict[str, Any] = {
+            "code_verified": False,
+            "code_reproducible": False,
+            "reproducibility_score": 0.0,
+            "code_duplicate_of": [],
+            "code_rejection_reason": "",
+        }
+
+        if not code_bundle:
+            result["code_rejection_reason"] = "no code bundle submitted"
+            return result
+
+        verification = self.verifier.verify(
+            archive=code_bundle,
+            entrypoint=code_entrypoint,
+            declared_hash=code_bundle_hash,
+            manifest=code_manifest,
+        )
+        if not verification.ok:
+            result["code_rejection_reason"] = verification.reason
+            return result
+        result["code_verified"] = True
+
+        fingerprint = self.fingerprinter.compute(code_bundle)
+        duplicates = self.fingerprinter.find_duplicates(miner_uid, fingerprint)
+        self.fingerprinter.register(miner_uid, fingerprint)
+        result["code_fingerprint"] = fingerprint[:16]
+        if duplicates:
+            result["code_duplicate_of"] = duplicates
+            if self.reject_duplicates:
+                result["code_rejection_reason"] = (
+                    f"code duplicates miner(s): {', '.join(duplicates)}"
+                )
+                return result
+
+        if repro_features is None or reference_predictions is None:
+            result["code_rejection_reason"] = "no evaluation features for reproducibility"
+            return result
+
+        repro = self.reproducibility.check(
+            archive=code_bundle,
+            entrypoint=code_entrypoint,
+            features=repro_features.tolist() if hasattr(repro_features, "tolist") else repro_features,
+            feature_names=repro_feature_names or [],
+            reference_predictions=(
+                reference_predictions.tolist()
+                if hasattr(reference_predictions, "tolist")
+                else reference_predictions
+            ),
+        )
+        result["reproducibility_score"] = repro.score
+        result["code_reproducible"] = repro.ok
+        result["repro_n_compared"] = repro.n_compared
+        if not repro.ok:
+            result["code_rejection_reason"] = repro.reason
+        return result
+
+
+# ---------------------------------------------------------------------------
 # Model Validator Neuron (legacy single-layer evaluator)
 # ---------------------------------------------------------------------------
 
@@ -292,12 +431,22 @@ class ModelValidator:
         evaluator: ModelEvaluator | None = None,
         weights: WeightConfig | None = None,
         top_n_promote: int = 10,
+        code_validator: CodeSubmissionValidator | None = None,
+        require_code: bool = False,
+        gate_on_reproducibility: bool = True,
     ):
         self.evaluator = evaluator or ModelEvaluator()
         self.rate_limiter = SubmissionRateLimit()
         self.fingerprinter = ModelFingerprinter()
         self.feedback_engine = CrossLayerFeedbackEngine()
         self.top_n_promote = top_n_promote
+        # Code-submission verification (reproducibility). ``require_code``
+        # rejects artifact-only submissions; ``gate_on_reproducibility`` zeroes
+        # the score of any submission whose code is present but fails to
+        # reproduce the artifact.
+        self.code_validator = code_validator or CodeSubmissionValidator()
+        self.require_code = require_code
+        self.gate_on_reproducibility = gate_on_reproducibility
 
         self.current_epoch: int = 0
         self.miner_scores: Dict[str, ScoreVector] = {}
@@ -310,16 +459,33 @@ class ModelValidator:
         model_artifact: bytes,
         features_used: List[str],
         metadata: Dict[str, Any],
+        code_bundle: Optional[bytes] = None,
+        code_entrypoint: str = "",
+        code_bundle_hash: str = "",
+        code_manifest: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """
         Process a single miner's model submission.
 
         Returns a result dict with score, acceptance status, and diagnostics.
+
+        If a ``code_bundle`` is supplied the validator verifies it, screens it
+        for plagiarism, and re-runs it in a sandbox to confirm it reproduces the
+        artifact's predictions. With ``gate_on_reproducibility`` set, a
+        non-reproducible submission is scored zero; with ``require_code`` set, an
+        artifact-only submission is rejected outright.
         """
         if not self.rate_limiter.check(miner_uid):
             return {
                 "accepted": False,
                 "rejection_reason": "Rate limited: 1 submission per epoch",
+                "composite_score": 0.0,
+            }
+
+        if self.require_code and not code_bundle:
+            return {
+                "accepted": False,
+                "rejection_reason": "Code submission required (no code_bundle provided)",
                 "composite_score": 0.0,
             }
 
@@ -331,11 +497,40 @@ class ModelValidator:
                 "composite_score": 0.0,
             }
 
+        capture: Dict[str, Any] = {}
         score, diagnostics = self.evaluator.evaluate(
             model_artifact=model_artifact,
             features_used=features_used,
             epoch_id=self.current_epoch,
+            capture=capture if code_bundle else None,
         )
+
+        # --- Code submission: verify + reproduce in sandbox ---
+        code_result: Dict[str, Any] = {}
+        if code_bundle:
+            code_result = self.code_validator.validate(
+                miner_uid=miner_uid,
+                code_bundle=code_bundle,
+                code_entrypoint=code_entrypoint,
+                code_bundle_hash=code_bundle_hash,
+                code_manifest=code_manifest,
+                repro_features=capture.get("X_clean"),
+                repro_feature_names=capture.get("available_features"),
+                reference_predictions=capture.get("predictions"),
+            )
+            if self.gate_on_reproducibility and not code_result.get("code_reproducible"):
+                self.rate_limiter.record(miner_uid)
+                logger.info(
+                    "Miner %s: code submission rejected (%s) — scored 0",
+                    miner_uid, code_result.get("code_rejection_reason", "unverified"),
+                )
+                return {
+                    "accepted": False,
+                    "composite_score": 0.0,
+                    "rejection_reason": "Code submission failed: "
+                    + code_result.get("code_rejection_reason", "not reproducible"),
+                    "code_submission": code_result,
+                }
 
         l2_adjustment = self.feedback_engine.compute_adjustment(miner_uid)
         adjusted_composite = score.composite * l2_adjustment
@@ -359,13 +554,17 @@ class ModelValidator:
             "l2_feedback_multiplier": round(l2_adjustment, 4),
             "correlated_miners": len(correlated),
         }
+        if code_result:
+            result["code_submission"] = code_result
 
         logger.info(
-            "Miner %s: score=%.4f (regime=%s, l2_adj=%.2f)",
+            "Miner %s: score=%.4f (regime=%s, l2_adj=%.2f%s)",
             miner_uid,
             adjusted_composite,
             diagnostics.get("regime", "unknown"),
             l2_adjustment,
+            ", code reproduced repro=%.3f" % code_result["reproducibility_score"]
+            if code_result.get("code_reproducible") else "",
         )
         return result
 
@@ -390,6 +589,10 @@ class ModelValidator:
                 model_artifact=sub["model_artifact"],
                 features_used=sub.get("features_used", []),
                 metadata=sub.get("metadata", {}),
+                code_bundle=sub.get("code_bundle"),
+                code_entrypoint=sub.get("code_entrypoint", ""),
+                code_bundle_hash=sub.get("code_bundle_hash", ""),
+                code_manifest=sub.get("code_manifest"),
             )
 
         ranked = sorted(
@@ -487,7 +690,9 @@ def demo():
                      i, miner.trainer.training_metrics["in_sample_accuracy"],
                      miner.trainer.training_metrics["out_of_sample_accuracy"])
 
-    validator = ModelValidator(top_n_promote=3)
+    # require_code=True: artifact-only submissions are rejected; every accepted
+    # submission must ship code that reproduces its artifact in the sandbox.
+    validator = ModelValidator(top_n_promote=3, require_code=True)
 
     for epoch in range(3):
         logger.info("\n--- Epoch %d ---", epoch)
@@ -495,13 +700,17 @@ def demo():
 
         for uid, result in epoch_result["results"].items():
             if result["accepted"]:
+                code = result.get("code_submission", {})
                 logger.info(
-                    "  %s: rank=%d score=%.4f %s",
+                    "  %s: rank=%d score=%.4f repro=%.3f %s",
                     uid,
                     result["rank"],
                     result["composite_score"],
+                    code.get("reproducibility_score", 0.0),
                     "[PROMOTED]" if result.get("promoted_to_l2") else "",
                 )
+            else:
+                logger.info("  %s: REJECTED (%s)", uid, result.get("rejection_reason", ""))
 
     logger.info("\n--- Promoted Models ---")
     for m in validator.get_promoted_models():

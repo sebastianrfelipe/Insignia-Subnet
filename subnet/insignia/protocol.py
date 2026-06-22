@@ -81,6 +81,14 @@ class ModelSubmission(_SynapseBase):
     model against their proprietary benchmark dataset, and return a composite
     score vector.
 
+    Reproducibility (Metanova/NOVA-style): in addition to the model artifact,
+    the miner ships the source code that produced/serves it as a signed
+    ``code_bundle`` (a deterministic ``tar.gz`` — see
+    ``insignia.code_submission``). The validator re-executes the bundle's
+    ``code_entrypoint`` in an isolated sandbox and confirms it reproduces the
+    submitted artifact's predictions before the submission is scored. This
+    makes submissions auditable and ungameable by opaque/hard-coded artifacts.
+
     Privacy note: the validator's benchmark dataset is never exposed to miners.
     Only the aggregate score is returned.
     """
@@ -97,11 +105,24 @@ class ModelSubmission(_SynapseBase):
     target_horizon_minutes: int = 60
     self_reported_overfitting_score: float = 0.0
 
+    # --- Code submission (reproducibility) fields (miner fills these) ---
+    code_bundle: Optional[bytes] = None        # deterministic tar.gz of source
+    code_bundle_hash: str = ""                 # sha256 of code_bundle (signed/committed)
+    code_entrypoint: str = ""                  # script the validator runs in-sandbox
+    code_manifest: Dict[str, Any] = {}         # per-file hashes + metadata
+    code_signature: str = ""                   # hotkey signature over code_bundle_hash
+
     # --- Response fields (validator fills these) ---
     composite_score: Optional[float] = None
     score_breakdown: Dict[str, float] = {}
     accepted: bool = False
     rejection_reason: str = ""
+
+    # --- Code-verification response fields (validator fills these) ---
+    code_verified: bool = False                # static checks + sandbox run passed
+    code_reproducible: bool = False            # sandbox reproduced the artifact
+    reproducibility_score: float = 0.0         # agreement in [0, 1]
+    code_rejection_reason: str = ""
 
     class Config:
         arbitrary_types_allowed = True
@@ -271,6 +292,10 @@ class PairEvaluationRequest(_SynapseBase):
     # Response (researcher side)
     model_artifact: Optional[bytes] = None
     model_metadata: Dict[str, Any] = {}
+    code_bundle: Optional[bytes] = None        # source that produces/serves the model
+    code_bundle_hash: str = ""
+    code_entrypoint: str = ""
+    code_manifest: Dict[str, Any] = {}
 
     # Response (trader side)
     strategy_id: str = ""
