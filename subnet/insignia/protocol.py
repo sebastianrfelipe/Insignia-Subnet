@@ -81,7 +81,7 @@ class ModelSubmission(_SynapseBase):
     model against their proprietary benchmark dataset, and return a composite
     score vector.
 
-    Reproducibility (Metanova/NOVA-style): in addition to the model artifact,
+    Reproducibility: in addition to the model artifact,
     the miner ships the source code that produced/serves it as a signed
     ``code_bundle`` (a deterministic ``tar.gz`` — see
     ``insignia.code_submission``). The validator re-executes the bundle's
