@@ -13,7 +13,15 @@ This template demonstrates the full miner lifecycle:
   1. Fetch publicly available market data
   2. Engineer features from the public feature registry
   3. Train a model using the miner's chosen algorithm and hyperparameters
-  4. Serialize the model and submit to validators via the ModelSubmission synapse
+  4. Serialize the model AND package the source code that produced/serves it
+  5. Submit both to validators via the ModelSubmission synapse
+
+CODE SUBMISSION (Metanova/NOVA-style reproducibility):
+  The miner ships a signed ``code_bundle`` (a deterministic tar.gz containing
+  the training source, the serialized model, and a sandbox ``inference.py``
+  entrypoint) alongside the artifact. Validators re-execute the entrypoint in
+  an isolated sandbox and confirm it reproduces the artifact's predictions
+  before scoring. See ``insignia/code_submission.py``.
 
 PROPRIETARY BOUNDARY:
   - Miners use publicly available data + their own sourced data
@@ -28,6 +36,7 @@ Usage:
 from __future__ import annotations
 
 import io
+import json
 import time
 import hashlib
 import logging
@@ -52,6 +61,11 @@ import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from insignia.protocol import MinerRole
+from insignia.code_submission import (
+    DEFAULT_ENTRYPOINT,
+    CodeBundle,
+    build_code_bundle,
+)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [Researcher-Miner] %(message)s")
 logger = logging.getLogger(__name__)
@@ -77,6 +91,71 @@ PUBLIC_FEATURE_REGISTRY = [
     "hour_of_day_sin", "hour_of_day_cos",
     "day_of_week_sin", "day_of_week_cos",
 ]
+
+
+# ---------------------------------------------------------------------------
+# Sandbox inference entrypoint
+#
+# This source is shipped inside every code bundle as ``inference.py``. The
+# validator runs it in an isolated sandbox: it reads the feature matrix from
+# ``input.json``, loads the bundled model, and writes predictions to
+# ``result.json`` using EXACTLY the same convention the validator's
+# ``ModelEvaluator`` applies to the artifact it deserializes. The reproduced
+# predictions must match for the submission to be accepted.
+# ---------------------------------------------------------------------------
+
+INFERENCE_ENTRYPOINT_SOURCE = '''\
+"""Sandbox inference entrypoint for an Insignia researcher submission.
+
+Reads input.json -> {"features": [[...], ...], "feature_names": [...]}
+Writes result.json -> {"predictions": [...], "n": <int>, "model_file": "model.joblib"}
+
+Run as: python inference.py   (no network; cwd is the extracted bundle)
+"""
+import json
+import os
+
+import numpy as np
+import joblib
+
+INPUT = os.environ.get("INSIGNIA_INPUT", "input.json")
+OUTPUT = os.environ.get("INSIGNIA_OUTPUT", "result.json")
+MODEL_FILE = "model.joblib"
+
+
+def predict(model, X):
+    """Mirror the validator's ModelEvaluator prediction convention exactly."""
+    if hasattr(model, "predict_proba"):
+        raw = model.predict_proba(X)
+        raw = np.asarray(raw)
+        if raw.ndim == 2:
+            return raw[:, 1] - 0.5
+        return raw - 0.5
+    return model.predict(X).astype(float)
+
+
+def main():
+    with open(INPUT, "r") as fh:
+        payload = json.load(fh)
+
+    X = np.asarray(payload.get("features", []), dtype=float)
+    model = joblib.load(MODEL_FILE)
+
+    if X.size == 0:
+        predictions = []
+    else:
+        predictions = [float(p) for p in predict(model, X)]
+
+    with open(OUTPUT, "w") as fh:
+        json.dump(
+            {"predictions": predictions, "n": len(predictions), "model_file": MODEL_FILE},
+            fh,
+        )
+
+
+if __name__ == "__main__":
+    main()
+'''
 
 
 # ---------------------------------------------------------------------------
@@ -206,6 +285,39 @@ class ModelTrainer:
             "training_metrics": self.training_metrics,
         }
 
+    def build_code_bundle(self, artifact: bytes | None = None) -> CodeBundle:
+        """
+        Package the source that produced/serves this model into a signed,
+        reproducible code bundle.
+
+        Contents:
+          - ``inference.py``  — sandbox entrypoint the validator executes
+          - ``model.joblib``  — the serialized model the entrypoint loads
+          - ``train.py``      — the full training source (this module), for audit
+          - ``metadata.json`` — declared model type, features, and hyperparams
+
+        Miners are free to extend this with their real training package; the
+        only hard requirement is that ``inference.py`` reproduces the artifact's
+        predictions from ``input.json``.
+        """
+        if artifact is None:
+            artifact = self.serialize()
+
+        try:
+            with open(os.path.abspath(__file__), "rb") as fh:
+                train_src = fh.read()
+        except OSError:
+            train_src = b"# training source unavailable in this environment\n"
+
+        metadata = self.get_submission_metadata()
+        files = {
+            DEFAULT_ENTRYPOINT: INFERENCE_ENTRYPOINT_SOURCE.encode("utf-8"),
+            "model.joblib": artifact,
+            "train.py": train_src,
+            "metadata.json": json.dumps(metadata, indent=2, default=str).encode("utf-8"),
+        }
+        return build_code_bundle(files, entrypoint=DEFAULT_ENTRYPOINT)
+
 
 # ---------------------------------------------------------------------------
 # Synthetic Data Generator (for demo / hackathon)
@@ -290,6 +402,8 @@ class ResearcherMiner:
         artifact = self.trainer.serialize()
         metadata = self.trainer.get_submission_metadata()
 
+        bundle = self.trainer.build_code_bundle(artifact)
+
         submission = {
             "role": MinerRole.RESEARCHER.value,
             "model_artifact": artifact,
@@ -306,20 +420,27 @@ class ResearcherMiner:
             ),
             "artifact_size_bytes": len(artifact),
             "artifact_hash": hashlib.sha256(artifact).hexdigest(),
+            # Code submission (reproducibility): ship the source alongside the model.
+            **bundle.to_submission_fields(),
+            "code_bundle_size_bytes": bundle.size_bytes,
         }
 
         self.submission_history.append({
             "epoch": self.current_epoch,
             "metrics": metadata["training_metrics"],
             "artifact_hash": submission["artifact_hash"],
+            "code_bundle_hash": bundle.bundle_hash,
         })
         self.current_epoch += 1
         self.last_submission_time = time.time()
 
         logger.info(
-            "Submission ready: %d bytes, hash=%s",
+            "Submission ready: model=%d bytes (hash=%s), code=%d bytes (hash=%s, entry=%s)",
             len(artifact),
             submission["artifact_hash"][:12],
+            bundle.size_bytes,
+            bundle.bundle_hash[:12],
+            bundle.entrypoint,
         )
         return submission
 
@@ -342,7 +463,7 @@ def demo():
 
     logger.info("--- Submission Package ---")
     for key, val in submission.items():
-        if key == "model_artifact":
+        if isinstance(val, (bytes, bytearray)):
             logger.info("  %s: <%d bytes>", key, len(val))
         elif isinstance(val, list):
             logger.info("  %s: [%d items]", key, len(val))
