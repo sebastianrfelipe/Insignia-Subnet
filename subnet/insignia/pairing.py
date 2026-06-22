@@ -165,7 +165,10 @@ def crowding_distance(objectives: np.ndarray, front: List[int]) -> Dict[int, flo
 
     n_obj = objectives.shape[1]
     for k in range(n_obj):
-        ordered = sorted(front, key=lambda i: objectives[i, k])
+        # Break objective-value ties on the row index so the ordering (and the
+        # resulting crowding distances) is identical for every validator,
+        # independent of any incidental front ordering.
+        ordered = sorted(front, key=lambda i: (objectives[i, k], i))
         distances[ordered[0]] = float("inf")
         distances[ordered[-1]] = float("inf")
         v_min = objectives[ordered[0], k]
@@ -309,7 +312,13 @@ class ChainSeededPairing:
             return self.assign(researchers, traders, block_seed)
 
         rng = self._rng(block_seed, 1000)
-        ranked = sorted(prev_fitnesses, key=lambda f: f.selection_score, reverse=True)
+        # Sort by selection_score descending, breaking ties on the stable
+        # genome key. Without the key tiebreaker, equal-score pairs would keep
+        # whatever order ``prev_fitnesses`` happened to arrive in, so two
+        # validators holding the same fitnesses in a different order could pick
+        # different elites and diverge. Negating the score lets both keys sort
+        # ascending so the tiebreaker is not reversed alongside the score.
+        ranked = sorted(prev_fitnesses, key=lambda f: (-f.selection_score, f.genome.key))
         n_elite = max(1, int(round(len(ranked) * self.config.elite_fraction)))
         elites = ranked[:n_elite]
 
