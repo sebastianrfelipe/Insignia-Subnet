@@ -8,9 +8,8 @@ artifact to actually be the output of a genuine, runnable training/inference
 pipeline: a miner could ship a hand-tuned lookup table, an artifact lifted from
 another miner, or a blob whose behavior is impossible to audit.
 
-This module adds a **code submission** alongside the model, mirroring the
-approach used by Metanova Labs' NOVA subnet (SN68): miners ship signed source
-code and validators re-execute it in an isolated sandbox to reproduce the
+This module adds a **code submission** alongside the model: miners ship signed
+source code and validators re-execute it in an isolated sandbox to reproduce the
 result before trusting (and scoring) it.
 
 Design (provider-agnostic, no Docker/bittensor hard dependency):
@@ -28,9 +27,9 @@ Design (provider-agnostic, no Docker/bittensor hard dependency):
   3. ``SandboxRunner`` extracts the bundle into a throwaway working directory and
      runs ``python3 <entrypoint>`` as a subprocess under CPU/address-space/file
      resource limits, with a wall-clock budget and a minimal environment.
-     Following the NOVA convention the entrypoint reads its input from
-     ``input.json`` and writes its result to ``result.json`` in the working
-     directory. Network egress is dropped via ``unshare -n`` when available.
+     The entrypoint reads its input from ``input.json`` and writes its result
+     to ``result.json`` in the working directory. Network egress is dropped via
+     ``unshare -n`` when available.
 
   4. ``ReproducibilityChecker`` drives the sandbox on the validator's evaluation
      features and compares the reproduced predictions against the predictions
@@ -72,7 +71,7 @@ logger = logging.getLogger(__name__)
 # of the file contents (deterministic hashing across miners/validators).
 _DETERMINISTIC_MTIME = 0
 
-# Entrypoint I/O contract (mirrors NOVA's /workspace/input.json -> result.json).
+# Entrypoint I/O contract: the sandbox feeds input.json and reads result.json.
 DEFAULT_INPUT_FILENAME = "input.json"
 DEFAULT_OUTPUT_FILENAME = "result.json"
 DEFAULT_ENTRYPOINT = "inference.py"

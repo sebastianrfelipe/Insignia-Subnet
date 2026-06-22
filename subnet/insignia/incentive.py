@@ -436,7 +436,7 @@ ATTACK_DEFENSE_MATRIX: List[AttackDefense] = [
     AttackDefense(
         attack="Opaque / unreproducible / tampered artifact (researcher)",
         description="Researcher miner submits a model artifact that is not the genuine output of a runnable pipeline — a hand-built lookup table keyed to the benchmark, a blob lifted from elsewhere, or hard-coded outputs — so its score cannot be attributed to real predictive work.",
-        defense="Metanova/NOVA-style code submission: the miner ships the signed source that produces/serves the model and the validator re-executes it in an isolated sandbox (resource limits, wall-clock budget, scrubbed env, best-effort network-namespace drop) over the same evaluation features. The reproduced predictions must match the submitted artifact's; submissions whose code cannot reproduce their artifact are gated out of scoring (zero weight). Static analysis rejects sandbox-escaping source before execution.",
+        defense="Code submission: the miner ships the signed source that produces/serves the model and the validator re-executes it in an isolated sandbox (resource limits, wall-clock budget, scrubbed env, best-effort network-namespace drop) over the same evaluation features. The reproduced predictions must match the submitted artifact's; submissions whose code cannot reproduce their artifact are gated out of scoring (zero weight). Static analysis rejects sandbox-escaping source before execution.",
         mechanism="CodeBundleVerifier + SandboxRunner + ReproducibilityChecker + gate_on_reproducibility",
     ),
     AttackDefense(

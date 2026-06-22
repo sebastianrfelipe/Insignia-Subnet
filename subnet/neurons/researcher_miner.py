@@ -16,7 +16,7 @@ This template demonstrates the full miner lifecycle:
   4. Serialize the model AND package the source code that produced/serves it
   5. Submit both to validators via the ModelSubmission synapse
 
-CODE SUBMISSION (Metanova/NOVA-style reproducibility):
+CODE SUBMISSION (reproducibility):
   The miner ships a signed ``code_bundle`` (a deterministic tar.gz containing
   the training source, the serialized model, and a sandbox ``inference.py``
   entrypoint) alongside the artifact. Validators re-execute the entrypoint in

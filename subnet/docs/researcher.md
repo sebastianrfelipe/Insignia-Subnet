@@ -3,9 +3,8 @@
 ## Reproducible code submission
 
 Researcher miners submit the **source code that produces/serves their model**
-alongside the serialized artifact, in the style of Metanova Labs' NOVA subnet
-(SN68). `ModelTrainer.build_code_bundle()` packages a deterministic `tar.gz`
-containing:
+alongside the serialized artifact. `ModelTrainer.build_code_bundle()` packages a
+deterministic `tar.gz` containing:
 
 - `inference.py` — the sandbox entrypoint the validator runs (reads
   `input.json`, writes `result.json`, using the same prediction convention as

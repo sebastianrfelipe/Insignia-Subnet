@@ -143,12 +143,11 @@ class ModelSubmission(bt.Synapse):
 
 ### Reproducible Code Submission (researcher)
 
-Following Metanova Labs' NOVA subnet (SN68), a researcher miner submits **the
-code that produced/serves the model** alongside the serialized artifact. The
-miner packages a deterministic `tar.gz` (`insignia/code_submission.py`)
-containing an `inference.py` entrypoint, the serialized model, and the training
-source, then attaches it (plus its SHA-256 hash and manifest) to
-`ModelSubmission`.
+A researcher miner submits **the code that produced/serves the model**
+alongside the serialized artifact. The miner packages a deterministic `tar.gz`
+(`insignia/code_submission.py`) containing an `inference.py` entrypoint, the
+serialized model, and the training source, then attaches it (plus its SHA-256
+hash and manifest) to `ModelSubmission`.
 
 On receipt the validator:
 
@@ -164,7 +163,7 @@ On receipt the validator:
 
 With `gate_on_reproducibility`, a submission whose code cannot reproduce its
 artifact earns zero weight; with `require_code`, artifact-only submissions are
-rejected. The entrypoint follows the NOVA I/O convention: read `input.json`,
+rejected. The entrypoint follows a simple I/O convention: read `input.json`,
 write `result.json`. This makes submissions auditable and defeats opaque,
 hard-coded, or tampered artifacts.
 
