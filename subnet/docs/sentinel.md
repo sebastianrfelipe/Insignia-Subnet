@@ -83,7 +83,7 @@ post-CR 19-vector posture.
 The third orchestration run confirms that the remaining structural gap is now
 primarily an empirical validation problem rather than a design-gap problem:
 
-- the optimizer target has been hit at `3.5e-6`
+- the optimizer target has been hit at `2.6e-6` (R3 knee `V13-R3-KP-020-a3c7`; prior R2 knee was `3.5e-6`)
 - PC-VH-006 is deployed
 - Sybil severity is down from `0.268` to `0.195`
 - the next step is to confirm the projected production reduction toward `0.08`

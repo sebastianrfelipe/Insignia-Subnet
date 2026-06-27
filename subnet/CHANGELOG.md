@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-06-26 - Promote V13-R3 knee point as state of record
+
+- the orchestration study (Orchestration Report — 2026-06-27T03-11-52) records a new surrogate-guided knee point, **V13-R3-KP-020-a3c7**, that strictly dominates the prior R2 knee on all four NSGA-II objectives: breach_rate `2.6e-6` (was `3.5e-6`), honest_score `0.9808` (was `0.9795`), separation `0.963` (was `0.953`), variance `0.00081` (was `0.0009`); knee stable since generation 7 (13 consecutive generations), ~48% below the `5e-6` target
+- added `reference_configs/knee_point_V13-R3.json` capturing the knee point objectives, run spec (NSGA-II + GP surrogate, 30 pop × 20 gen, 41 vars, R² `0.96`), elite-seed lineage (EXP-140/141/134/132/133/135), Pareto extremes, and provenance (sourced from MCP `agent_memory` keys `tuner_v13_r3_gen20_final` / `tuner_v13_r3_optimization_run`); the full 41-dim decoded vector was not persisted as a flat artifact and remains reconstructable from MCP run `nsga_ii_v13_r3_surrogate`
+- updated the state-of-record references from R2→R3 across `README.md`, `program.md` §1, `docs/SUBNET_SPEC.md`, `docs/tuner.md`, `docs/PARAMETER_TUNING_PLAN.md`, `docs/sentinel.md`, and `docs/EMULATOR_SPEC.md` §9 (surrogate quality `R^2` `0.93`→`0.96`, Pareto front `21`→`26`, hypervolume `0.0161`→`0.0189`)
+- `docs/EMULATOR_SPEC.md` (the agent-orchestrated emulator spec) is added to version control as part of this change
+
 ## 2026-06-22 - Reproducible code submission for researcher miners
 
 - researcher miners now submit the **source code that produced/serves their model** alongside the serialized artifact: validators re-execute the code in an isolated sandbox and confirm it reproduces the artifact's predictions before scoring, making submissions auditable and ungameable by opaque/hard-coded/tampered artifacts

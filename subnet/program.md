@@ -18,12 +18,14 @@ This document is the MCP swarm prompt for the Insignia subnet repository.
   - commit-reveal validations above floor: `6 consecutive`
   - reset triggers: `SOFT=false`, `HARD=false`, `FULL=false`
 - Latest optimization milestone from the orchestration report:
-  - knee point: **V13-R2-KP-020-a7f2**
-  - breach_rate: `3.5e-6`
-  - honest_score: `0.9795`
-  - separation: `0.953`
-  - variance: `0.0009`
-  - target status: **5e-6 target achieved**
+  - knee point: **V13-R3-KP-020-a3c7** (supersedes **V13-R2-KP-020-a7f2**)
+  - breach_rate: `2.6e-6`
+  - honest_score: `0.9808`
+  - separation: `0.963`
+  - variance: `0.00081`
+  - target status: **5e-6 target achieved** (~48% below target)
+  - knee stable since generation 7 (13 consecutive generations as knee); improves on the R2 knee across all four objectives
+  - full reference: `reference_configs/knee_point_V13-R3.json`
 - Historical harder-environment simulation benchmark remains relevant as a stress test:
   - epochs: `100`
   - population: `14 agents` (`6 honest + 4 adversarial` researchers, `3 honest + 1 adversarial` traders)
@@ -43,14 +45,14 @@ This document is the MCP swarm prompt for the Insignia subnet repository.
   - runner-up: **EXP-141** — breach_rate `0.000028`, honest_score `0.9750`, separation `0.922`, variance `0.0017`
   - latest kept follow-on: **EXP-142** — breach_rate `0.000023`, honest_score `0.9752`, separation `0.931`, scalarized_fitness `0.976`
 - Optimization status:
-  - active NSGA-II profile: **v13 R2 surrogate-guided run**
+  - active NSGA-II profile: **v13 R3 surrogate-guided run**
   - operating spec: `20 generations`, `30 population`, `4 objectives`, `SBX prob=0.9 eta=15`, `PM eta=20`
   - surrogate training basis: `93 empirical data points`
-  - surrogate quality: `Gaussian Process`, `R^2 = 0.93`
+  - surrogate quality: `Gaussian Process`, `R^2 = 0.96`
   - seed lineage for active tuning: `EXP-116`, `EXP-118`, `EXP-140`, `EXP-141`
   - elite seeds injected: `EXP-140`, `EXP-141`, `EXP-134`, `EXP-132`, `EXP-133`, `EXP-135`
   - variable profile used by the tuner: `41 variables`
-  - target breach_rate `5e-6` has been exceeded by the current knee point (`3.5e-6`)
+  - target breach_rate `5e-6` has been exceeded by the current knee point (`2.6e-6`)
 - Persistent warning: **Sybil pressure from BTCUSDT:ETHUSDT imbalance**
 
 ### Important compatibility note
@@ -549,7 +551,7 @@ python3 -m unittest discover -s tests -p "test_*.py"
 
 ### ongoing priorities
 
-1. empirically validate that the surrogate-predicted `3.5e-6` breach_rate holds under live simulation reruns
+1. empirically validate that the surrogate-predicted `2.6e-6` breach_rate (R3 knee) holds under live simulation reruns
 2. measure real Sybil severity reduction from deployed **PC-VH-006** against the projected `60-70%` improvement
 3. validate commit-reveal effectiveness above the `0.667` floor under repeated simulation
 4. continue executing the queued `EXP-142+` economic-security experiment family, starting from the kept `EXP-142`

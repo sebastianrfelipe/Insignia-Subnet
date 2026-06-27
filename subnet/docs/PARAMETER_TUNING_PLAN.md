@@ -261,22 +261,24 @@ Pre-configured dashboard with panels for:
 The third orchestration run advances the system from "secure and improving" to
 **target achieved** status:
 
-- NSGA-II v13 R2 reached the target at knee point `V13-R2-KP-020-a7f2`
-- breach_rate: `3.5e-6`
-- honest_score: `0.9795`
-- separation: `0.953`
-- variance: `0.0009`
-- target was hit by generation `12`, with the remaining generations refining a
-  `21`-member Pareto front
-- hypervolume increased from `0.0018` to `0.0161`
-- Gaussian Process surrogate accuracy reached `R^2 = 0.93` on `93` empirical
+- NSGA-II v13 R3 reached the target at knee point `V13-R3-KP-020-a3c7`
+  (supersedes `V13-R2-KP-020-a7f2`)
+- breach_rate: `2.6e-6`
+- honest_score: `0.9808`
+- separation: `0.963`
+- variance: `0.00081`
+- knee point stable since generation `7` (13 consecutive generations as knee),
+  refining a `26`-member Pareto front
+- hypervolume increased to `0.0189` (vs `0.0161` at R2)
+- Gaussian Process surrogate accuracy reached `R^2 = 0.96` on `93` empirical
   data points
+- full reference: [../reference_configs/knee_point_V13-R3.json](../reference_configs/knee_point_V13-R3.json)
 - commit-reveal effectiveness strengthened to `0.76` in sentinel coordination
   and `0.801` in the simulator's pre/post stability validation
 
 The earlier simulation-layer `0.124` / `0.847` benchmark is still valuable as a
 stress environment, but the operating question has changed: the remaining work
-is now empirical validation of the achieved `3.5e-6` breach rate and direct
+is now empirical validation of the achieved `2.6e-6` breach rate (R3 knee) and direct
 measurement of PC-VH-006's production impact on Sybil severity.
 
 #### Fitness Evaluation Pipeline

@@ -14,7 +14,7 @@ Built on [Bittensor](https://bittensor.com) for the Sovereign Infrastructure Hac
 
 **Status:** Phase 5 target achieved and under empirical validation  
 **System posture:** `SECURE_AND_IMPROVING`  
-**Best reported checkpoint:** V13-R2-KP-020-a7f2 with breach_rate `3.5e-6`, honest_score `0.9795`
+**Best reported checkpoint:** V13-R3-KP-020-a3c7 with breach_rate `2.6e-6`, honest_score `0.9808`, separation `0.963`, variance `0.00081` (supersedes V13-R2-KP-020-a7f2; see [reference_configs/knee_point_V13-R3.json](reference_configs/knee_point_V13-R3.json))
 
 ---
 
@@ -39,9 +39,9 @@ Insignia is a competitive network for producing high-quality ML models and valid
 - Active sentinel posture: breach_rate `0.0005`, honest_score `0.94`, score_separation `0.758`
 - No convergence detected and no reset triggers fired (`SOFT`, `HARD`, `FULL` all false)
 - 75-parameter orchestration headline, with the repository retaining a broader 9-metric trading implementation and expanded parameter space in code
-- 41-variable NSGA-II v13 R2 surrogate profile runs on top of the repository's broader 67-parameter surface
-- Current optimization spec: 20 generations, population 30, 4 objectives, 93 empirical surrogate points, Gaussian Process surrogate `R^2 = 0.93`
-- The 5e-6 breach-rate target has been achieved at the surrogate-guided knee point: breach_rate `3.5e-6`, honest_score `0.9795`, separation `0.953`, variance `0.0009`
+- 41-variable NSGA-II v13 R3 surrogate profile runs on top of the repository's broader 67-parameter surface
+- Current optimization spec: 20 generations, population 30, 4 objectives, 93 empirical surrogate points, Gaussian Process surrogate `R^2 = 0.96`
+- The 5e-6 breach-rate target has been achieved at the surrogate-guided knee point: breach_rate `2.6e-6`, honest_score `0.9808`, separation `0.963`, variance `0.00081` (R3 knee, ~48% below target; supersedes the R2 knee at `3.5e-6`)
 - Persistent warning: Sybil pressure driven by BTCUSDT:ETHUSDT imbalance
 - Historical hard-environment simulation headline remains useful context: breach_rate `0.124`, honest_score `0.847`
 
