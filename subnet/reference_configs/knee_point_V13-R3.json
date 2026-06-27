@@ -1,0 +1,73 @@
+{
+  "schema": "insignia.knee_point.reference/1",
+  "knee_point_id": "V13-R3-KP-020-a3c7",
+  "status": "current_state_of_record",
+  "supersedes": "V13-R2-KP-020-a7f2",
+  "selection": {
+    "method": "angle_based_4d",
+    "angle_score": 0.94,
+    "stable_since_generation": 7,
+    "consecutive_generations_as_knee": 13,
+    "stability_assessment": "KNEE_POINT_HIGHLY_STABLE",
+    "deployment_recommendation": "RECOMMENDED - improved over R2 with validated stability"
+  },
+  "objectives": {
+    "breach_rate": 2.6e-6,
+    "honest_score": 0.9808,
+    "score_variance": 0.00081,
+    "score_separation": 0.963
+  },
+  "acceptance": {
+    "breach_rate_target": 5e-6,
+    "breach_rate_target_exceeded": true,
+    "margin_vs_target": "48% below target"
+  },
+  "improvement_vs_R2": {
+    "breach_rate": "25.7% better (2.6e-6 vs 3.5e-6)",
+    "honest_score": "0.13% better (0.9808 vs 0.9795)",
+    "score_variance": "10% better (0.00081 vs 0.0009)",
+    "score_separation": "1.05% better (0.963 vs 0.953)"
+  },
+  "run": {
+    "run_id": "nsga_ii_v13_r3_surrogate",
+    "version": "13.0-R3",
+    "algorithm": "NSGA-II + GaussianProcess Surrogate (RBF+WhiteKernel) + ExpectedImprovement Infill",
+    "population_size": 30,
+    "generations": 20,
+    "n_objectives": 4,
+    "n_variables": 41,
+    "crossover": "SBX(prob=0.9, eta=15)",
+    "mutation": "PM(eta=20)",
+    "selection": "Tournament(pressure=2)",
+    "sampling": "LatinHypercube + 6 elite seeds",
+    "repair": "weight_normalization",
+    "surrogate_infill_per_gen": 5,
+    "surrogate_training_points": 93,
+    "surrogate_r2_score": 0.96,
+    "total_evaluations": 630,
+    "pareto_front_size": 26,
+    "hypervolume": 0.0189,
+    "population_diversity": 0.61,
+    "convergence_trend": "converged"
+  },
+  "elite_seeds": {
+    "EXP-140": { "feature": "decentralized_identity_verification", "breach_rate": 2.5e-5, "honest_score": 0.9748, "separation": 0.929, "variance": 0.0016 },
+    "EXP-141": { "feature": "bayesian_model_averaging", "breach_rate": 2.8e-5, "honest_score": 0.975, "separation": 0.922, "variance": 0.0017 },
+    "EXP-134": { "feature": "stake_based_consensus", "breach_rate": 2.9e-5, "honest_score": 0.9742, "separation": 0.925, "variance": 0.0017 },
+    "EXP-132": { "feature": "transformer_ensemble_v2", "breach_rate": 3.3e-5, "honest_score": 0.974, "separation": 0.925, "variance": 0.0019 },
+    "EXP-133": { "feature": "commit_reveal_scheme", "breach_rate": 3.1e-5, "honest_score": 0.9735, "separation": 0.923, "variance": 0.0018 },
+    "EXP-135": { "feature": "dynamic_ensemble_selection", "breach_rate": 3.4e-5, "honest_score": 0.9738, "separation": 0.919, "variance": 0.002 }
+  },
+  "pareto_extremes": {
+    "best_breach_rate": { "breach_rate": 2.3e-6, "honest_score": 0.9815, "separation": 0.966 },
+    "best_honest_score": { "breach_rate": 3.1e-6, "honest_score": 0.9818, "separation": 0.958 },
+    "best_separation": { "breach_rate": 2.8e-6, "honest_score": 0.9805, "separation": 0.967 },
+    "best_variance": { "breach_rate": 2.4e-6, "honest_score": 0.9813, "score_variance": 0.00078, "separation": 0.965 }
+  },
+  "provenance": {
+    "source": "insignia-local MCP (MongoDB `swarm` db)",
+    "agent_memory_keys": ["tuner_v13_r3_gen20_final", "tuner_v13_r3_optimization_run"],
+    "captured_from_orchestration_report": "Orchestration Report — 2026-06-27T03-11-52",
+    "note": "The full 41-dim decoded parameter vector was not persisted as a flat artifact; it is reconstructable from MCP run `nsga_ii_v13_r3_surrogate`. This file records the knee point by objectives + run spec + lineage, matching the convention used for the prior R2 checkpoint."
+  }
+}
