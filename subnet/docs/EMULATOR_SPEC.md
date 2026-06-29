@@ -83,11 +83,28 @@ gaming strategy is a **failed** configuration, regardless of headline numbers.
                                                   ▼
                                    ┌───────────────────────────┐
                                    │  LOCAL TESTNET (subtensor) │
-                                   │  ws://127.0.0.1:9945        │
+                                   │  ws://<chain-host>:9945       │
+                                   │  (pre-provisioned Docker)   │
                                    │  1 owner · 1 validator ·    │
                                    │  12 miner wallets · 1 netuid│
                                    └───────────────────────────┘
 ```
+
+> **Environment addressing (read before deploying).** The orchestration plane,
+> the chain, and the MCP store run on **separate hosts** — do **not** assume
+> `127.0.0.1`. The deployer must address them explicitly:
+>
+> | Plane | Address | How the stack reaches it |
+> |-------|---------|--------------------------|
+> | Subtensor chain (Docker) | `ws://<chain-host>:9945` | `SUBTENSOR_LOCAL_ENDPOINT` env var → `config.endpoint` |
+> | insignia-local MCP (MongoDB) | `<mcp-host>` | `MONGO_URI` env var (insignia-local MCP server) |
+>
+> The chain container is **already running** on `<chain-host>`; the deployer's job
+> is to *connect to and verify* it, **not** to `docker compose up` a new chain on
+> its own host (that was the cause of the cancelled/failed deploy tasks). If the
+> container runs the upstream `localnet.sh` instead of this repo's
+> `docker-compose.testnet.yml`, the WS port is `9946` — confirm with the
+> connectivity check below before funding wallets.
 
 Three planes, cleanly separated:
 
@@ -217,10 +234,25 @@ Key collections (observed live; treat as the canonical run ledger):
 
 ## 4. Local testnet deployment
 
-Target environment is `NetworkTarget.LOCAL` →
-`ws://127.0.0.1:9945` (see [testnet/config.py](../testnet/config.py)). The
-deployer brings up a Docker subtensor with fast blocks, then registers one
-Insignia subnet.
+**Scope: local testnet only.** For now the emulator targets the
+**local subtensor** (`NetworkTarget.LOCAL`) exclusively. Do **not** deploy to the
+public Bittensor testnet (`test.finney`, `NetworkTarget.TESTNET`) — that path is
+out of scope until the local loop is validated.
+
+The chain is a **pre-provisioned Docker subtensor on `<chain-host>`**, not a chain
+the deployer brings up locally. The whole stack — `subnet_manager`,
+`wallet_manager`, and the emulator's `ChainInterface` — derives its endpoint from
+`config.endpoint`, which reads `SUBTENSOR_LOCAL_ENDPOINT`
+(see [testnet/config.py](../testnet/config.py), default `ws://127.0.0.1:9945`).
+So the **only** thing needed to point everything at the real chain is to export
+that variable before running anything:
+
+```bash
+export SUBTENSOR_LOCAL_ENDPOINT="ws://<chain-host>:9945"   # 9946 if upstream localnet.sh
+```
+
+No code change is required; the previous deploy failures were purely the default
+`127.0.0.1` endpoint resolving to nothing on the deployer's host.
 
 ### 4.1 Topology
 
@@ -236,24 +268,34 @@ metagraph, one `set_weights` vector — per the paired genetic mechanism
 
 ### 4.2 Deploy sequence (deployer agent)
 
+The chain already exists on `<chain-host>`, so the sequence **connects and verifies**
+rather than provisioning a chain. Pass the endpoint explicitly — the check scripts
+take it as their first argument.
+
 ```bash
 cd subnet
-# 1. Bring up local chain + monitoring
-docker compose -f testnet/docker-compose.testnet.yml up -d
+export SUBTENSOR_LOCAL_ENDPOINT="ws://<chain-host>:9945"   # 9946 if upstream localnet.sh
 
-# 2. Verify chain + wallet balances
-bash testnet/scripts/check_chain_connectivity.sh
-bash testnet/scripts/check_wallet_balances.sh
+# 1. Verify connectivity to the EXISTING Docker chain (do NOT docker compose up here)
+bash testnet/scripts/check_chain_connectivity.sh "$SUBTENSOR_LOCAL_ENDPOINT"
+bash testnet/scripts/check_wallet_balances.sh   "$SUBTENSOR_LOCAL_ENDPOINT"
+#   If connectivity fails: the container is unreachable or on a different port —
+#   resolve addressing with the infra owner; do NOT fall back to a local chain.
 
-# 3. Create wallets, register subnet, fund miners/validator
+# 2. Create wallets, register subnet, fund miners/validator (HITL-gated, §6.5)
 python -m testnet.wallet_manager          # coldkeys/hotkeys per convention
-python -m testnet.subnet_manager create   # btcli subnet create on local
+python -m testnet.subnet_manager create   # btcli subnet create on the local chain
 python -m testnet.subnet_manager register # register validator + 12 miners
 
-# 4. Run the emulator loop against the live netuid
+# 3. Run the emulator loop against the live netuid
 python -m tuning.orchestrator --mode testnet --network local \
        --netuid <NETUID> --generations 20 --population 30
 ```
+
+> Monitoring (Prometheus/Grafana) may be brought up separately via
+> `docker compose -f testnet/docker-compose.testnet.yml up -d` **only if** that
+> stack is not already running on the chain host; it is not required to reach the
+> chain itself.
 
 The emulator's `ChainInterface.set_weights` normalizes the credit vector and
 calls `subtensor.set_weights(netuid, uids, weights, wait_for_inclusion=True)`
@@ -436,6 +478,47 @@ posts an approval request to the MCP (`list_pending_approvals` /
 Everything inside the offline/online evaluation loop (proposing configs, running
 sims, setting testnet weights) runs autonomously.
 
+### 6.6 Surrogate vs. empirical adversary model (the validation contract)
+
+> **Lesson from the V13-R3 invalidation (Orchestration Report 2026-06-29T01-35-48).**
+> NSGA-II v13 R3 converged to a knee that *predicted* `0.963` honest/adversarial
+> separation and was promoted as state-of-record. When validated against the full
+> adversarial population, empirical separation was `~0.23`: the best adversary
+> (Copycat) scored `0.733` — not the `~0.018` the surrogate implied (a ~40×
+> underestimate) — and adversaries captured ~64.7% of chain weight. The config
+> **failed** the `≥0.90` separation gate.
+
+The failure was **not** in the metric definition (`separation = honest − best_adv`,
+which is consistent). It was in the *adversary scores fed to the optimizer*:
+
+1. **Training-data contamination (primary).** The GP surrogate was trained on the
+   NSGA-II optimizer's evaluations, which score adversaries with a **simplified
+   analytical model** that under-scores Copycat/CopyTrader (`~0.02–0.05` vs `~0.73`
+   in the simulation harness). The optimizer therefore maximized separation against
+   a *strawman* adversary.
+2. **`R²` is not correctness.** The surrogate's `R²=0.96` measured fit to those
+   **biased** targets, not to ground truth. A high surrogate `R²` says nothing
+   about whether the objective itself is real.
+3. **Pareto collapse (symptom).** All 26 Pareto solutions sat in a narrow
+   `0.958–0.967` separation band — a tell-tale of a false local optimum, not a
+   robust frontier.
+
+**Contract the loop must honor:**
+
+- The optimizer/surrogate's **adversary scores must come from the same evaluation
+  path as the acceptance gates** (the simulation harness / `AttackDetector`), not a
+  separate analytical shortcut. If a fast analytical model is used for search, its
+  outputs must be periodically **reconciled** against harness scores, and any knee
+  must be **re-scored by the harness before it enters the Pareto front as a knee
+  candidate**.
+- **No surrogate-only promotion.** A predicted gate pass (§9) is provisional until
+  the gates clear on empirical (harness, then online) scores across ≥2 seeds. Record
+  both the predicted and empirical vectors so divergence is auditable.
+- **Divergence is a sentinel signal.** If surrogate-vs-empirical separation (or any
+  gate metric) diverges beyond a small tolerance, treat the run as `diverged`
+  (§7.1) and retrain the surrogate on the empirical scores before continuing — do
+  not promote, and do not trust the convergence contract until the gap closes.
+
 ---
 
 ## 7. The convergence contract (continuously-improving steady state)
@@ -521,12 +604,15 @@ when all** hold, in `online` mode, across ≥ 2 reruns with different seeds:
 | Convergence contract (§7) | unanimously met + grace period |
 | Sentinel posture | `SECURE_AND_IMPROVING` or stronger |
 
-These mirror the current best executed checkpoints (EXP-140/141/142 lineage,
-NSGA-II v13 **R3** knee point `V13-R3-KP-020-a3c7` — honest `0.9808`, breach
-`2.6e-6`, separation `0.963`, variance `0.00081`; see
-[../reference_configs/knee_point_V13-R3.json](../reference_configs/knee_point_V13-R3.json)) recorded
-in [program.md](../program.md) §1, so the emulator's bar is "match or beat the
-proven state of record."
+The bar is "match or beat the proven state of record." The last
+**not-contradicted** checkpoint is the R2 knee `V13-R2-KP-020-a7f2` (honest
+`0.9795`, breach `3.5e-6`, separation `0.953`). ⚠️ The newer
+`V13-R3-KP-020-a3c7` knee **looked** better on paper (honest `0.9808`, breach
+`2.6e-6`, separation `0.963`) but **failed empirical validation on separation**
+(`~0.23` vs gate `≥0.90`) — see §6.6 and
+[../reference_configs/knee_point_V13-R3.json](../reference_configs/knee_point_V13-R3.json).
+**A surrogate-predicted gate pass is not a pass.** Promotion requires the gates
+to clear on *empirical* (harness/online) scores, per §6.6 and §11.
 
 ---
 
@@ -544,7 +630,8 @@ python -m tuning.orchestrator --mode attack --trials 10
 # Full offline evolutionary tuning
 python -m tuning.orchestrator --mode optimize --generations 20 --population 30
 
-# On-chain emulator loop (local testnet)
+# On-chain emulator loop (local testnet — pre-provisioned Docker chain on <chain-host>)
+export SUBTENSOR_LOCAL_ENDPOINT="ws://<chain-host>:9945"   # 9946 if upstream localnet.sh
 python -m tuning.orchestrator --mode testnet --network local --netuid <NETUID> \
        --generations 20 --population 30
 
@@ -555,12 +642,15 @@ python -m tuning.autoresearch_loop --max-experiments 25
 python -m unittest discover -s tests -p "test_*.py"
 ```
 
-Monitoring + chain checks:
+Chain checks (against the existing remote chain — pass the endpoint explicitly):
 
 ```bash
+export SUBTENSOR_LOCAL_ENDPOINT="ws://<chain-host>:9945"
+bash testnet/scripts/check_chain_connectivity.sh "$SUBTENSOR_LOCAL_ENDPOINT"
+bash testnet/scripts/check_wallet_balances.sh   "$SUBTENSOR_LOCAL_ENDPOINT"
+
+# Monitoring stack (only if not already running on the chain host):
 docker compose -f testnet/docker-compose.testnet.yml up -d
-bash testnet/scripts/check_chain_connectivity.sh
-bash testnet/scripts/check_wallet_balances.sh
 ```
 
 ---

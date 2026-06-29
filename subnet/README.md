@@ -12,9 +12,9 @@ Built on [Bittensor](https://bittensor.com) for the Sovereign Infrastructure Hac
 > emission split between layers are removed. See
 > [docs/PAIRING_MECHANISM.md](docs/PAIRING_MECHANISM.md) for the full spec.
 
-**Status:** Phase 5 target achieved and under empirical validation  
-**System posture:** `SECURE_AND_IMPROVING`  
-**Best reported checkpoint:** V13-R3-KP-020-a3c7 with breach_rate `2.6e-6`, honest_score `0.9808`, separation `0.963`, variance `0.00081` (supersedes V13-R2-KP-020-a7f2; see [reference_configs/knee_point_V13-R3.json](reference_configs/knee_point_V13-R3.json))
+**Status:** Phase 5 — surrogate "target achieved" retracted; the V13-R3 candidate failed empirical separation validation (see below). Last non-contradicted checkpoint is the R2 knee.  
+**System posture:** `SECURE_AND_IMPROVING` (sentinel posture from surrogate runs; treat as provisional until empirical/on-chain re-validation)  
+**Best reported checkpoint:** V13-R2-KP-020-a7f2 (breach_rate `3.5e-6`, honest_score `0.9795`, separation `0.953`). ⚠️ **V13-R3-KP-020-a3c7 was a surrogate-guided candidate that FAILED empirical validation** — its surrogate separation `0.963` collapsed to `~0.23` against the real adversarial population (gate is `≥0.90`), so it is **not** promoted. See [reference_configs/knee_point_V13-R3.json](reference_configs/knee_point_V13-R3.json).
 
 ---
 
@@ -41,7 +41,7 @@ Insignia is a competitive network for producing high-quality ML models and valid
 - 75-parameter orchestration headline, with the repository retaining a broader 9-metric trading implementation and expanded parameter space in code
 - 41-variable NSGA-II v13 R3 surrogate profile runs on top of the repository's broader 67-parameter surface
 - Current optimization spec: 20 generations, population 30, 4 objectives, 93 empirical surrogate points, Gaussian Process surrogate `R^2 = 0.96`
-- The 5e-6 breach-rate target has been achieved at the surrogate-guided knee point: breach_rate `2.6e-6`, honest_score `0.9808`, separation `0.963`, variance `0.00081` (R3 knee, ~48% below target; supersedes the R2 knee at `3.5e-6`)
+- ⚠️ The V13-R3 surrogate knee predicted breach_rate `2.6e-6`, honest_score `0.9808`, separation `0.963`, variance `0.00081`, but **empirical validation invalidated it**: real separation is `~0.23` (best adversary scores `0.733`, capturing ~64.7% of chain weight). honest_score held (`~0.977`); separation did not. **V13-R3 is not promoted**; the optimizer's analytical adversary model is the root cause (see CHANGELOG 2026-06-29 and `reference_configs/knee_point_V13-R3.json`)
 - Persistent warning: Sybil pressure driven by BTCUSDT:ETHUSDT imbalance
 - Historical hard-environment simulation headline remains useful context: breach_rate `0.124`, honest_score `0.847`
 

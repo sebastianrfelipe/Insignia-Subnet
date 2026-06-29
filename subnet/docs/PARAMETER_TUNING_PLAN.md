@@ -258,28 +258,30 @@ Pre-configured dashboard with panels for:
 
 #### Current report-aligned operating note
 
-The third orchestration run advances the system from "secure and improving" to
-**target achieved** status:
+⚠️ **V13-R3 "target achieved" was retracted by empirical validation
+(Orchestration Report 2026-06-29T01-35-48).** A surrogate-guided run *appeared* to
+reach the target, but validating it against the full adversarial population
+falsified the separation claim:
 
-- NSGA-II v13 R3 reached the target at knee point `V13-R3-KP-020-a3c7`
-  (supersedes `V13-R2-KP-020-a7f2`)
-- breach_rate: `2.6e-6`
-- honest_score: `0.9808`
-- separation: `0.963`
-- variance: `0.00081`
-- knee point stable since generation `7` (13 consecutive generations as knee),
-  refining a `26`-member Pareto front
-- hypervolume increased to `0.0189` (vs `0.0161` at R2)
-- Gaussian Process surrogate accuracy reached `R^2 = 0.96` on `93` empirical
-  data points
-- full reference: [../reference_configs/knee_point_V13-R3.json](../reference_configs/knee_point_V13-R3.json)
-- commit-reveal effectiveness strengthened to `0.76` in sentinel coordination
-  and `0.801` in the simulator's pre/post stability validation
+- NSGA-II v13 R3 knee `V13-R3-KP-020-a3c7` **predicted** breach_rate `2.6e-6`,
+  honest_score `0.9808`, separation `0.963`, variance `0.00081`
+- **Empirical:** honest_score `~0.977` (holds), but separation `~0.23` (best
+  adversary `0.733`; adversaries hold ~64.7% of chain weight) — **fails the
+  `≥0.90` gate**, so V13-R3 is **not promoted**
+- **Root cause:** the optimizer's internal analytical adversary model scored
+  Copycat/CopyTrader `~0.02-0.05` vs `~0.73` empirically; the GP surrogate
+  (`R²=0.96`) faithfully fit those **biased** targets — garbage-in/garbage-out —
+  and the Pareto front collapsed into a `0.958-0.967` separation band (false
+  local optimum)
+- **Required change:** surrogate training targets must come from the empirical
+  (simulation-harness) adversary scores, not the analytical model; `R²` to biased
+  targets is not evidence of correctness
+- last non-contradicted checkpoint: `V13-R2-KP-020-a7f2`
+- full reference + empirical results: [../reference_configs/knee_point_V13-R3.json](../reference_configs/knee_point_V13-R3.json)
 
 The earlier simulation-layer `0.124` / `0.847` benchmark is still valuable as a
-stress environment, but the operating question has changed: the remaining work
-is now empirical validation of the achieved `2.6e-6` breach rate (R3 knee) and direct
-measurement of PC-VH-006's production impact on Sybil severity.
+stress environment; the operating question is no longer "confirm the achieved
+breach rate" but "fix the adversary-model bias that produced a false optimum."
 
 #### Fitness Evaluation Pipeline
 

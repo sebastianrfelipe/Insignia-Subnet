@@ -80,13 +80,17 @@ post-CR 19-vector posture.
 
 ## Program risk mapping
 
-The third orchestration run confirms that the remaining structural gap is now
-primarily an empirical validation problem rather than a design-gap problem:
+⚠️ **Update (Orchestration Report 2026-06-29T01-35-48):** what looked like an
+"empirical validation problem" turned out to be a **design/measurement gap**.
+Validating the V13-R3 surrogate knee against the real adversarial population
+showed its separation claim (`0.963`) was false — empirical separation is `~0.23`,
+the best adversary (Copycat) scores `0.733`, and adversaries capture ~64.7% of
+chain weight. V13-R3 **fails** the `≥0.90` separation gate and is not promoted.
 
-- the optimizer target has been hit at `2.6e-6` (R3 knee `V13-R3-KP-020-a3c7`; prior R2 knee was `3.5e-6`)
-- PC-VH-006 is deployed
-- Sybil severity is down from `0.268` to `0.195`
-- the next step is to confirm the projected production reduction toward `0.08`
+- breach_rate prediction (`2.6e-6`, R3 knee `V13-R3-KP-020-a3c7`) is unconfirmed; the binding failure is **separation**, not breach
+- PC-VH-006 is deployed (offline measure: Sybil `0.274 → 0.041`), but its on-chain effect is unmeasured — the chain at `<chain-host>` is currently unreachable
+- root cause: the optimizer's analytical adversary model under-scored Copycat/CopyTrader (`~0.02-0.05` vs `~0.73` empirical), so the surrogate optimized a false objective
+- next step: re-validate adversary scoring empirically before trusting any sentinel "secure" verdict derived from surrogate runs
 
 ## Reset protocols
 

@@ -1,21 +1,43 @@
 {
   "schema": "insignia.knee_point.reference/1",
   "knee_point_id": "V13-R3-KP-020-a3c7",
-  "status": "current_state_of_record",
+  "status": "INVALIDATED_offline_candidate_failed_online_separation_gate",
   "supersedes": "V13-R2-KP-020-a7f2",
+  "INVALIDATION_NOTICE": "Surrogate-reported separation 0.963 was empirically falsified (~0.23; gate is >=0.90). Adversaries capture ~64.7% of chain weight. Production promotion BLOCKED. See empirical_validation. Source: Orchestration Report 2026-06-29T01-35-48 (session 6a419a72).",
   "selection": {
     "method": "angle_based_4d",
     "angle_score": 0.94,
     "stable_since_generation": 7,
     "consecutive_generations_as_knee": 13,
     "stability_assessment": "KNEE_POINT_HIGHLY_STABLE",
-    "deployment_recommendation": "RECOMMENDED - improved over R2 with validated stability"
+    "deployment_recommendation": "BLOCKED - empirical validation invalidated the surrogate separation; do not promote"
   },
-  "objectives": {
+  "objectives_surrogate_predicted": {
     "breach_rate": 2.6e-6,
     "honest_score": 0.9808,
     "score_variance": 0.00081,
-    "score_separation": 0.963
+    "score_separation": 0.963,
+    "_note": "Surrogate/optimizer predictions only. score_separation was empirically falsified — see empirical_validation."
+  },
+  "empirical_validation": {
+    "verdict": "FAILED_SEPARATION_GATE",
+    "source": "Orchestration Report 2026-06-29T01-35-48 (session 6a419a72)",
+    "mode": "simulation harness, full 14-agent adversarial population; on-chain validation still blocked (chain at <chain-host> unreachable)",
+    "honest_score": 0.977,
+    "score_separation": 0.233,
+    "score_separation_runs": [0.244, 0.223],
+    "best_adversarial_score": 0.733,
+    "best_adversary": "Copycat ~0.745, CopyTrader ~0.725",
+    "adversarial_chain_weight_share": 0.647,
+    "separation_gate_threshold": 0.90,
+    "surrogate_vs_empirical": "separation 0.963 predicted vs ~0.23 empirical (~4x); implied best-adversary 0.018 vs actual 0.733 (~40x underestimate)",
+    "root_cause": [
+      "PRIMARY: training-data contamination — the 630 NSGA-II evaluations used the optimizer's simplified analytical adversary model, which scored Copycat/CopyTrader ~0.02-0.05 vs ~0.73 empirically",
+      "SECONDARY: surrogate R2=0.96 measured fit to biased training targets, not ground truth",
+      "CONTRIBUTING: Pareto collapse — all 26 solutions sit in a narrow 0.958-0.967 separation band (false local optimum)"
+    ],
+    "honest_score_holds": true,
+    "breach_rate_status": "not independently re-measured; separation is the failing gate"
   },
   "acceptance": {
     "breach_rate_target": 5e-6,
@@ -26,7 +48,7 @@
     "breach_rate": "25.7% better (2.6e-6 vs 3.5e-6)",
     "honest_score": "0.13% better (0.9808 vs 0.9795)",
     "score_variance": "10% better (0.00081 vs 0.0009)",
-    "score_separation": "1.05% better (0.963 vs 0.953)"
+    "score_separation": "INVALID — both figures are surrogate-predicted; R3 empirical separation is ~0.23 (failed gate)"
   },
   "run": {
     "run_id": "nsga_ii_v13_r3_surrogate",
@@ -48,7 +70,7 @@
     "pareto_front_size": 26,
     "hypervolume": 0.0189,
     "population_diversity": 0.61,
-    "convergence_trend": "converged"
+    "convergence_trend": "INVALIDATED (offline/surrogate convergence not confirmed empirically)"
   },
   "elite_seeds": {
     "EXP-140": { "feature": "decentralized_identity_verification", "breach_rate": 2.5e-5, "honest_score": 0.9748, "separation": 0.929, "variance": 0.0016 },

@@ -37,19 +37,23 @@ The implementation stores these as minimization targets:
 
 ## Current frontier snapshot
 
+> ⚠️ **V13-R3 INVALIDATED (Orchestration Report 2026-06-29T01-35-48).** The
+> surrogate knee `V13-R3-KP-020-a3c7` predicted separation `0.963`, but empirical
+> validation against the full adversarial population measured `~0.23` — the best
+> adversary (Copycat) scores `0.733` and adversaries capture ~64.7% of chain
+> weight. V13-R3 **fails** the `≥0.90` separation gate and is **not promoted**.
+> The last non-contradicted checkpoint is the R2 knee.
+
 - Configured search regime: 20 generations x 30 population
-- Optimization target achieved: breach_rate < `5e-6`, honest_score > `0.97`, separation > `0.75`
-- Winning knee point: `V13-R3-KP-020-a3c7` (supersedes `V13-R2-KP-020-a7f2`)
-- Knee-point metrics:
-  - breach_rate: `2.6e-6`
-  - honest_score: `0.9808`
-  - separation: `0.963`
+- Surrogate-predicted knee (`V13-R3-KP-020-a3c7`) — **predictions only, separation falsified**:
+  - breach_rate: `2.6e-6` (unconfirmed)
+  - honest_score: `0.9808` (empirical `~0.977`, holds)
+  - separation: `0.963` ❌ (empirical `~0.23`)
   - variance: `0.00081`
-- Knee point stable since generation 7 (13 consecutive generations as knee), angle score `0.94`
-- Improvement vs R2 knee: breach_rate 25.7% better, honest_score 0.13% better, variance 10% better, separation 1.05% better
-- Final Pareto front size: 26
-- Hypervolume improved to `0.0189` (vs `0.0161` at R2)
-- Full reference: [../reference_configs/knee_point_V13-R3.json](../reference_configs/knee_point_V13-R3.json)
+- Root cause: the optimizer's internal analytical adversary model under-scored Copycat/CopyTrader (`~0.02-0.05` vs `~0.73` empirical), so the GP surrogate (`R²=0.96` to *biased* targets) optimized a false objective; the Pareto front collapsed into a narrow `0.958-0.967` separation band (false local optimum)
+- Required fix before any future knee is trusted: feed **empirical** (harness) adversary scores back into surrogate training; re-validate separation on-chain
+- Last non-contradicted checkpoint: `V13-R2-KP-020-a7f2` (breach `3.5e-6`, honest `0.9795`, separation `0.953`)
+- Full reference + empirical results: [../reference_configs/knee_point_V13-R3.json](../reference_configs/knee_point_V13-R3.json)
 - Current system-level sentinel posture remains `SECURE_AND_IMPROVING`; optimization now shifts from target-finding to empirical validation of the predicted optimum
 
 ## Report-aligned defaults
@@ -80,7 +84,8 @@ The report summarizes a 6-metric headline allocation, but the repository keeps a
 
 ## Report-driven tuning guidance
 
-- The third orchestration run confirmed the surrogate prediction: a stacked structural defense can beat the `5e-6` target rather than merely approach it.
+- ⚠️ **Correction:** an earlier run *appeared* to confirm the surrogate could beat the `5e-6` target, but empirical validation (Orchestration Report 2026-06-29) showed the surrogate's adversary scores were biased low, so its breach/separation predictions are unreliable. **Do not treat surrogate-predicted gate passes as achieved.** The binding open failure is the separation gate (empirical `~0.23` vs gate `≥0.90`).
+- **Highest-priority fix:** the optimizer/surrogate must be trained against the empirical (simulation-harness) adversary scores, not the internal analytical adversary model that under-scores Copycat/CopyTrader. Until then, NSGA-II will keep converging to false optima.
 - Commit-reveal remains a validated prerequisite, with system-level effectiveness `0.76` and simulator-estimated pre/post effectiveness `0.801`.
 - The active knee-point defense stack is:
   - decentralized identity verification (`identity_bond = 0.08`)

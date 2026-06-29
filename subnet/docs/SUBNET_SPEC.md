@@ -64,7 +64,7 @@
 - The core post-commit-reveal operating model is evaluated against 19 active surveillance vectors
 - The latest orchestration run validated commit-reveal effectiveness at `0.76`, above the `0.667` acceptance floor, with a stronger operating margin than the prior run
 - Sentinel classified the system as `SECURE_AND_IMPROVING`, with Sybil reduced to `0.195`, commitment violation reduced to `0.019`, and no new anomalies detected
-- NSGA-II v13 R3 hit the primary target with breach_rate `2.6e-6`, honest_score `0.9808`, and separation `0.963` (knee point `V13-R3-KP-020-a3c7`, superseding the R2 knee at `3.5e-6` / `0.9795` / `0.953`)
+- NSGA-II v13 R3 (knee point `V13-R3-KP-020-a3c7`) *predicted* breach_rate `2.6e-6`, honest_score `0.9808`, separation `0.963`, but ⚠️ **empirical validation invalidated it** — real separation is `~0.23` (best adversary `0.733`), failing the `≥0.90` gate. The last non-contradicted checkpoint remains the R2 knee (`3.5e-6` / `0.9795` / `0.953`). V13-R3 is not promoted; see CHANGELOG 2026-06-29
 
 ### Market Demand
 **Who pays for output and why.**

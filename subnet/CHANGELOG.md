@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-06-29 - Retract V13-R3 promotion: failed empirical separation gate
+
+- empirical validation (Orchestration Report 2026-06-29T01-35-48, session 6a419a72) **invalidated** the V13-R3 knee promoted on 2026-06-26. The surrogate reported `0.963` honest/adversarial separation; validating against the full 14-agent adversarial population measured `~0.23` (runs `0.244` / `0.223`). The best adversary (Copycat) scores `0.733` — vs the `~0.018` the surrogate implied (~40× underestimate) — and adversaries capture ~64.7% of chain weight. V13-R3 **fails** the `≥0.90` separation gate; honest_score (`~0.977`) and breach held, separation did not. **Production promotion BLOCKED.**
+- root cause: the NSGA-II optimizer scores adversaries with a **simplified analytical model** that under-scores Copycat/CopyTrader (`~0.02-0.05` vs `~0.73` empirically), so the GP surrogate (`R²=0.96` to those biased targets) optimized a false objective; the Pareto front collapsed into a narrow `0.958-0.967` separation band (false local optimum)
+- reverted the "state of record" downgrade across `README.md`, `program.md` §1, `docs/SUBNET_SPEC.md`, `docs/tuner.md`, `docs/PARAMETER_TUNING_PLAN.md`, `docs/sentinel.md`, `docs/EMULATOR_SPEC.md` §9 — the last non-contradicted checkpoint is again the R2 knee `V13-R2-KP-020-a7f2`. V13-R3 is recorded as an invalidated offline candidate, not a promoted config
+- `reference_configs/knee_point_V13-R3.json`: `status` → `INVALIDATED_...`, added an `empirical_validation` block (verdict, empirical metrics, root cause), relabelled `objectives` as surrogate-predicted
+- `docs/EMULATOR_SPEC.md`: added §6.6 "Surrogate vs. empirical adversary model (the validation contract)" — the optimizer's adversary scores must come from the same evaluation path as the acceptance gates; no surrogate-only promotion; surrogate-vs-empirical divergence is a `diverged` sentinel signal
+- secondary finding (logged, not a repo change): the local chain at `<chain-host>` was unreachable (`ECONNREFUSED` on all ports; "not running or network-isolated"), so on-chain validation remains blocked and the empirical numbers above are from the simulation harness
+
 ## 2026-06-26 - Promote V13-R3 knee point as state of record
 
 - the orchestration study (Orchestration Report — 2026-06-27T03-11-52) records a new surrogate-guided knee point, **V13-R3-KP-020-a3c7**, that strictly dominates the prior R2 knee on all four NSGA-II objectives: breach_rate `2.6e-6` (was `3.5e-6`), honest_score `0.9808` (was `0.9795`), separation `0.963` (was `0.953`), variance `0.00081` (was `0.0009`); knee stable since generation 7 (13 consecutive generations), ~48% below the `5e-6` target

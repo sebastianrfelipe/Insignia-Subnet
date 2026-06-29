@@ -4,7 +4,7 @@ This guide reflects the latest orchestration findings from 2026-04-16 and the re
 
 ## Highlights
 
-- Sentinel status is `SECURE_AND_IMPROVING`, with Phase 5 conditions satisfied and the breach-rate target achieved.
+- Sentinel status is `SECURE_AND_IMPROVING` (from surrogate runs). ⚠️ The V13-R3 "target achieved" claim was **retracted**: empirical validation (Orchestration Report 2026-06-29) failed the honest/adversarial separation gate (`~0.23` vs `≥0.90`). Breach/separation gate passes must be confirmed empirically before they count — see `../CHANGELOG.md` (2026-06-29) and `EMULATOR_SPEC.md` §6.6.
 - Commit-reveal defaults are enabled in config and tracked with timestamp metrics.
 - Default wallet layout now covers 1 owner, 1 validator, and 12 miners.
 - Market diversification now includes BTC, ETH, SOL, AVAX, and ADA.

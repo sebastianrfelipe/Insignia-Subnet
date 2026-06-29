@@ -18,13 +18,10 @@ This document is the MCP swarm prompt for the Insignia subnet repository.
   - commit-reveal validations above floor: `6 consecutive`
   - reset triggers: `SOFT=false`, `HARD=false`, `FULL=false`
 - Latest optimization milestone from the orchestration report:
-  - knee point: **V13-R3-KP-020-a3c7** (supersedes **V13-R2-KP-020-a7f2**)
-  - breach_rate: `2.6e-6`
-  - honest_score: `0.9808`
-  - separation: `0.963`
-  - variance: `0.00081`
-  - target status: **5e-6 target achieved** (~48% below target)
-  - knee stable since generation 7 (13 consecutive generations as knee); improves on the R2 knee across all four objectives
+  - knee point: **V13-R2-KP-020-a7f2** (breach_rate `3.5e-6`, honest_score `0.9795`, separation `0.953`, variance `0.0009`) remains the last checkpoint not contradicted by validation
+  - ⚠️ **V13-R3-KP-020-a3c7 was INVALIDATED by empirical validation** (Orchestration Report 2026-06-29T01-35-48): surrogate predicted separation `0.963`, but empirical separation is `~0.23` (best adversary `0.733`; adversaries hold ~64.7% of chain weight). honest_score (`~0.977`) and breach held; **separation failed the `≥0.90` gate**
+  - production promotion: **BLOCKED**; `convergence_trend` for V13-R3 is **INVALIDATED**
+  - root cause: the optimizer's internal analytical adversary model scored Copycat/CopyTrader `~0.02-0.05` vs `~0.73` empirically, so the surrogate (R²=0.96 to biased targets) optimized a false objective; Pareto front collapsed into a narrow separation band (false local optimum)
   - full reference: `reference_configs/knee_point_V13-R3.json`
 - Historical harder-environment simulation benchmark remains relevant as a stress test:
   - epochs: `100`
@@ -52,7 +49,8 @@ This document is the MCP swarm prompt for the Insignia subnet repository.
   - seed lineage for active tuning: `EXP-116`, `EXP-118`, `EXP-140`, `EXP-141`
   - elite seeds injected: `EXP-140`, `EXP-141`, `EXP-134`, `EXP-132`, `EXP-133`, `EXP-135`
   - variable profile used by the tuner: `41 variables`
-  - target breach_rate `5e-6` has been exceeded by the current knee point (`2.6e-6`)
+  - ⚠️ surrogate quality caveat: `R^2 = 0.96` measures fit to the optimizer's (biased) analytical-adversary targets, **not** ground truth; surrogate breach/separation predictions must be empirically re-validated before any promotion
+  - the surrogate-predicted `2.6e-6` breach / `0.963` separation did **not** survive empirical validation (separation collapsed to `~0.23`); the next tuner run must retrain on empirical adversary scores
 - Persistent warning: **Sybil pressure from BTCUSDT:ETHUSDT imbalance**
 
 ### Important compatibility note
