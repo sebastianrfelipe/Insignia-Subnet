@@ -97,7 +97,7 @@ gaming strategy is a **failed** configuration, regardless of headline numbers.
 > | Plane | Address | How the stack reaches it |
 > |-------|---------|--------------------------|
 > | Subtensor chain (Docker) | `ws://<chain-host>:9945` | `SUBTENSOR_LOCAL_ENDPOINT` env var → `config.endpoint` |
-> | insignia-local MCP (MongoDB) | `<mcp-host>` | `MONGO_URI` env var (insignia-local MCP server) |
+> | insignia-local MCP (MongoDB) | _(internal host — set via `MONGO_URI`, not published)_ | `MONGO_URI` env var (insignia-local MCP server) |
 >
 > The chain container is **already running** on `<chain-host>`; the deployer's job
 > is to *connect to and verify* it, **not** to `docker compose up` a new chain on
