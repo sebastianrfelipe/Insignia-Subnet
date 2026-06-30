@@ -28,7 +28,6 @@ Usage:
 
 from __future__ import annotations
 
-import io
 import time
 import uuid
 import logging
@@ -37,12 +36,12 @@ from typing import Dict, List, Optional, Tuple, Any
 from enum import Enum
 
 import numpy as np
-import joblib
 
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from insignia.protocol import MinerRole
+from insignia.safe_model_loader import safe_load_model
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [Trader-Miner] %(message)s")
 logger = logging.getLogger(__name__)
@@ -341,8 +340,11 @@ class TraderMiner:
         self.position_log: List[Dict] = []
 
     def load_model(self, model_id: str, model_artifact: bytes):
-        buf = io.BytesIO(model_artifact)
-        model = joblib.load(buf)
+        # SECURITY: the artifact is supplied by the (untrusted) paired
+        # researcher via the validator. Restrict deserialization to the
+        # numpy/sklearn allowlist so a hostile model cannot run code on this
+        # trader. Raises UnsafeArtifactError on a disallowed/invalid artifact.
+        model = safe_load_model(model_artifact)
         self.models[model_id] = model
         n_feat = self._infer_n_features(model)
         self.model_n_features[model_id] = n_feat

@@ -37,7 +37,6 @@ Usage:
 
 from __future__ import annotations
 
-import io
 import time
 import logging
 from abc import ABC, abstractmethod
@@ -46,7 +45,6 @@ from typing import Dict, List, Optional, Tuple, Any
 
 import numpy as np
 import pandas as pd
-import joblib
 
 try:
     import bittensor as bt
@@ -76,6 +74,7 @@ from insignia.code_submission import (
     SandboxConfig,
     SandboxRunner,
 )
+from insignia.safe_model_loader import safe_load_model, UnsafeArtifactError
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [Model-Validator] %(message)s")
 logger = logging.getLogger(__name__)
@@ -269,8 +268,13 @@ class ModelEvaluator:
         return model.predict(X).astype(float)
 
     def _deserialize(self, artifact: bytes):
-        buf = io.BytesIO(artifact)
-        return joblib.load(buf)
+        # SECURITY: ``artifact`` is untrusted miner-supplied bytes. Plain
+        # ``joblib.load`` (pickle) would execute arbitrary code on this
+        # validator while reconstructing a hostile artifact. ``safe_load_model``
+        # restricts deserialization to an allowlist of numpy/sklearn classes and
+        # raises ``UnsafeArtifactError`` on anything else, which the submission
+        # pipeline turns into a rejection. See ``insignia.safe_model_loader``.
+        return safe_load_model(artifact)
 
     @staticmethod
     def _extract_complexity(model) -> Dict[str, Any]:
@@ -498,12 +502,23 @@ class ModelValidator:
             }
 
         capture: Dict[str, Any] = {}
-        score, diagnostics = self.evaluator.evaluate(
-            model_artifact=model_artifact,
-            features_used=features_used,
-            epoch_id=self.current_epoch,
-            capture=capture if code_bundle else None,
-        )
+        try:
+            score, diagnostics = self.evaluator.evaluate(
+                model_artifact=model_artifact,
+                features_used=features_used,
+                epoch_id=self.current_epoch,
+                capture=capture if code_bundle else None,
+            )
+        except UnsafeArtifactError as exc:
+            # Hostile or unloadable artifact: reject and score 0 rather than
+            # letting a malicious pickle run on the validator.
+            self.rate_limiter.record(miner_uid)
+            logger.warning("Miner %s: artifact rejected by safe loader (%s)", miner_uid, exc)
+            return {
+                "accepted": False,
+                "composite_score": 0.0,
+                "rejection_reason": f"Unsafe/invalid model artifact: {exc}",
+            }
 
         # --- Code submission: verify + reproduce in sandbox ---
         code_result: Dict[str, Any] = {}

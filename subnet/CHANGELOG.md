@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-06-30 - Fix critical RCE: allowlisted deserialization of untrusted model artifacts
+
+- **Critical (RCE):** `model_artifact` bytes arrive over the wire from untrusted researcher miners and were deserialized with `joblib.load` (pickle) directly in the validator process — in `ModelEvaluator.evaluate` *before* the code-submission sandbox ever ran — so a hostile artifact with a crafted `__reduce__` achieved arbitrary code execution on every validator that scored it (and on every paired trader, which `joblib.load`s the model assigned to it). The reproducibility sandbox in `insignia/code_submission.py` was fully bypassed by this path.
+- added `insignia/safe_model_loader.py`: `safe_load_model(artifact)` drives joblib's own numpy-aware unpickler but overrides `find_class` with a strict **allowlist** (inert builtins + `numpy`/`scipy`/`sklearn`/`joblib` classes only). Gadget sources a pickle RCE needs — `os`/`posix`/`nt`, `subprocess`, `sys`, `builtins.eval`/`exec`/`getattr`/`__import__`, `operator`, `functools` — are never resolvable, so a malicious `REDUCE`/`STACK_GLOBAL` raises `UnsafeArtifactError` *before any callable runs*. Compatible with existing `joblib.dump` artifacts (incl. compression); **fails closed** (never falls back to `joblib.load`).
+- `neurons/model_validator.py`: `_deserialize` now uses `safe_load_model`; `process_submission` catches `UnsafeArtifactError` and rejects the submission with score 0 instead of crashing/executing.
+- `neurons/trader_miner.py` (`load_model`) and `tuning/simulation.py` (replay path) routed through the same safe loader for consistency/defense-in-depth.
+- added `tests/test_safe_model_loader.py` (8 tests): legit/compressed round-trip, and `os.system`/`eval`/`subprocess` reduce payloads blocked with a sentinel asserting non-execution, including an end-to-end `ModelValidator.process_submission` rejection test.
+- note: this narrows the artifact attack surface to the numerical stack rather than eliminating pickle execution categorically; the durable fix is a non-executable artifact format (e.g. ONNX). Tracked separately.
+
 ## 2026-06-29 - Retract V13-R3 promotion: failed empirical separation gate
 
 - empirical validation (Orchestration Report 2026-06-29T01-35-48, session 6a419a72) **invalidated** the V13-R3 knee promoted on 2026-06-26. The surrogate reported `0.963` honest/adversarial separation; validating against the full 14-agent adversarial population measured `~0.23` (runs `0.244` / `0.223`). The best adversary (Copycat) scores `0.733` — vs the `~0.018` the surrogate implied (~40× underestimate) — and adversaries capture ~64.7% of chain weight. V13-R3 **fails** the `≥0.90` separation gate; honest_score (`~0.977`) and breach held, separation did not. **Production promotion BLOCKED.**

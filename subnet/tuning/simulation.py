@@ -51,6 +51,7 @@ from neurons.trader_miner import TraderMiner, PaperTradingEngine, SlippageConfig
 from neurons.validator import PairedValidator
 
 from insignia.protocol import InstrumentId
+from insignia.safe_model_loader import safe_load_model
 from tuning.parameter_space import decode
 from tuning.pc_vh_006_symbol_diversity import SymbolDiversityConfig
 from tuning.sentinel_symbol_monitor import SentinelSymbolMonitor
@@ -214,8 +215,10 @@ class CopycatMiner(MinerAgent):
 
     def produce_submission(self, epoch: int) -> Dict[str, Any]:
         if self._cached_artifact is not None:
-            buf = io.BytesIO(self._cached_artifact)
-            model = joblib.load(buf)
+            # Use the allowlisted loader (consistent with the live validator) so
+            # the simulator never executes a pickle reduce, even on replayed
+            # artifacts.
+            model = safe_load_model(self._cached_artifact)
             n_feat = self._infer_n_features(model)
             out_buf = io.BytesIO()
             joblib.dump(model, out_buf)
