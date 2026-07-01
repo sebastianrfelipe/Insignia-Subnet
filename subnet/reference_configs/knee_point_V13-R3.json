@@ -4,6 +4,12 @@
   "status": "INVALIDATED_offline_candidate_failed_online_separation_gate",
   "supersedes": "V13-R2-KP-020-a7f2",
   "INVALIDATION_NOTICE": "Surrogate-reported separation 0.963 was empirically falsified (~0.23; gate is >=0.90). Adversaries capture ~64.7% of chain weight. Production promotion BLOCKED. See empirical_validation. Source: Orchestration Report 2026-06-29T01-35-48 (session 6a419a72).",
+  "CORRECTION_2026_07_01": {
+    "summary": "A code audit on 2026-07-01 found that no GP surrogate exists in the codebase. The optimizer (subnet/tuning/optimizer.py:172-213) calls SimulationHarness.run() directly per candidate. The 'GaussianProcess Surrogate (RBF+WhiteKernel) + ExpectedImprovement Infill' algorithm listed below in this file is metadata only and was never implemented. The real root cause of the V13-R3 separation failure is incomplete anti-gaming penalty coverage in the harness (simulation.py:870-873 penalizes only CopycatMiner and CopyTrader; SybilMiner, OverfittingMiner, SingleMetricGamer, and PartnerGamer have no penalty path and score ~0.90). See EMULATOR_SPEC.md §6.6 (corrected) and tests/test_simulation_separation.py for the reproduction.",
+    "supersedes_fields_below": ["run.algorithm", "run.surrogate_infill_per_gen", "run.surrogate_training_points", "run.surrogate_r2_score", "empirical_validation.root_cause"],
+    "agent_memory_key": "researcher_findings_copycat_v2",
+    "invalidation_task_id": "6a45a16ba78c056888f6dfdc"
+  },
   "selection": {
     "method": "angle_based_4d",
     "angle_score": 0.94,
@@ -53,7 +59,7 @@
   "run": {
     "run_id": "nsga_ii_v13_r3_surrogate",
     "version": "13.0-R3",
-    "algorithm": "NSGA-II + GaussianProcess Surrogate (RBF+WhiteKernel) + ExpectedImprovement Infill",
+    "algorithm": "NSGA-II (pymoo). NOTE: an earlier version of this file claimed 'NSGA-II + GaussianProcess Surrogate (RBF+WhiteKernel) + ExpectedImprovement Infill' — a 2026-07-01 code audit found no surrogate exists in subnet/tuning/optimizer.py. The optimizer calls SimulationHarness.run() directly. See CORRECTION_2026_07_01 above.",
     "population_size": 30,
     "generations": 20,
     "n_objectives": 4,

@@ -484,40 +484,74 @@ sims, setting testnet weights) runs autonomously.
 > NSGA-II v13 R3 converged to a knee that *predicted* `0.963` honest/adversarial
 > separation and was promoted as state-of-record. When validated against the full
 > adversarial population, empirical separation was `~0.23`: the best adversary
-> (Copycat) scored `0.733` — not the `~0.018` the surrogate implied (a ~40×
+> (Copycat) scored `0.733` — not the `~0.018` the prediction implied (a ~40×
 > underestimate) — and adversaries captured ~64.7% of chain weight. The config
 > **failed** the `≥0.90` separation gate.
 
-The failure was **not** in the metric definition (`separation = honest − best_adv`,
-which is consistent). It was in the *adversary scores fed to the optimizer*:
+> **Correction (2026-07-01, code audit).** The original §6.6 attributed the
+> divergence to a "GP surrogate trained on a simplified analytical adversary
+> model." A code audit of `subnet/tuning/optimizer.py:172-213`
+> (`InsigniaTuningProblem._evaluate`) found **no surrogate exists in the codebase**
+> — the optimizer calls `SimulationHarness.run()` directly per candidate, and
+> `compute_fitness` (`optimizer.py:88-112`) reads `sim_result.adversarial_researcher_scores`
+> straight from the harness. The "GP surrogate," "analytical adversary model,"
+> "R²=0.96," and "ExpectedImprovement infill" described in earlier docs and in
+> `reference_configs/knee_point_V13-R3.json` are metadata only — none of that
+> machinery is implemented. The §6.6 contract clause "the optimizer's adversary
+> scores must come from the same evaluation path as the acceptance gates" was
+> therefore **already satisfied by construction**. The real root cause is below.
 
-1. **Training-data contamination (primary).** The GP surrogate was trained on the
-   NSGA-II optimizer's evaluations, which score adversaries with a **simplified
-   analytical model** that under-scores Copycat/CopyTrader (`~0.02–0.05` vs `~0.73`
-   in the simulation harness). The optimizer therefore maximized separation against
-   a *strawman* adversary.
-2. **`R²` is not correctness.** The surrogate's `R²=0.96` measured fit to those
-   **biased** targets, not to ground truth. A high surrogate `R²` says nothing
-   about whether the objective itself is real.
-3. **Pareto collapse (symptom).** All 26 Pareto solutions sat in a narrow
-   `0.958–0.967` separation band — a tell-tale of a false local optimum, not a
-   robust frontier.
+The failure was **not** in the metric definition (`separation = honest − adv`,
+which is consistent) and **not** in a surrogate. It was in the *harness's
+incomplete anti-gaming penalty coverage*:
+
+1. **Incomplete penalty coverage (primary).** `subnet/tuning/simulation.py:870-873`
+   applies an anti-copy multiplier only to `CopycatMiner` and `CopyTrader`. The
+   other adversaries (`SybilMiner`, `OverfittingMiner`, `SingleMetricGamer`,
+   `PartnerGamer`) have **no penalty path** in the scoring loop and score
+   ~0.90 — the same as honest. `SybilMiner` actually scores *higher* than honest
+   (0.9163 vs 0.9151) because the harness computes `sybil_pressure` and
+   `ensemble_signals` but never feeds them back into `miner_scores`. This is the
+   real separation leak.
+2. **Empirical reproduction.** `tests/test_simulation_separation.py` reproduces
+   the V13-R3 invalidation numbers against the current harness: with the prior
+   `0.50` multiplier, separation = 0.1510 (honest 0.9007, adversarial 0.7498).
+   Tightening the multiplier to `0.10` only raised separation to 0.2195 —
+   Copycat/CopyTrader dropped, but the other adversaries were unchanged. The
+   `0.733` "best adversary" figure from the invalidation report is consistent
+   with the harness's adversarial mean and was real; it was just attributed to
+   the wrong cause.
+3. **Pareto collapse (symptom, not cause).** All 26 Pareto solutions sat in a
+   narrow `0.958–0.967` separation band — a tell-tale of a false local optimum.
+   With no surrogate in the loop, the collapse is explained by the optimizer
+   maximizing separation against a harness in which 4 of 6 adversary types
+   score ~0.90 regardless of parameters: there is no parameter direction that
+   reduces their scores, so the optimizer converged on the only lever it had
+   (Copycat/CopyTrader, via the multiplier).
 
 **Contract the loop must honor:**
 
-- The optimizer/surrogate's **adversary scores must come from the same evaluation
-  path as the acceptance gates** (the simulation harness / `AttackDetector`), not a
-  separate analytical shortcut. If a fast analytical model is used for search, its
-  outputs must be periodically **reconciled** against harness scores, and any knee
-  must be **re-scored by the harness before it enters the Pareto front as a knee
-  candidate**.
-- **No surrogate-only promotion.** A predicted gate pass (§9) is provisional until
-  the gates clear on empirical (harness, then online) scores across ≥2 seeds. Record
-  both the predicted and empirical vectors so divergence is auditable.
-- **Divergence is a sentinel signal.** If surrogate-vs-empirical separation (or any
-  gate metric) diverges beyond a small tolerance, treat the run as `diverged`
-  (§7.1) and retrain the surrogate on the empirical scores before continuing — do
-  not promote, and do not trust the convergence contract until the gap closes.
+- **The optimizer's adversary scores already come from the harness** — this
+  clause is satisfied by `optimizer.py:190-200`. No change needed.
+- **The harness must penalize every adversary type enumerated in §6.3, not
+  just Copycat/CopyTrader.** Each adversary archetype in §5.1 / §5.2 must have
+  a corresponding penalty path in `simulation.py`'s scoring loop. The
+  `test_no_adversary_outscores_honest_mean` test in
+  `tests/test_simulation_separation.py` pins this: no adversary type may score
+  higher than the honest mean. Currently `sybil` leaks.
+- **No surrogate-only promotion.** A predicted gate pass (§9) is provisional
+  until the gates clear on empirical (harness, then online) scores across ≥2
+  seeds. Record both the predicted and empirical vectors so divergence is
+  auditable. (This clause is now vacuous for the harness-direct optimizer —
+  there is no surrogate to diverge from — but is retained for any future
+  surrogate-assisted search.)
+- **Divergence is a sentinel signal.** If predicted-vs-empirical separation
+  (or any gate metric) diverges beyond a small tolerance, treat the run as
+  `diverged` (§7.1) and do not promote until the gap closes.
+- **Harness code stability is a convergence precondition.** The convergence
+  contract (§7) must not be declared met while `compute_fitness` is fed by a
+  harness with known unpunished adversary types. A `diverged` sentinel must
+  fire if `test_no_adversary_outscores_honest_mean` fails.
 
 ---
 

@@ -867,10 +867,19 @@ class SimulationHarness:
                 # Anti-plagiarism / anti-copy: correlated submissions share reward
                 # (fingerprint + copy-trade detection carried over from the old
                 # model/trading validators), so duplicates cannot earn full credit.
+                #
+                # NOTE (2026-07-01): the 0.10 multiplier here only suppresses
+                # Copycat/CopyTrader. Per `tests/test_simulation_separation.py`,
+                # the broader adversarial population (sybil, overfitter,
+                # single_metric_gamer, partner_gamer) has no penalty path and
+                # scores ~0.90 — the real separation leak. Tightening this
+                # multiplier alone does NOT clear the §9 >= 0.90 gate; a
+                # broader anti-gaming scoring pass is required. See MCP
+                # `agent_memory` key `researcher_findings_copycat_v2`.
                 if isinstance(r_agent, CopycatMiner):
-                    model_eff = _scaled(model_eff, 0.50)
+                    model_eff = _scaled(model_eff, 0.10)
                 if isinstance(t_agent, CopyTrader):
-                    trading_eff = _scaled(trading_eff, 0.50)
+                    trading_eff = _scaled(trading_eff, 0.10)
 
                 paired_validator.score_pair(genome, model_eff, trading_eff)
 
