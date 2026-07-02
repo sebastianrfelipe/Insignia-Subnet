@@ -1,0 +1,1124 @@
+PAGES: 25
+
+
+===== PAGE 0 =====
+Orchestration Report
+Status: All tasks completed successfully
+Session: 6a45afcfd163a13dc7ec9358
+Generated: 2026-07-02T01:58:22.524Z
+Overview
+Metric Value
+Total Tasks 3
+Completed 3
+Failed 0
+Pending 0
+Tool Calls 121
+Errors 2
+Duration 15m 52s
+Agent Breakdown
+Agent Tasks
+orchestrator 56
+coder 45
+deployer 20
+Summary
+Status: All tasks completed successfully
+Duration: 15m 52s
+Tasks: 3 completed, 0 failed, 0 pending
+Tool calls: 121 (2 tool errors)
+- Errors by tool: mongodb_aggregate(2)
+Findings
+Results (3)
+7/1/26, 9:58 PM Orchestration Report — 2026-07-02T01-58-22
+about:blank 1/25
+===== PAGE 1 =====
+[orchestrator] Execute skill: EMULATOR_SPEC
+Both tasks are still pending. Let me wait and poll again for their completion.
+Used 55 tool call(s): list_memory_keys, mongodb_list_collections, list_tasks, read_memory, read_memory,
+read_memory, mongodb_find_one, mongodb_find_one, mongodb_find_one, read_memory, read_memory,
+mongodb_find_one, mongodb_find_one, list_tasks, mongodb_find_one, mongodb_find_one,
+mongodb_aggregate, mongodb_aggregate, mongodb_aggregate, mongodb_aggregate,
+mongodb_aggregate, read_task, read_task, write_task, write_task, write_memory, list_tasks, read_task,
+read_task, read_task_result, read_task_result, list_tasks, list_tasks, list_tasks, list_tasks, read_task_result,
+read_task_result, read_task_result, read_task_result, read_task_result, read_task_result, read_task_result,
+read_task_result, read_task_result, read_task_result, read_task_result, read_task_result, read_task_result,
+read_task_result, read_task_result, read_task_result, read_task_result, read_task_result, read_task_result,
+read_task_result
+Structured details:
+7/1/26, 9:58 PM Orchestration Report — 2026-07-02T01-58-22
+about:blank 2/25
+===== PAGE 2 =====
+{
+  "stopReason": "max_tool_rounds",
+  "toolCalls": [
+    {
+      "tool": "list_memory_keys"
+    },
+    {
+      "tool": "mongodb_list_collections",
+      "input": {
+        "includeStats": true
+      }
+    },
+    {
+      "tool": "list_tasks",
+      "input": {
+        "status": "in_progress"
+      }
+    },
+    {
+      "tool": "read_memory",
+      "input": {
+        "key": "emulator_spec_execution_state"
+      }
+    },
+    {
+      "tool": "read_memory",
+      "input": {
+        "key": "emulator_execution_status"
+      }
+    },
+    {
+      "tool": "read_memory",
+      "input": {
+        "key": "emulator_loop_status"
+      }
+    },
+    {
+      "tool": "mongodb_find_one",
+      "input": {
+        "collection": "convergence_criteria",
+        "filter": "{\"name\": \"insignia_subnet_convergence_v1\"}"
+      }
+    },
+    {
+      "tool": "mongodb_find_one",
+      "input": {
+        "collection": "convergence_state",
+        "filter": "{}"
+      }
+    },
+    {
+7/1/26, 9:58 PM Orchestration Report — 2026-07-02T01-58-22
+about:blank 3/25
+===== PAGE 3 =====
+      "tool": "mongodb_find_one",
+      "input": {
+        "collection": "sentinel_state",
+        "filter": "{}",
+        "projection": "{\"_id\": 0}"
+      }
+    },
+    {
+      "tool": "read_memory",
+      "input": {
+        "key": "v14_r1_corrected_config"
+      }
+    },
+    {
+      "tool": "read_memory",
+      "input": {
+        "key": "deployer_state"
+      }
+    },
+    {
+      "tool": "mongodb_find_one",
+      "input": {
+        "collection": "deployer_state",
+        "filter": "{}"
+      }
+    },
+    {
+      "tool": "mongodb_find_one",
+      "input": {
+        "collection": "tuner_optimization",
+        "filter": "{\"version\": {\"$regex\": \"V13-R3\"}}",
+        "projection": "{\"_id\": 0, \"version\": 1, \"knee_point_id\": 1, \"best_objectives\": 1
+      }
+    },
+    {
+      "tool": "list_tasks",
+      "input": {
+        "status": "pending"
+      }
+    },
+    {
+      "tool": "mongodb_find_one",
+      "input": {
+        "collection": "simulation_results",
+        "filter": "{}",
+        "projection": "{\"_id\": 0, \"simulation_id\": 1, \"timestamp\": 1, \"honest_score\": 1,
+      }
+    },
+    {
+      "tool": "mongodb_find_one",
+      "input": {
+7/1/26, 9:58 PM Orchestration Report — 2026-07-02T01-58-22
+about:blank 4/25
+===== PAGE 4 =====
+        "collection": "tuner_optimization",
+        "filter": "{}",
+        "projection": "{\"_id\": 0, \"version\": 1, \"generation\": 1, \"knee_point_id\": 1, \"b
+      }
+    },
+    {
+      "tool": "mongodb_aggregate",
+      "input": {
+        "collection": "tuner_optimization",
+        "pipeline": "[{\"$sort\": {\"_id\": -1}}, {\"$limit\": 1}, {\"$project\": {\"_id\": 0, \
+      }
+    },
+    {
+      "tool": "mongodb_aggregate",
+      "input": {
+        "collection": "simulation_results",
+        "pipeline": "[{\"$sort\": {\"_id\": -1}}, {\"$limit\": 3}, {\"$project\": {\"_id\": 0, \
+      }
+    },
+    {
+      "tool": "mongodb_aggregate",
+      "input": {
+        "collection": "experiment_results",
+        "pipeline": "[{\"$sort\": {\"_id\": -1}}, {\"$limit\": 3}, {\"$project\": {\"_id\": 0, \
+      }
+    },
+    {
+      "tool": "mongodb_aggregate",
+      "input": {
+        "collection": "experiment_results",
+        "pipeline": "[{\"$match\": {\"procedure\": \"insignia_subnet_tuner\"}}, {\"$sort\": {\"_
+      }
+    },
+    {
+      "tool": "mongodb_aggregate",
+      "input": {
+        "collection": "simulation_results",
+        "pipeline": "[{\"$match\": {\"simulation_id\": \"v13r3_validation_summary_1782533629548\
+      }
+    },
+    {
+      "tool": "read_task",
+      "input": {
+        "taskId": "6a458a61d163a13dc7ec92ff"
+      }
+    },
+    {
+      "tool": "read_task",
+      "input": {
+        "taskId": "6a458a61d163a13dc7ec9301"
+      }
+7/1/26, 9:58 PM Orchestration Report — 2026-07-02T01-58-22
+about:blank 5/25
+===== PAGE 5 =====
+    },
+    {
+      "tool": "write_task",
+      "input": {
+        "assignedTo": "coder",
+        "description": "## CRITICAL CODE FIX — Root Cause of V13-R3 Divergence\n\nPer EMULATOR_S
+        "input": "<arg_key>priority</arg_key><arg_value>10",
+        "priority": 10,
+        "title": "Implement missing anti-gaming penalty paths in simulation.py computeAgentScore
+      }
+    },
+    {
+      "tool": "write_task",
+      "input": {
+        "assignedTo": "deployer",
+        "description": "## Chain Re-Verification for V14-R1 Online Validation\n\nPer EMULATOR_SP
+        "priority": 7,
+        "title": "Re-verify local subtensor chain connectivity and wallet funding status"
+      }
+    },
+    {
+      "tool": "write_memory",
+      "input": {
+        "key": "emulator_spec_execution_state",
+        "value": "{\"session\": \"EMULATOR_SPEC_execution_2026_07_17_v2\", \"phase\": \"v14_r1_c
+...(truncated)
+#### [coder] Implement missing anti-gaming penalty paths in simulation.py computeAgentScore()
+Let me search for the simulation code more broadly across collections.
+Structured details:
+```json
+{
+  "toolCallCount": 37,
+  "toolCalls": [
+    {
+      "tool": "read_memory",
+      "input": {
+        "key": "v14_r1_corrected_config"
+      }
+    },
+    {
+      "tool": "read_memory",
+      "input": {
+        "key": "tuner_state"
+      }
+    },
+    {
+      "tool": "mongodb_find_one",
+      "input": {
+7/1/26, 9:58 PM Orchestration Report — 2026-07-02T01-58-22
+about:blank 6/25
+===== PAGE 6 =====
+        "collection": "researcher_state",
+        "filter": "{\"_id\": \"insignia_subnet_tuner\"}"
+      }
+    },
+    {
+      "tool": "read_memory",
+      "input": {
+        "key": "simulator_state"
+      }
+    },
+    {
+      "tool": "read_memory",
+      "input": {
+        "key": "sentinel_state"
+      }
+    },
+    {
+      "tool": "get_details",
+      "input": {
+        "detail_level": "L1",
+        "id": "sebastianrfelipe/Insignia-Subnet",
+        "resource_type": "github_file"
+      }
+    },
+    {
+      "tool": "mongodb_find",
+      "input": {
+        "collection": "experiment_configs",
+        "filter": "{\"procedure\": \"insignia_subnet_tuner\", \"config_id\": \"V14-R1-CORRECTED-
+      }
+    },
+    {
+      "tool": "mongodb_list_collections",
+      "input": {
+        "includeStats": true
+      }
+    },
+    {
+      "tool": "read_task",
+      "input": {
+        "taskId": "current"
+      }
+    },
+    {
+      "tool": "mongodb_find_one",
+      "input": {
+        "collection": "documents",
+        "filter": "{\"path\": {\"$regex\": \"simulation.py\"}}"
+      }
+    },
+    {
+7/1/26, 9:58 PM Orchestration Report — 2026-07-02T01-58-22
+about:blank 7/25
+===== PAGE 7 =====
+      "tool": "mongodb_find",
+      "input": {
+        "collection": "documents",
+        "filter": "{\"path\": {\"$regex\": \"simulation\\\\.py$\"}}",
+        "limit": 5
+      }
+    },
+    {
+      "tool": "mongodb_find",
+      "input": {
+        "collection": "documents",
+        "filter": "{\"path\": {\"$regex\": \"test_simulation_separation\"}}",
+        "limit": 5
+      }
+    },
+    {
+      "tool": "mongodb_find",
+      "input": {
+        "collection": "documents",
+        "filter": "{\"content\": {\"$regex\": \"computeAgentScore\"}}",
+        "limit": 5,
+        "projection": "{\"path\": 1, \"content\": 1}"
+      }
+    },
+    {
+      "tool": "get_details",
+      "input": {
+        "detail_level": "L1",
+        "id": "sebastianrfelipe/Insignia-Subnet",
+        "resource_type": "github_pr"
+      }
+    },
+    {
+      "tool": "mongodb_find",
+      "input": {
+        "collection": "documents",
+        "filter": "{\"content\": {\"$regex\": \"CopycatMiner|SybilMiner|OverfittingMiner|compute
+        "limit": 5,
+        "projection": "{\"content\": 0}"
+      }
+    },
+    {
+      "tool": "mongodb_distinct",
+      "input": {
+        "collection": "documents",
+        "field": "path"
+      }
+    },
+    {
+      "tool": "mongodb_find",
+      "input": {
+7/1/26, 9:58 PM Orchestration Report — 2026-07-02T01-58-22
+about:blank 8/25
+===== PAGE 8 =====
+        "collection": "the",
+        "filter": "{\"content\": {\"$regex\": \"computeAgentScore|CopycatMiner|SybilMiner\"}}",
+        "limit": 5,
+        "projection": "{\"content\": 0}"
+      }
+    },
+    {
+      "tool": "mongodb_distinct",
+      "input": {
+        "collection": "the",
+        "field": "path"
+      }
+    },
+    {
+      "tool": "mongodb_find",
+      "input": {
+        "collection": "the",
+        "detail_level": "L0",
+        "limit": 3
+      }
+    },
+    {
+      "tool": "get_details",
+      "input": {
+        "detail_level": "L1",
+        "id": "the/69bd59c2b8520aecd988ea1c",
+        "resource_type": "mongodb_document"
+      }
+    },
+    {
+      "tool": "mongodb_find",
+      "input": {
+        "collection": "agent_memory",
+        "filter": "{\"key\": {\"$regex\": \"simulation|simulation.py|computeAgentScore\"}}",
+        "limit": 10
+      }
+    },
+    {
+      "tool": "mongodb_find",
+      "input": {
+        "collection": "simulation_runs",
+        "filter": "{\"procedure\": \"insignia_subnet_tuner\"}",
+        "limit": 3,
+        "projection": "{\"adversary_scores\": 1, \"adversary_types\": 1, \"honest_score\": 1, \"
+      }
+    },
+    {
+      "tool": "mongodb_find",
+      "input": {
+        "collection": "documents",
+        "filter": "{\"path\": {\"$regex\": \"tuning\"}}",
+7/1/26, 9:58 PM Orchestration Report — 2026-07-02T01-58-22
+about:blank 9/25
+===== PAGE 9 =====
+        "limit": 10,
+        "projection": "{\"content\": 0}"
+      }
+    },
+    {
+      "tool": "mongodb_find",
+      "input": {
+        "collection": "documents",
+        "filter": "{\"path\": {\"$regex\": \"simulation\"}}",
+        "limit": 10,
+        "projection": "{\"content\": 0}"
+      }
+    },
+    {
+      "tool": "mongodb_find",
+      "input": {
+        "collection": "documents",
+        "filter": "{\"path\": \"subnet/tuning/simulation.py\"}",
+        "limit": 5
+      }
+    },
+    {
+      "tool": "mongodb_find",
+      "input": {
+        "collection": "documents",
+        "filter": "{\"path\": {\"$regex\": \"simulation\"}}",
+        "limit": 10,
+        "projection": "{\"content\": 0}"
+      }
+    },
+    {
+      "tool": "mongodb_find",
+      "input": {
+        "collection": "documents",
+        "filter": "{\"$or\": [{\"path\": {\"$regex\": \"test_simulation\"}}, {\"path\": {\"$rege
+        "limit": 5
+      }
+    },
+    {
+      "tool": "mongodb_find",
+      "input": {
+        "collection": "documents",
+        "filter": "{\"type\": \"source_code\", \"path\": {\"$regex\": \"simulation\"}}",
+        "limit": 5
+      }
+    },
+    {
+      "tool": "mongodb_find",
+      "input": {
+        "collection": "documents",
+        "filter": "{\"$or\": [{\"content\": {\"$regex\": \"computeAgentScore\"}}, {\"content\": 
+7/1/26, 9:58 PM Orchestration Report — 2026-07-02T01-58-22
+about:blank 10/25
+===== PAGE 10 =====
+        "limit": 5
+      }
+    },
+    {
+      "tool": "mongodb_aggregate",
+      "input": {
+        "collection": "documents",
+        "pipeline": "[{\"$match\": {}}, {\"$group\": {\"_id\": \"$path\", \"count\": {\"$sum\": 
+      }
+    },
+    {
+      "tool": "mongodb_find",
+      "input": {
+        "collection": "simulation_results",
+        "filter": "{\"procedure\": \"insignia_subnet_tuner\"}",
+        "limit": 3
+      }
+    },
+    {
+      "tool": "mongodb_find",
+      "input": {
+        "collection": "simulation_config",
+        "filter": "{\"procedure\": \"insignia_subnet_tuner\"}",
+        "limit": 5
+      }
+    },
+    {
+      "tool": "mongodb_find",
+      "input": {
+        "collection": "simulation_agents",
+        "filter": "{\"procedure\": \"insignia_subnet_tuner\"}",
+        "limit": 10,
+        "projection": "{\"agent_type\": 1, \"score\": 1, \"simulation_id\": 1}"
+      }
+    },
+    {
+      "tool": "mongodb_find",
+      "input": {
+        "collection": "simulation_epochs",
+        "filter": "{\"procedure\": \"insignia_subnet_tuner\"}",
+        "limit": 3
+      }
+    },
+    {
+      "tool": "mongodb_find",
+      "input": {
+        "collection": "simulation_state",
+        "filter": "{}",
+        "limit": 5,
+        "projection": "{\"content\": 0}"
+      }
+7/1/26, 9:58 PM Orchestration Report — 2026-07-02T01-58-22
+about:blank 11/25
+===== PAGE 11 =====
+    },
+    {
+      "tool": "mongodb_find",
+      "input": {
+        "collection": "state",
+        "filter": "{}",
+        "limit": 5,
+        "projection": "{\"content\": 0}"
+      }
+    },
+    {
+      "tool": "mongodb_aggregate",
+      "input": {
+        "collection": "documents",
+        "pipeline": "[{\"$match\": {\"content\": {\"$regex\": \"computeAgentScore|CopycatMiner|S
+      }
+    }
+  ],
+  "usage": {
+    "inputTokens": 344208,
+    "outputTokens": 5414
+  },
+  "stopReason": "max_tool_rounds",
+  "throughput": {
+    "llmDurationMs": 48887,
+    "outputTokensPerSec": 110.7,
+    "totalTokensPerSec": 7151.7,
+    "rounds": [
+      {
+        "round": 1,
+        "durationMs": 1500,
+        "inputTokens": 4513,
+        "outputTokens": 182,
+        "outputTokensPerSec": 121.3
+      },
+      {
+        "round": 2,
+        "durationMs": 1166,
+        "inputTokens": 6624,
+        "outputTokens": 86,
+        "outputTokensPerSec": 73.7
+      },
+      {
+        "round": 3,
+        "durationMs": 933,
+        "inputTokens": 6874,
+        "outputTokens": 14,
+        "outputTokensPerSec": 15
+      },
+      {
+        "round": 4,
+7/1/26, 9:58 PM Orchestration Report — 2026-07-02T01-58-22
+about:blank 12/25
+===== PAGE 12 =====
+        "durationMs": 1115,
+        "inputTokens": 7041,
+        "outputTokens": 27,
+        "outputTokensPerSec": 24.2
+      },
+      {
+        "round": 5,
+        "durationMs": 1014,
+        "inputTokens": 7580,
+        "outputTokens": 68,
+        "outputTokensPerSec": 67.1
+      },
+      {
+        "round": 6,
+        "durationMs": 980,
+        "inputTokens": 7680,
+        "outputTokens": 45,
+        "outputTokensPerSec": 45.9
+      },
+      {
+        "round": 7,
+        "durationMs": 879,
+        "inputTokens": 7742,
+        "outputTokens": 14,
+        "outputTokensPerSec": 15.9
+      },
+      {
+        "round": 8,
+        "durationMs": 965,
+        "inputTokens": 8687,
+        "outputTokens": 381,
+        "outputTokensPerSec": 395
+      },
+      {
+        "round": 9,
+        "durationMs": 1203,
+        "inputTokens": 9478,
+        "outputTokens": 367,
+        "outputTokensPerSec": 305
+      },
+      {
+        "round": 10,
+        "durationMs": 1442,
+        "inputTokens": 9598,
+        "outputTokens": 52,
+        "outputTokensPerSec": 36.1
+      },
+      {
+        "round": 11,
+        "durationMs": 1088,
+        "inputTokens": 9666,
+7/1/26, 9:58 PM Orchestration Report — 2026-07-02T01-58-22
+about:blank 13/25
+===== PAGE 13 =====
+        "outputTokens": 83,
+        "outputTokensPerSec": 76.3
+      },
+      {
+        "round": 12,
+        "durationMs": 1038,
+        "inputTokens": 9751,
+        "outputTokens": 505,
+        "outputTokensPerSec": 486.3
+      },
+      {
+        "round": 13,
+        "durationMs": 3061,
+        "inputTokens": 10043,
+        "outputTokens": 376,
+        "outputTokensPerSec": 122.8
+      },
+      {
+        "round": 14,
+        "durationMs": 1708,
+        "inputTokens": 10170,
+        "outputTokens": 26,
+        "outputTokensPerSec": 15.2
+      },
+      {
+        "round": 15,
+        "durationMs": 2737,
+        "inputTokens": 10397,
+        "outputTokens": 45,
+        "outputTokensPerSec": 16.4
+      },
+      {
+        "round": 16,
+        "durationMs": 1156,
+        "inputTokens": 10687,
+        "outputTokens": 151,
+        "outputTokensPerSec": 130.7
+      },
+      {
+        "round": 17,
+        "durationMs": 3469,
+        "inputTokens": 16930,
+        "outputTokens": 774,
+        "outputTokensPerSec": 223.1
+      },
+      {
+        "round": 18,
+        "durationMs": 1769,
+        "inputTokens": 21631,
+        "outputTokens": 456,
+        "outputTokensPerSec": 257.8
+7/1/26, 9:58 PM Orchestration Report — 2026-07-02T01-58-22
+about:blank 14/25
+===== PAGE 14 =====
+      },
+      {
+        "round": 19,
+        "durationMs": 1931,
+        "inputTokens": 21737,
+        "outputTokens": 91,
+        "outputTokensPerSec": 47.1
+      },
+      {
+        "round": 20,
+        "durationMs": 10155,
+        "inputTokens": 21858,
+        "outputTokens": 83,
+        "outputTokensPerSec": 8.2
+      },
+      {
+        "round": 21,
+        "durationMs": 1926,
+        "inputTokens": 21957,
+        "outputTokens": 64,
+        "outputTokensPerSec": 33.2
+      },
+      {
+        "round": 22,
+        "durationMs": 1722,
+        "inputTokens": 22338,
+        "outputTokens": 354,
+        "outputTokensPerSec": 205.5
+      },
+      {
+        "round": 23,
+        "durationMs": 1722,
+        "inputTokens": 24605,
+        "outputTokens": 113,
+        "outputTokensPerSec": 65.6
+      },
+      {
+        "round": 24,
+        "durationMs": 2252,
+        "inputTokens": 26402,
+        "outputTokens": 579,
+        "outputTokensPerSec": 257.1
+      },
+      {
+        "round": 25,
+        "durationMs": 1953,
+        "inputTokens": 30219,
+        "outputTokens": 478,
+        "outputTokensPerSec": 244.7
+      }
+    ]
+7/1/26, 9:58 PM Orchestration Report — 2026-07-02T01-58-22
+about:blank 15/25
+===== PAGE 15 =====
+  }
+}
+[deployer] Re-verify local subtensor chain connectivity and wallet funding status
+All state is persisted. Let me now provide the comprehensive summary report.
+🔴  Chain Re-Verification Report: V14-R1 Online Validation
+Verification ID: DEPLOY-VERIFY-2026-07-02-001
+Timestamp: 2026-07-02T00:38:11Z
+Procedure: insignia_subnet_tuner
+Endpoint Test Results
+Endpoint Source Status Error
+ws://127.0.0.1:9945 SUBTENSOR_LOCAL_ENDPOINT
+default
+❌
+UNREACHABLE
+ECONNREFUSED
+ws://127.0.0.1:9946 upstream localnet.sh port ❌
+UNREACHABLE
+ECONNREFUSED
+ws://127.0.0.1:9933 alternative substrate port ❌
+UNREACHABLE
+ECONNREFUSED
+ws://10.0.0.193:9945 EMULATOR_SPEC §4 chain host ❌
+UNREACHABLE
+ECONNREFUSED
+(host not
+pingable)
+ws://10.0.0.193:9946 chain host upstream port ❌
+UNREACHABLE
+ECONNREFUSED
+(host not
+pingable)
+ws://172.17.0.1:9945 Docker bridge gateway ❌
+UNREACHABLE
+ECONNREFUSED
+ws://172.17.0.1:9946 Docker bridge upstream ❌
+UNREACHABLE
+ECONNREFUSED
+wss://entrypoint-
+finney.opentensor.ai:443
+public mainnet ✅
+CONNECTED
+Block #8529786
+wss://test.finney.opentensor.ai:443 public testnet ✅
+CONNECTED
+Block #7468235
+Delta vs Previous Verification (2026-07-01)
+Local chain status: UNCHANGED — Still all ECONNREFUSED on all 7 endpoints
+7/1/26, 9:58 PM Orchestration Report — 2026-07-02T01-58-22
+about:blank 16/25
+===== PAGE 16 =====
+Chain host 10.0.0.193: NOT PINGABLE — The host itself is unreachable from this container
+(172.17.0.3), suggesting either the host is down, on a different network segment, or firewalled
+Public networks: HEALTHY — Mainnet +8 blocks, testnet +791 blocks since last check
+No subtensor Docker containers or images present on this host
+No SUBTENSOR_LOCAL_ENDPOINT env var configured
+No localnet scripts or docker-compose files found
+Environment Context
+Item Value
+Container IP 172.17.0.3
+Docker bridge GW 172.17.0.1
+Docker available Yes
+Bittensor SDK 10.5.0
+btcli in PATH No
+Subtensor containers None
+Subtensor images None
+Verdict
+🔴  LOCAL_CHAIN_STILL_UNREACHABLE — V14-R1 online validation BLOCKED
+What Was NOT Verified (blocked by chain unreachability)
+1. ❌  Block height and sync status of local chain
+2. ❌  INSIGNIA subnet registration (netuid)
+3. ❌  Neuron count (target: 13 = 1 validator + 12 miners)
+4. ❌  Wallet balances for 14 wallets (insignia-owner, insignia-validator, insignia-miner-0 through -11)
+5. ❌  Subnet hyperparameters vs V14-R1-CORRECTED-KP targets
+Per §4.2 Compliance
+> "The chain already exists on \<chain-host\>, so the sequence connects and verifies rather than
+provisioning a chain."
+✅  Complied — I did NOT attempt to docker compose up a new chain. The deployer's role is to
+CONNECT and VERIFY, not provision.
+Recommendation to Orchestrator
+Proceed with OFFLINE-ONLY validation. The local subtensor chain has been unreachable for 2+
+consecutive verifications (2026-07-01 and 2026-07-02). The chain host (10.0.0.193) is not even pingable,
+suggesting it may be on a different network or powered off.
+7/1/26, 9:58 PM Orchestration Report — 2026-07-02T01-58-22
+about:blank 17/25
+===== PAGE 17 =====
+Required ops intervention:
+1. Start/restart the subtensor node on 10.0.0.193
+2. Open firewall rules for 10.0.0.193:9945 from the agent container (172.17.0.3)
+3. Set SUBTENSOR_LOCAL_ENDPOINT env var once a working endpoint is identified
+State Persistence
+✅  /app/state/deployer_state.json — Updated (v5.0)
+✅  /app/state/chain_connectivity_report.json — Updated (CCR-1782952661252)
+✅  Shared memory deployer_state — Updated
+✅  Shared memory chain_verification_V14R1 — Written
+Structured details:
+7/1/26, 9:58 PM Orchestration Report — 2026-07-02T01-58-22
+about:blank 18/25
+===== PAGE 18 =====
+{
+  "toolCallCount": 20,
+  "toolCalls": [
+    {
+      "tool": "shell_execute",
+      "input": {
+        "command": "echo \"=== SUBTENSOR_LOCAL_ENDPOINT env var ===\" && echo \"${SUBTENSOR_LOCA
+        "description": "Check SUBTENSOR_LOCAL_ENDPOINT env var and all subtensor-related env var
+      }
+    },
+    {
+      "tool": "shell_execute",
+      "input": {
+        "command": "echo \"=== Testing WebSocket connectivity to all endpoints ===\" && for endp
+        "description": "Test TCP connectivity to all chain endpoints"
+      }
+    },
+    {
+      "tool": "shell_execute",
+      "input": {
+        "command": "echo \"=== Check for running subtensor/substrate processes ===\" && ps aux |
+        "description": "Check for running subtensor processes and Docker containers"
+      }
+    },
+    {
+      "tool": "shell_execute",
+      "input": {
+        "command": "echo \"=== Check Docker availability ===\" && docker info 2>&1 | head -5 || 
+        "description": "Check Docker availability and localnet scripts"
+      }
+    },
+    {
+      "tool": "shell_execute",
+      "input": {
+        "command": "echo \"=== Check for btcli ===\" && which btcli 2>/dev/null || echo \"btcli 
+        "description": "Check btcli, subtensor package, and network interfaces"
+      }
+    },
+    {
+      "tool": "shell_execute",
+      "input": {
+        "command": "echo \"=== Check for any listening ports on chain-related ranges ===\" && ss
+        "description": "Check listening ports, hosts file, and config files"
+      }
+    },
+    {
+      "tool": "shell_execute",
+      "input": {
+        "command": "python3 -c \"\nimport bittensor as bt\nimport asyncio\n\nendpoints = [\n    
+        "description": "Test chain connectivity using bittensor Python library",
+        "timeout_ms": 60000
+7/1/26, 9:58 PM Orchestration Report — 2026-07-02T01-58-22
+about:blank 19/25
+===== PAGE 19 =====
+      }
+    },
+    {
+      "tool": "shell_execute",
+      "input": {
+        "command": "echo \"=== Check if 10.0.0.193 is reachable at all ===\" && timeout 3 bash -
+        "description": "Test basic network reachability to chain host"
+      }
+    },
+    {
+      "tool": "shell_execute",
+      "input": {
+        "command": "echo \"=== Check for btcli via python ===\" && python3 -c \"import bittensor
+        "description": "Check bittensor version, Docker compose files, and subtensor images"
+      }
+    },
+    {
+      "tool": "shell_execute",
+      "input": {
+        "command": "python3 -c \"\nimport asyncio\nimport json\n\nasync def test_ws(url):\n    t
+        "description": "Test WebSocket connectivity using raw websockets library",
+        "timeout_ms": 60000
+      }
+    },
+    {
+      "tool": "read_memory",
+      "input": {
+        "key": "deployer_state"
+      }
+    },
+    {
+      "tool": "shell_execute",
+      "input": {
+        "command": "echo \"=== Check for any state files ===\" && ls -la /app/state/ 2>/dev/null
+        "description": "Check existing state files and Docker networks"
+      }
+    },
+    {
+      "tool": "shell_execute",
+      "input": {
+        "command": "python3 -c \"\nimport asyncio\nimport json\n\nasync def test_ws(url, label):
+...(truncated)
+### Insights (3)
+- **[deployer] Chain Verification V14R1:** {
+  "timestamp": "2026-07-02T00:38:11Z",
+  "procedure": "insignia_subnet_tuner",
+  "verification_id": "DEPLOY-VERIFY-2026-07-02-001",
+  "result": "LOCAL_CHAIN_STILL_UNREACHABLE",
+  "endpoints_tested": 7,
+7/1/26, 9:58 PM Orchestration Report — 2026-07-02T01-58-22
+about:blank 20/25
+===== PAGE 20 =====
+  "endpoints_connected": 0,
+  "public_networks_healthy": true,
+  "mainnet_block_height": 8529786,
+  "testnet_block_height": 7468235,
+  "delta_vs_2026_07_01": "NO CHANGE - all 7 local endpoints still ECONNREFUSED",
+  "chain_host_10_0_0_193": "NOT PINGABLE - host itself unreachable",
+  "recommenda
+- **[deployer] Deployer State:** {
+  "version": "5.0",
+  "procedure": "insignia_subnet_tuner",
+  "phase": "V14-R1_online_validation_blocked",
+  "knee_point": "V14-R1-CORRECTED-KP",
+  "timestamp": "2026-07-02T00:38:11Z",
+  "verification_id": "DEPLOY-VERIFY-2026-07-02-001",
+  "chain_connectivity": {
+    "local_subtensor": {
+      "status": "UNREACHABLE",
+      "endpoints_tested": {
+        "ws://127.0.0.1:9945": "ECONNREFUSED",
+        "ws://127.0.0.1:9946": "ECONNREFUSED",
+        "ws://127.0.0.1:9933": "ECONNREFUSED",
+        "
+- **[orchestrator] Emulator Spec Execution State:** {"session": "EMULATOR_SPEC_execution_2026_07
+## Task Details
+| Status | Agent | Title | Result |
+|--------|-------|-------|--------|
+| Done | orchestrator | Execute skill: EMULATOR_SPEC | Both tasks are still pending. Let me wait
+| Done | coder | Implement missing anti-gaming penalty paths in simulation.py computeAgentScore(
+| Done | deployer | Re-verify local subtensor chain connectivity and wallet funding status | All
+## Tool Usage
+| Tool | Calls |
+|------|-------|
+| mongodb_find | 24 |
+| read_task_result | 22 |
+| shell_execute | 17 |
+| read_memory | 10 |
+| mongodb_find_one | 9 |
+| get_details | 8 |
+| list_tasks | 7 |
+| mongodb_aggregate | 7 |
+| read_task | 5 |
+| write_memory | 3 |
+| mongodb_list_collections | 2 |
+| write_task | 2 |
+| mongodb_distinct | 2 |
+| dashboard_skill_execute | 1 |
+| list_memory_keys | 1 |
+7/1/26, 9:58 PM Orchestration Report — 2026-07-02T01-58-22
+about:blank 21/25
+===== PAGE 21 =====
+| list_pending_approvals | 1 |
+**Errors:** 2
+## Agent Memory
+### Chain Verification V14R1
+*Written by deployer*
+{
+  "timestamp": "2026-07-02T00:38:11Z",
+  "procedure": "insignia_subnet_tuner",
+  "verification_id": "DEPLOY-VERIFY-2026-07-02-001",
+  "result": "LOCAL_CHAIN_STILL_UNREACHABLE",
+  "endpoints_tested": 7,
+  "endpoints_connected": 0,
+  "public_networks_healthy": true,
+  "mainnet_block_height": 8529786,
+  "testnet_block_height": 7468235,
+  "delta_vs_2026_07_01": "NO CHANGE - all 7 local endpoints still ECONNREFUSED",
+  "chain_host_10_0_0_193": "NOT PINGABLE - host itself unreachable",
+  "recommendation": "Proceed with OFFLINE-ONLY validation. Local chain requires ops intervention
+}
+### Deployer State
+*Written by deployer*
+{
+"version": "5.0",
+"procedure": "insignia_subnet_tuner",
+"phase": "V14-R1_online_validation_blocked",
+"knee_point": "V14-R1-CORRECTED-KP",
+"timestamp": "2026-07-02T00:38:11Z",
+"verification_id": "DEPLOY-VERIFY-2026-07-02-001",
+"chain_connectivity": {
+"local_subtensor": {
+"status": "UNREACHABLE",
+"endpoints_tested": {
+"ws://127.0.0.1:9945": "ECONNREFUSED",
+"ws://127.0.0.1:9946": "ECONNREFUSED",
+"ws://127.0.0.1:9933": "ECONNREFUSED",
+"ws://10.0.0.193:9945": "ECONNREFUSED (host not pingable)",
+7/1/26, 9:58 PM Orchestration Report — 2026-07-02T01-58-22
+about:blank 22/25
+===== PAGE 22 =====
+"ws://10.0.0.193:9946": "ECONNREFUSED (host not pingable)",
+"ws://172.17.0.1:9945": "ECONNREFUSED",
+"ws://172.17.0.1:9946": "ECONNREFUSED"
+},
+"diagnosis": "Pre-provisioned Docker subtensor at 10.0.0.193 NOT running or network-isolated. Host
+10.0.0.193 itself is not pingable from this container. No subtensor Docker containers/images present. No
+SUBTENSOR_LOCAL_ENDPOINT env var set.",
+"delta_vs_last_check": "UNCHANGED - same ECONNREFUSED on all 7 endpoints as 2026-07-01
+verification"
+},
+"finney_mainnet": {
+"status": "CONNECTED",
+"block_height": 8529786
+},
+"finney_testnet": {
+"status": "CONNECTED",
+"block_height": 7468235
+},
+"verdict": "LOCAL_CHAIN_UNREACHABLE - V14-R1 online validation BLOCKED"
+},
+"wallet_funding": {
+"status": "CANNOT_VERIFY",
+"total_wallets": 14,
+"all_funded": false,
+"total_funding_needed_tao": 112000,
+"keyfiles_found": false,
+"btcli_available": false,
+"bittensor_sdk": "10.5.0"
+},
+"subnet_registration": {
+"local_chain": {
+"status": "CANNOT_VERIFY"
+},
+"public_testnet": {
+7/1/26, 9:58 PM Orchestration Report — 2026-07-02T01-58-22
+about:blank 23/25
+===== PAGE 23 =====
+"insignia_found": false
+}
+},
+"monitoring": {
+"prometheus": {
+"status": "RUNNING",
+"port": 9090
+},
+"grafana": {
+"status": "NOT_DEPLOYED"
+}
+},
+"blocking_issues": [
+"BLOCKER-001 CRITICAL: Local subtensor at 10.0.0.193 ECONNREFUSED (host not pi
+...(truncated)
+### Emulator Spec Execution State
+*Written by orchestrator*
+{"session": "EMULATOR_SPEC_execution_2026_07_17_v2", "phase": "v14_r1_code_fix_and_chain_reverify",
+"timestamp": "2026-07-17T16:00:00Z", "critical_context": "V13-R3 DIVERGED: surrogate separation=0.963,
+empirical=0.244/0.223. Root cause: simulation.py computeAgentScore() only penalizes
+Copycat/CopyTrader. SybilMiner, OverfittingMiner, SingleMetricGamer, PartnerGamer have NO penalty
+path. SybilMiner scores HIGHER than honest (0.9163 vs 0.9151).", "dispatched_tasks":
+{"coder_anti_gaming_fix": {"taskId": "6a45b0fbd163a13dc7ec9371", "status": "pending", "description":
+"Implement missing anti-gaming penalty paths for all 6 adversary types in computeAgentScore()"},
+"deployer_chain_reverify": {"taskId": "6a45b0fbd163a13dc7ec9373", "status": "pending", "description":
+"Re-verify chain connectivity and wallet funding status"}}, "execution_plan": {"step1_coder": "Implement
+missing defenses (DISPATCHED - taskId 6a45b0fbd163a13dc7ec9371)", "step1b_deployer": "Re-verify
+chain readiness (DISPATCHED - taskId 6a45b0fbd163a13dc7ec9373)", "step2_simulator": "Run empirical
+validation of V14-R1 with fixed code (PENDING - after coder)", "step3_sentinel": "Re-evaluate 19 attack
+vectors (PENDING - after simulator)", "step4_tuner": "Update convergence state, fold fitness into NSGA-II
+(PENDING - after sentinel)", "step5_researcher": "Assess convergence, prepare production-reference if
+gates clear (PENDING - after tuner)"}, "hitl_gated_actions": ["btcli hyperparameter apply", "promote
+converged config as production reference"], "last_not_contradicted_checkpoint": "V13-R2-KP-020-a7f2
+(honest=0.9795, breach=3.5e-6, separation=0.953) — NOTE: researcher warns this would ALSO fail
+empirical validation due to same structural code gap", "v13_r3_validation_summary": {"seed_1042":
+{"honest": 0.9774, "separation": 0.2441, "gates_pass": false, "failing_gate": "score_separation (0.2441 <
+7/1/26, 9:58 PM Orchestration Report — 2026-07-02T01-58-22
+about:blank 24/25
+===== PAGE 24 =====
+0.90)"}, "seed_2042": {"honest": 0.9782, "separation": 0.2226, "gates_pass": false, "failing_gate":
+"score_separation
+...(truncated)
+---
+*Report generated by Insignia Swarm Gateway*
+7/1/26, 9:58 PM Orchestration Report — 2026-07-02T01-58-22
+about:blank 25/25
