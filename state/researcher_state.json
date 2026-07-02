@@ -1,0 +1,19 @@
+{
+  "agent": "researcher",
+  "last_action": "adversary_coverage_analysis_persisted",
+  "timestamp": "2026-07-02T11:16:08.115Z",
+  "procedure": "insignia_subnet_tuner",
+  "status": "analysis_complete",
+  "current_experiment": "EXP-ADVERSARY-COVERAGE-002",
+  "findings": {
+    "fix_j_adequate": false,
+    "fix_j_coverage": "2 of 6 adversary types (Copycat, CopyTrader)",
+    "missing_adversary_paths": ["SybilMiner", "OverfittingMiner", "SingleMetricGamer", "PartnerGamer"],
+    "full_coverage_separation": 0.9499,
+    "all_adversaries_below_honest_mean": true,
+    "new_agent_added": "PartnerGamer",
+    "penalty_multiplier_reduced": "1.1->0.6",
+    "mongodb_experiment_id": "EXP-ADVERSARY-COVERAGE-002",
+    "mongodb_doc_id": "6a46487878d1ffdff8ee18c5"
+  }
+}
