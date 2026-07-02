@@ -1,8 +1,18 @@
+"""Extract text from an Orchestration Report PDF.
+
+Usage:
+    python _extract.py <input.pdf> [output.txt]
+
+If output is omitted, writes alongside the input as <basename>.txt.
+"""
 import sys, io
 from pypdf import PdfReader
 
-src = r'c:\Projects\Insignia-Subnet\Orchestration Report\Orchestration Report — 2026-07-02T01-58-22.pdf'
-out = r'c:\Projects\Insignia-Subnet\Orchestration Report\_extracted_2026-07-02.txt'
+if len(sys.argv) < 2:
+    sys.exit("Usage: python _extract.py <input.pdf> [output.txt]")
+
+src = sys.argv[1]
+out = sys.argv[2] if len(sys.argv) > 2 else src.rsplit('.', 1)[0] + '.txt'
 
 r = PdfReader(src)
 with io.open(out, 'w', encoding='utf-8') as f:
