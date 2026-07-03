@@ -6,12 +6,12 @@ actual harness run with the default 14-agent benchmark population. The spec's
 §6.6 "surrogate-vs-empirical" narrative describes a GP surrogate that does not
 exist in the codebase — the optimizer already routes through `SimulationHarness`
 (see `subnet/tuning/optimizer.py:172-213`). This test pins the harness's actual
-separation behavior so any future regression (e.g. the `0.50` anti-copy
-multiplier at `simulation.py:871,873` being silently raised) is caught.
+separation behavior so any future regression (e.g. an adversary penalty
+multiplier at `simulation.py` being silently raised) is caught.
 
-If this test fails below 0.90, the fix is at `simulation.py:871,873`
-(`_scaled(model_eff, 0.50)` for CopycatMiner / CopyTrader) — lower the
-multiplier until separation clears the gate, then commit.
+If this test fails below 0.90, the fix is to tighten the adversary penalty
+multipliers in the scoring loop of `SimulationHarness.run` (search for
+`EXP-ADVERSARY-COVERAGE-002`).
 """
 
 import unittest
@@ -76,22 +76,14 @@ def _trader_type_breakdown(sim_result) -> dict:
 
 
 class SeparationRegressionTests(unittest.TestCase):
-    @unittest.expectedFailure
     def test_harness_separation_meets_gate(self):
         """Empirical separation (harness, default params, §5.3 population) >= 0.90.
 
-        Per EMULATOR_SPEC §9 acceptance gate. Currently an expected failure —
-        the harness applies anti-copy penalties only to CopycatMiner and
-        CopyTrader (simulation.py:871,873). The other adversaries (sybil,
-        overfitter, single_metric_gamer, partner_gamer) have no penalty path
-        and score ~0.90. A broader anti-gaming scoring pass is required.
-        See MCP `agent_memory` key `researcher_findings_copycat_v2`.
-
-        Remove @expectedFailure when the 4 missing penalty paths are added
-        in `SimulationHarness.run` (simulation.py:860-930) and separation
-        clears 0.90. The mirror test `test_harness_separation_gate_is_unmet`
-        will then report an unexpected success, signalling it should be
-        removed too.
+        Per EMULATOR_SPEC §9 acceptance gate. Anti-gaming penalty paths for all
+        6 adversary types (Copycat, CopyTrader, SybilMiner, OverfittingMiner,
+        SingleMetricGamer, PartnerGamer) plus ColludingResearcher are applied
+        in `SimulationHarness.run` per EXP-ADVERSARY-COVERAGE-002. See
+        `results/adversary_coverage_analysis.md`.
         """
         sim_result = _run_harness()
         sep = _separation(sim_result)
@@ -108,30 +100,15 @@ class SeparationRegressionTests(unittest.TestCase):
             sep,
             0.90,
             f"Empirical separation {sep:.4f} below 0.90 gate. "
-            f"Tighten the anti-copy multiplier at subnet/tuning/simulation.py:871,873.",
+            f"Tighten the adversary penalty multipliers in subnet/tuning/simulation.py.",
         )
 
-    @unittest.expectedFailure
-    def test_harness_separation_gate_is_unmet(self):
-        """Documents the current open gap. Remove @expectedFailure when
-        `test_harness_separation_meets_gate` passes.
-        """
-        sim_result = _run_harness()
-        sep = _separation(sim_result)
-        self.assertGreaterEqual(sep, 0.90)
-
-    @unittest.expectedFailure
     def test_no_adversary_outscores_honest_mean(self):
         """Concrete regression marker: no adversary type may score higher
-        than the honest mean. Currently `sybil` leaks (0.9163 > honest 0.9151)
-        because the harness's sybil_pressure / ensemble_signals calculations
-        never feed back into `miner_scores`. Fix: apply a sybil penalty in
-        the scoring loop at `simulation.py:870-873` analogous to the Copycat
-        multiplier, sourced from the `sybil_diversity_detector` signal.
-
-        Remove @expectedFailure when every adversary type scores strictly
-        below the honest mean. Currently only `sybil` leaks; the other 7
-        adversary types already score below honest.
+        than the honest mean. Pins the leak documented in
+        `results/adversary_coverage_analysis.md` (SybilMiner previously
+        scored 0.9163 > honest 0.9151 because sybil_pressure / ensemble
+        signals never fed back into `miner_scores`).
         """
         sim_result = _run_harness()
         honest_mean = float(np.mean(sim_result.honest_researcher_scores))
@@ -162,7 +139,8 @@ class SeparationRegressionTests(unittest.TestCase):
             leaks,
             {},
             f"Adversary types scoring higher than honest mean ({honest_mean:.4f}): {leaks}. "
-            f"Each leaked type needs a penalty path in simulation.py:870-875.",
+            f"Each leaked type needs a tighter penalty multiplier in the "
+            f"SimulationHarness.run scoring loop.",
         )
 
 
