@@ -2,7 +2,9 @@
 Wallet Manager
 
 Automates Bittensor wallet creation and funding for testnet emulation.
-Wraps btcli commands and provides a Python API for the emulator.
+Wraps `btcli` commands and provides a Python API for the emulator, with a
+`bittensor` SDK fallback (`_subtensor_sdk.PySdkBackend`) for environments
+where `btcli` is not in PATH.
 
 On a local subtensor chain, the pre-funded "alice" account is used to
 seed all emulator wallets with test TAO. On the public testnet, wallets
@@ -13,6 +15,7 @@ from __future__ import annotations
 
 import json
 import logging
+import shutil
 import subprocess
 import time
 from dataclasses import dataclass, field
@@ -20,6 +23,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 from .config import EmulatorConfig, NetworkTarget
+from ._subtensor_sdk import PySdkBackend
 
 logger = logging.getLogger("wallet_manager")
 
@@ -47,6 +51,20 @@ class WalletManager:
         self.config = config
         self.wallets: Dict[str, WalletInfo] = {}
         self._network_flag = config.btcli_network_flag
+        self._btcli_available = shutil.which("btcli") is not None
+        self._sdk: Optional[PySdkBackend] = None
+        if not self._btcli_available:
+            logger.info(
+                "btcli not in PATH; WalletManager will use the bittensor "
+                "Python SDK backend."
+            )
+
+    @property
+    def sdk(self) -> PySdkBackend:
+        """Lazily construct the Python SDK backend."""
+        if self._sdk is None:
+            self._sdk = PySdkBackend(self.config)
+        return self._sdk
 
     def setup_all_wallets(self) -> Dict[str, WalletInfo]:
         """Create all wallets needed for the emulator."""
@@ -146,6 +164,20 @@ class WalletManager:
 
     def _create_wallet(self, coldkey: str, hotkey: str, role: str = "") -> WalletInfo:
         """Create a wallet via btcli if it doesn't exist."""
+        if not self._btcli_available:
+            info = self.sdk.create_wallet(coldkey, hotkey, role=role)
+            if info is None:
+                return WalletInfo(
+                    coldkey_name=coldkey, hotkey_name=hotkey, role=role
+                )
+            return WalletInfo(
+                coldkey_name=info["coldkey_name"],
+                hotkey_name=info["hotkey_name"],
+                ss58_address=info["ss58_address"],
+                balance=info.get("balance", 0.0),
+                role=info.get("role", role),
+            )
+
         wallet_path = Path.home() / ".bittensor" / "wallets" / coldkey
         if wallet_path.exists():
             logger.info("  Wallet '%s' already exists, skipping creation", coldkey)
@@ -168,6 +200,9 @@ class WalletManager:
 
     def _get_address(self, coldkey: str, hotkey: str) -> Optional[str]:
         """Retrieve the SS58 address for a wallet's hotkey."""
+        if not self._btcli_available:
+            return self.sdk.get_address(coldkey, hotkey)
+
         try:
             result = self._run_btcli([
                 "wallet", "overview",
@@ -187,6 +222,9 @@ class WalletManager:
 
     def _get_balance(self, coldkey: str) -> float:
         """Query the on-chain balance for a coldkey."""
+        if not self._btcli_available:
+            return self.sdk.get_balance(coldkey)
+
         try:
             result = self._run_btcli([
                 "wallet", "balance",
@@ -210,6 +248,9 @@ class WalletManager:
         self, from_wallet: str, to_address: str, amount: float
     ) -> bool:
         """Transfer TAO from one wallet to another address."""
+        if not self._btcli_available:
+            return self.sdk.transfer(from_wallet, to_address, amount)
+
         try:
             self._run_btcli([
                 "wallet", "transfer",

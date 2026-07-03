@@ -7,18 +7,22 @@ Handles subnet lifecycle operations on the Bittensor network:
   - Configure subnet hyperparameters
   - Query subnet state
 
-All operations go through btcli for compatibility with both local
-and public testnet environments.
+Operations go through `btcli` when available, with a Python SDK fallback
+(`_subtensor_sdk.PySdkBackend`) for environments where `btcli` is not in
+PATH (e.g. the deployer agent container — see the 2026-07-02 orchestration
+report's chain-connectivity verdict).
 """
 
 from __future__ import annotations
 
 import logging
+import shutil
 import subprocess
 import time
 from typing import Dict, List, Optional, Any
 
 from .config import EmulatorConfig, NetworkTarget, SubnetHyperparameters
+from ._subtensor_sdk import PySdkBackend
 
 logger = logging.getLogger("subnet_manager")
 
@@ -39,6 +43,20 @@ class SubnetManager:
         self.config = config
         self._network_flag = config.btcli_network_flag
         self.netuid: Optional[int] = config.netuid
+        self._btcli_available = shutil.which("btcli") is not None
+        self._sdk: Optional[PySdkBackend] = None
+        if not self._btcli_available:
+            logger.info(
+                "btcli not in PATH; SubnetManager will use the bittensor "
+                "Python SDK backend."
+            )
+
+    @property
+    def sdk(self) -> PySdkBackend:
+        """Lazily construct the Python SDK backend."""
+        if self._sdk is None:
+            self._sdk = PySdkBackend(self.config)
+        return self._sdk
 
     def create_subnet(self) -> Optional[int]:
         """
@@ -48,6 +66,13 @@ class SubnetManager:
         On local chains, this is near-instant. On testnet, it costs TAO
         and may take a few blocks to confirm.
         """
+        if not self._btcli_available:
+            netuid = self.sdk.create_subnet()
+            if netuid is not None:
+                self.netuid = netuid
+                self.config.netuid = netuid
+            return netuid
+
         logger.info("Creating subnet on %s...", self.config.network.value)
 
         result = self._run_btcli([
@@ -90,6 +115,9 @@ class SubnetManager:
             "Registering %s/%s on netuid=%d...",
             wallet_name, hotkey, self.netuid,
         )
+
+        if not self._btcli_available:
+            return self.sdk.register_neuron(wallet_name, hotkey)
 
         result = self._run_btcli([
             "subnets", "register",
@@ -177,6 +205,9 @@ class SubnetManager:
         if self.netuid is None:
             return None
 
+        if not self._btcli_available:
+            return self.sdk.get_subnet_info()
+
         result = self._run_btcli([
             "subnet", "list",
             "--network", self._network_flag,
@@ -196,6 +227,19 @@ class SubnetManager:
         if self.netuid is None:
             return None
 
+        if not self._btcli_available:
+            mg = self.sdk.get_metagraph()
+            if mg is None:
+                return None
+            try:
+                return (
+                    f"Metagraph netuid={self.netuid}: "
+                    f"n={mg.n}, block={mg.block}, "
+                    f"total_stake={float(mg.total_stake):.2f}"
+                )
+            except Exception:
+                return f"Metagraph netuid={self.netuid}: connected"
+
         return self._run_btcli([
             "subnet", "metagraph",
             "--netuid", str(self.netuid),
@@ -211,6 +255,9 @@ class SubnetManager:
         if self.config.network != NetworkTarget.LOCAL:
             logger.info("Emissions on public testnet are managed by the network")
             return True
+
+        if not self._btcli_available:
+            return self.sdk.start_emissions()
 
         result = self._run_btcli([
             "subnet", "start",
@@ -232,6 +279,9 @@ class SubnetManager:
         if self.netuid is None:
             return False
 
+        if not self._btcli_available:
+            return self.sdk.stake_validator(wallet_name, hotkey, amount)
+
         result = self._run_btcli([
             "stake", "add",
             "--wallet.name", wallet_name,
@@ -245,6 +295,9 @@ class SubnetManager:
 
     def _set_hyperparameter(self, name: str, value: str) -> bool:
         """Set a single subnet hyperparameter via btcli."""
+        if not self._btcli_available:
+            return self.sdk.set_hyperparameter(name, value)
+
         result = self._run_btcli([
             "subnets", "hyperparameters",
             "--netuid", str(self.netuid),
@@ -262,6 +315,9 @@ class SubnetManager:
 
     def _find_owned_subnet(self) -> Optional[int]:
         """Search subnet list for one owned by our wallet."""
+        if not self._btcli_available:
+            return self.sdk.find_owned_subnet()
+
         result = self._run_btcli([
             "subnet", "list",
             "--network", self._network_flag,
