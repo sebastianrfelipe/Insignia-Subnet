@@ -144,5 +144,56 @@ class SeparationRegressionTests(unittest.TestCase):
         )
 
 
+    def test_sybil_penalty_is_signal_driven(self):
+        """The SybilMiner penalty must be signal-driven, not a flat constant.
+
+        The pre-fix stopgap applied a static 0.0001 multiplier to all sybils
+        regardless of behavior. The signal-driven path (EXP-ADVERSARY-COVERAGE-002
+        §1) uses the generation's `sybil_pressure` signal to modulate the
+        multiplier within the near-zero regime the §9 gate requires. This test
+        pins that the sybil score lands in the signal-driven range — above the
+        flat floor (`_SYBIL_FLOOR_MULTIPLIER × base`) and below the no-signal
+        ceiling (`_SYBIL_GATE_SCALE × base`) — so a future regression to a flat
+        constant is caught.
+        """
+        from tuning.simulation import (
+            _SYBIL_FLOOR_MULTIPLIER,
+            _SYBIL_GATE_SCALE,
+            _SYBIL_DETECTION_SENSITIVITY,
+            _SYBIL_CORRELATION_PENALTY,
+        )
+
+        sim_result = _run_harness()
+        researcher_types = _per_type_breakdown(sim_result)
+        sybil_score = researcher_types.get("sybil")
+        self.assertIsNotNone(sybil_score, "No sybil agents in the harness output")
+
+        # Base score for an honest researcher is ~0.915; sybils start from a
+        # similar composite before the penalty fires.
+        base = 0.915
+        # Floor-only score: what a flat _SYBIL_FLOOR_MULTIPLIER would produce.
+        floor_score = base * _SYBIL_FLOOR_MULTIPLIER
+        # No-signal ceiling: the multiplier when sybil_pressure == 0 (the
+        # signal-driven path's maximum output before the floor kicks in).
+        no_signal_mult = (1.0 - min(0.95, _SYBIL_DETECTION_SENSITIVITY * _SYBIL_CORRELATION_PENALTY)) * _SYBIL_GATE_SCALE
+        ceiling_score = base * no_signal_mult
+
+        # The signal-driven score must be strictly above the flat floor (else
+        # the signal is not modulating) and at or below the no-signal ceiling
+        # (else the floor is too loose).
+        self.assertGreater(
+            sybil_score,
+            floor_score * 1.5,
+            f"Sybil score {sybil_score:.6f} is at the flat floor ({floor_score:.6f}); "
+            f"the sybil_pressure signal is not modulating the penalty.",
+        )
+        self.assertLessEqual(
+            sybil_score,
+            ceiling_score * 1.1,  # 10% tolerance for base-score variance
+            f"Sybil score {sybil_score:.6f} exceeds the no-signal ceiling ({ceiling_score:.6f}); "
+            f"the _SYBIL_FLOOR_MULTIPLIER may be too loose.",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
