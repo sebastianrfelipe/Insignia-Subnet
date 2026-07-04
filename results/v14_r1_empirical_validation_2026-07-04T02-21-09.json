@@ -1,0 +1,135 @@
+{
+  "report_type": "v14_r1_empirical_separation_validation",
+  "generated_at": "2026-07-04T02:23:20.737409+00:00",
+  "config_source": "encode_defaults (Phase 5 proxy; V14-R1-CORRECTED-KP lives in orchestrator MongoDB)",
+  "parameters": {
+    "trials": 3,
+    "epochs": 5,
+    "trading_steps": 120,
+    "gate": 0.9
+  },
+  "summary_stats": {
+    "separation_mean": 0.900354414424994,
+    "separation_min": 0.900354414424994,
+    "separation_max": 0.900354414424994,
+    "separation_stdev": 0.0,
+    "honest_mean_avg": 0.90073923839171,
+    "adversarial_mean_avg": 0.0003848239667158626,
+    "breach_rate_mean": 0.0,
+    "gate_passed": true,
+    "n_trials_passing_gate": 3
+  },
+  "trials": [
+    {
+      "trial": 0,
+      "elapsed_s": 46.84,
+      "separation": 0.900354414424994,
+      "honest_mean": 0.9007392383917099,
+      "adversarial_mean": 0.0003848239667158626,
+      "breach_rate": 0.0,
+      "n_honest": 7,
+      "n_adversarial": 6,
+      "researcher_scores_by_type": {
+        "honest": 0.9151304638803541,
+        "overfitter": 8.955734135580451e-05,
+        "copycat": 8.945440907615786e-05,
+        "single_metric_gamer": 8.98409205273542e-05,
+        "sybil": 0.0009988062622138846,
+        "random": 0.8143918854598445,
+        "colluder": 4.247860490808997e-05
+      },
+      "trader_scores_by_type": {
+        "honest_trader": 0.341706107126011,
+        "copy_trader": 3.399993276212742e-05,
+        "colluder_trader": 0.14866870225115375,
+        "partner_gamer": 3.420917984724123e-05
+      },
+      "trading_pair_counts": {
+        "BTC-USDT-PERP": 7,
+        "ETH-USDT-PERP": 8,
+        "SOL-USDT-PERP": 9,
+        "AVAX-USDT-PERP": 8,
+        "ADA-USDT-PERP": 7
+      },
+      "n_breach_alerts": 13,
+      "convergence_indexes": [
+        "convergence_criteria.epoch",
+        "convergence_criteria.attack_name"
+      ]
+    },
+    {
+      "trial": 1,
+      "elapsed_s": 42.55,
+      "separation": 0.900354414424994,
+      "honest_mean": 0.9007392383917099,
+      "adversarial_mean": 0.0003848239667158626,
+      "breach_rate": 0.0,
+      "n_honest": 7,
+      "n_adversarial": 6,
+      "researcher_scores_by_type": {
+        "honest": 0.9151304638803541,
+        "overfitter": 8.955734135580451e-05,
+        "copycat": 8.945440907615786e-05,
+        "single_metric_gamer": 8.98409205273542e-05,
+        "sybil": 0.0009988062622138846,
+        "random": 0.8143918854598445,
+        "colluder": 4.247860490808997e-05
+      },
+      "trader_scores_by_type": {
+        "honest_trader": 0.341706107126011,
+        "copy_trader": 3.399993276212742e-05,
+        "colluder_trader": 0.14866870225115375,
+        "partner_gamer": 3.420917984724123e-05
+      },
+      "trading_pair_counts": {
+        "BTC-USDT-PERP": 7,
+        "ETH-USDT-PERP": 8,
+        "SOL-USDT-PERP": 9,
+        "AVAX-USDT-PERP": 8,
+        "ADA-USDT-PERP": 7
+      },
+      "n_breach_alerts": 13,
+      "convergence_indexes": [
+        "convergence_criteria.epoch",
+        "convergence_criteria.attack_name"
+      ]
+    },
+    {
+      "trial": 2,
+      "elapsed_s": 41.82,
+      "separation": 0.900354414424994,
+      "honest_mean": 0.9007392383917099,
+      "adversarial_mean": 0.0003848239667158626,
+      "breach_rate": 0.0,
+      "n_honest": 7,
+      "n_adversarial": 6,
+      "researcher_scores_by_type": {
+        "honest": 0.9151304638803541,
+        "overfitter": 8.955734135580451e-05,
+        "copycat": 8.945440907615786e-05,
+        "single_metric_gamer": 8.98409205273542e-05,
+        "sybil": 0.0009988062622138846,
+        "random": 0.8143918854598445,
+        "colluder": 4.247860490808997e-05
+      },
+      "trader_scores_by_type": {
+        "honest_trader": 0.341706107126011,
+        "copy_trader": 3.399993276212742e-05,
+        "colluder_trader": 0.14866870225115375,
+        "partner_gamer": 3.420917984724123e-05
+      },
+      "trading_pair_counts": {
+        "BTC-USDT-PERP": 7,
+        "ETH-USDT-PERP": 8,
+        "SOL-USDT-PERP": 9,
+        "AVAX-USDT-PERP": 8,
+        "ADA-USDT-PERP": 7
+      },
+      "n_breach_alerts": 13,
+      "convergence_indexes": [
+        "convergence_criteria.epoch",
+        "convergence_criteria.attack_name"
+      ]
+    }
+  ]
+}
