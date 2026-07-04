@@ -1,25 +1,25 @@
 {
   "report_type": "sentinel_coverage_matrix",
-  "generated_at": "2026-07-04T02:32:43.935047+00:00",
+  "generated_at": "2026-07-04T14:36:08.766434+00:00",
   "config_source": "encode_defaults (Phase 5 proxy; V14-R1-CORRECTED-KP lives in orchestrator MongoDB)",
   "parameters": {
     "epochs": 5,
     "trading_steps": 120
   },
   "post_cr_vector_count": 19,
-  "post_cr_breached": 3,
-  "post_cr_breach_rate": 0.1579,
+  "post_cr_breached": 2,
+  "post_cr_breach_rate": 0.1053,
   "coverage_breakdown": {
     "CLOSED (signal-driven, empirically verified)": 2,
     "STATIC-FLOOR (multiplier backstop, pending signal pipeline)": 5,
-    "CONFIG (hyperparameter defense)": 8,
+    "CONFIG (hyperparameter defense)": 9,
     "AGGREGATE (combined effect)": 1
   },
   "detector_aggregate": {
     "total_vectors_evaluated": 28,
-    "total_breached": 3,
-    "breach_rate": 0.1071,
-    "mean_severity": 0.0791,
+    "total_breached": 2,
+    "breach_rate": 0.0714,
+    "mean_severity": 0.0774,
     "max_severity": 0.9041
   },
   "vectors": [
@@ -165,8 +165,8 @@
     },
     {
       "vector": "prediction_timing_manipulation",
-      "breached": true,
-      "severity": 0.0667,
+      "breached": false,
+      "severity": 0.025,
       "risk_tier": "low",
       "description": "0/13 miners below 35s lead time",
       "adversary_types": [
@@ -175,7 +175,7 @@
       "defense_path": "validation_timing config (min_prediction_lead_time, commitment_violation_weight)",
       "coverage_state": "CONFIG",
       "todo": null,
-      "breach_note": "NOT an adversary leak. The harness generates synthetic submission-timing gaps that fall below the 35s min_prediction_lead_time threshold for some miners. This is a config-tuning / synthetic-data issue, not a penalty-path issue. Severity is low (0.0667, just over the 0.05 breach threshold). The validation_timing config could be tightened, or the harness's synthetic timing generation could be made more realistic. No adversary scores above honest here."
+      "breach_note": null
     },
     {
       "vector": "miner_validator_collusion",
