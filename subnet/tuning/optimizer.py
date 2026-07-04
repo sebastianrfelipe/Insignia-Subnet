@@ -188,8 +188,8 @@ if PYMOO_AVAILABLE:
                 )
 
                 harness = SimulationHarness(
-                    l1_agents=l1_agents,
-                    l2_agents=l2_agents,
+                    researcher_agents=l1_agents,
+                    trader_agents=l2_agents,
                     n_epochs=self.n_epochs,
                     n_trading_steps=self.n_trading_steps,
                 )
@@ -328,11 +328,19 @@ def run_nsga2(
     n_trading_steps: int = 150,
     output_dir: str = "results",
     seed: int = 42,
+    warm_start: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Run the NSGA-II multi-objective optimizer.
 
     Returns a dict with the Pareto front, best configs, and history.
+
+    If `warm_start` is a path to a warm-start seed JSON (produced by
+    `scripts/tuner_v14_r1_warmstart_seed.py`), the seed's parameter vector
+    is injected as the first individual of the initial population so the
+    search warm-starts from the prior knee point rather than sampling from
+    scratch. The remaining pop_size - 1 individuals are Latin Hypercube
+    samples. This is the "fold fitness into NSGA-II" step (cycle step 4).
     """
     if not PYMOO_AVAILABLE:
         logger.warning("pymoo not installed — falling back to random search")
@@ -351,8 +359,51 @@ def run_nsga2(
         n_trading_steps=n_trading_steps,
     )
 
+    # Build the initial sampling. If a warm-start seed is provided, inject it
+    # as the first individual; fill the rest with Latin Hypercube samples.
+    warm_start_x: Optional[np.ndarray] = None
+    warm_start_meta: Dict[str, Any] = {}
+    if warm_start is not None:
+        ws_path = Path(warm_start)
+        if not ws_path.exists():
+            logger.warning("Warm-start seed not found at %s — ignoring", warm_start)
+        else:
+            with open(ws_path, "r", encoding="utf-8") as f:
+                ws_data = json.load(f)
+            ws_params = ws_data.get("params")
+            if ws_params is None or len(ws_params) != N_PARAMS:
+                logger.warning(
+                    "Warm-start seed has %s params (expected %d) — ignoring",
+                    "no" if ws_params is None else len(ws_params), N_PARAMS,
+                )
+            else:
+                warm_start_x = repair_weights(np.array(ws_params, dtype=float))
+                warm_start_meta = {
+                    "config_id": ws_data.get("config_id"),
+                    "seed_fitness": ws_data.get("fitness", {}).get("decoded"),
+                    "source_reports": ws_data.get("source_reports"),
+                }
+                logger.info(
+                    "Warm-starting from %s (config_id=%s)",
+                    ws_path.name, ws_data.get("config_id"),
+                )
+
+    if warm_start_x is not None:
+        from pymoo.operators.sampling.lhs import LatinHypercubeSampling
+        lhs = LatinHypercubeSampling()
+        rest = lhs._do(problem, population_size - 1)
+        initial_X = np.vstack([warm_start_x.reshape(1, -1), rest])
+        # Ensure the warm-start individual is repaired (weights sum to 1.0).
+        initial_X[0] = repair_weights(initial_X[0])
+        sampling = initial_X
+        logger.info("Initial population: 1 warm-start elite + %d Latin Hypercube samples",
+                    population_size - 1)
+    else:
+        sampling = None  # use pymoo default (Latin Hypercube)
+
     algorithm = NSGA2(
         pop_size=population_size,
+        sampling=sampling,
         crossover=SBX(prob=0.9, eta=15),
         mutation=PM(eta=20),
         repair=WeightRepairOperator(),
@@ -433,6 +484,7 @@ def run_nsga2(
         "best_config_summary": summarize_config(best_config),
         "objective_names": OBJECTIVE_NAMES,
         "nsga2_v13_profile": NSGA2_V13_PROFILE,
+        "warm_start": warm_start_meta if warm_start_x is not None else None,
     }
 
     with open(out_path / "optimization_result.json", "w") as f:
@@ -481,6 +533,11 @@ if __name__ == "__main__":
     parser.add_argument("--n-steps", type=int, default=100)
     parser.add_argument("--output", type=str, default="results")
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--warm-start", type=str, default=None,
+                        help="Path to a warm-start seed JSON (e.g. "
+                             "results/tuner_v14_r1_warmstart_seed_*.json). "
+                             "Injects the seed's params as the first individual "
+                             "of the NSGA-II initial population.")
     args = parser.parse_args()
 
     result = run_nsga2(
@@ -492,6 +549,7 @@ if __name__ == "__main__":
         n_trading_steps=args.n_steps,
         output_dir=args.output,
         seed=args.seed,
+        warm_start=args.warm_start,
     )
 
     print("\n=== Optimization Complete ===")
