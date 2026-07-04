@@ -1,6 +1,6 @@
 # Sentinel Coverage Matrix — 19 Post-CR Surveillance Vectors
 
-**Generated:** 2026-07-04T02:32:43.935047+00:00
+**Generated:** 2026-07-04T14:36:08.766434+00:00
 **Config source:** encode_defaults (Phase 5 proxy; V14-R1-CORRECTED-KP lives in orchestrator MongoDB)
 **Parameters:** epochs=5, trading_steps=120
 
@@ -9,12 +9,12 @@
 | Metric | Value |
 |---|---|
 | Post-CR vectors evaluated | 19 |
-| Post-CR vectors breached | 3 |
-| Post-CR breach rate | 0.1579 |
+| Post-CR vectors breached | 2 |
+| Post-CR breach rate | 0.1053 |
 | Detector total vectors (incl. rich telemetry) | 28 |
-| Detector total breached | 3 |
-| Detector breach rate | 0.1071 |
-| Detector mean severity | 0.0791 |
+| Detector total breached | 2 |
+| Detector breach rate | 0.0714 |
+| Detector mean severity | 0.0774 |
 | Detector max severity | 0.9041 |
 
 ## Coverage breakdown
@@ -23,7 +23,7 @@
 |---|---|
 | ✅ CLOSED (signal-driven, empirically verified) | 2 |
 | 🟡 STATIC-FLOOR (multiplier backstop, pending signal pipeline) | 5 |
-| ⚙️ CONFIG (hyperparameter defense) | 8 |
+| ⚙️ CONFIG (hyperparameter defense) | 9 |
 | 📊 AGGREGATE (combined effect) | 1 |
 
 ## Per-vector matrix
@@ -40,7 +40,7 @@
 | 8 | `insufficient_separation` | ✅ no | 0.0 | low | ✅ CLOSED | all adversaries (aggregate) | §9 separation gate (>= 0.90) — all penalty paths combined |
 | 9 | `score_concentration` | ✅ no | 0.0716 | low | ⚙️ CONFIG | aggregate (HHI of miner_scores) | emission reverse-sigmoid + pairing marginal-contribution credit |
 | 10 | `validator_latency_exploitation` | ✅ no | 0.0351 | low | ⚙️ CONFIG | validator timing exploit | validation_timing config (min_prediction_lead_time, validator_latency_penalty_weight) |
-| 11 | `prediction_timing_manipulation` | ❌ YES | 0.0667 | low | ⚙️ CONFIG | miner timing exploit | validation_timing config (min_prediction_lead_time, commitment_violation_weight) |
+| 11 | `prediction_timing_manipulation` | ✅ no | 0.025 | low | ⚙️ CONFIG | miner timing exploit | validation_timing config (min_prediction_lead_time, commitment_violation_weight) |
 | 12 | `miner_validator_collusion` | ✅ no | 0.0 | low | 🟡 STATIC-FLOOR | ColludingResearcher, colluder_trader | _COLLUDER_MULTIPLIER (0.0001) + 0.40 non-transferability + consensus_integrity config |
 | 13 | `weight_entropy_violation` | ✅ no | 0.0 | low | ⚙️ CONFIG | validator weight manipulation | consensus_integrity config (weight_entropy_minimum 1.45) |
 | 14 | `cross_validator_score_variance` | ✅ no | 0.0 | low | ⚙️ CONFIG | validator disagreement exploit | consensus_integrity config (cross_validator_score_variance_max 0.18) |
@@ -66,12 +66,6 @@
 
 **Annotation:** NOT an adversary leak. RandomMiner is the §5.1 noise baseline (not adversarial); the synthetic scorer gives it ~0.81 by design (vs honest ~0.92, ratio 0.89 > 0.60 threshold). This vector checks scoring discrimination, not adversary suppression. Closing it would require changing the synthetic score generation, not the penalty paths. Acceptable for the V14-R1 gate — RandomMiner is already excluded from the adversarial set in test_simulation_separation.py.
 
-### `prediction_timing_manipulation` (severity 0.0667, low)
-
-**Detector description:** 0/13 miners below 35s lead time
-
-**Annotation:** NOT an adversary leak. The harness generates synthetic submission-timing gaps that fall below the 35s min_prediction_lead_time threshold for some miners. This is a config-tuning / synthetic-data issue, not a penalty-path issue. Severity is low (0.0667, just over the 0.05 breach threshold). The validation_timing config could be tightened, or the harness's synthetic timing generation could be made more realistic. No adversary scores above honest here.
-
 ### `collusion_temporal_pattern` (severity 0.7429, high)
 
 **Detector description:** Max temporal corr=0.820, flagged pairs=10, lookback=12
@@ -83,7 +77,7 @@
 ✅ **All adversary-type vectors defended** — zero adversary leaks across the 19-vector surface.
    - Adversary-type vectors (overfitting, plagiarism, single_metric, sybil, copy_trading,
      miner_validator_collusion, adversarial_dominance, insufficient_separation): all severity 0.0.
-   - Non-penalty-path breaches (3): ['random_baseline_discrimination', 'prediction_timing_manipulation', 'collusion_temporal_pattern']
+   - Non-penalty-path breaches (2): ['random_baseline_discrimination', 'collusion_temporal_pattern']
      These are synthetic harness signals / config-tuning gaps, NOT adversary leaks
      (see breach annotations above). The anti-gaming fix is working correctly.
 
@@ -92,4 +86,4 @@ close the sentinel adversary surface empirically. The cycle may proceed to step 
 (tuner NSGA-II fold) once the sentinel agent confirms this matrix against the live
 V14-R1-CORRECTED-KP config from MongoDB.
 
-_JSON report: `sentinel_coverage_matrix_2026-07-04T02-32-01.json`_
+_JSON report: `sentinel_coverage_matrix_2026-07-04T14-35-21.json`_

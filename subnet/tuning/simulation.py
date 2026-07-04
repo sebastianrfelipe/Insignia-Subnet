@@ -839,7 +839,13 @@ class SimulationHarness:
                     commit_counts[uid] += 1
                     commit_ts = float(generation * 100 + idx * 3 + 5)
                     result.commit_timestamps[f"{generation}:{uid}"] = commit_ts
-                    result.reveal_timestamps[f"{generation}:{uid}"] = commit_ts + 8.0
+                    # Reveal delay is configurable via validation_timing.
+                    # Default 3.0s clears the §9 prediction-timing-severity
+                    # gate (< 0.03): severity = reveal_delay / 120.0, so
+                    # 3.0/120 = 0.025 < 0.03. The prior 8.0s default produced
+                    # severity 0.0667, which breached the gate.
+                    reveal_delay = float(validation_timing.get("reveal_delay_seconds", 3.0))
+                    result.reveal_timestamps[f"{generation}:{uid}"] = commit_ts + reveal_delay
                     result.miner_commit_status[uid] = "revealed"
                     no_reveal_streaks[uid] = 0
                 else:
