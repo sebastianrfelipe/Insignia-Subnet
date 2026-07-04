@@ -338,16 +338,29 @@ def decode(x: np.ndarray) -> Dict[str, Any]:
             "grace_generations": int(round(p["symbol_diversity_grace_generations"])),
         },
         "research_targets": {
-            "seed_lineage": ["EXP-116", "EXP-118", "EXP-140", "EXP-141"],
-            "best_experiment": "EXP-140",
-            "runner_up_experiment": "EXP-141",
+            "seed_lineage": ["EXP-116", "EXP-118", "EXP-140", "EXP-141", "EXP-ADVERSARY-COVERAGE-002"],
+            "best_experiment": "EXP-ADVERSARY-COVERAGE-002",
+            "runner_up_experiment": "EXP-140",
             "target_breach_rate": 5e-6,
-            "target_achieved": True,
+            "target_achieved": False,
+            "current_candidate_knee_point": "V14-R1-CORRECTED-KP-PROXY",
+            "current_candidate_status": "gate_check_7_of_10_passed_2_failed_1_pending_not_promotable",
+            "current_candidate_honest_score": 0.9007,
+            "current_candidate_separation": 0.9004,
+            "current_candidate_variance": 0.0013,
+            "current_candidate_adversary_breach_rate": 0.0,
+            "current_candidate_failed_gates": ["honest_mean_score", "prediction_timing_severity"],
+            "current_candidate_pending_gates": ["convergence_contract"],
+            # Legacy V13-R2 knee — retained as the last surrogate-predicted
+            # "state of record". Per §9: "A surrogate-predicted gate pass is
+            # not a pass." V13-R2's 0.9795 honest score was never empirically
+            # confirmed; V14-R1's 0.9007 is the empirical regime.
             "best_knee_point": "V13-R2-KP-020-a7f2",
             "best_knee_point_breach_rate": 3.5e-6,
             "best_knee_point_honest_score": 0.9795,
             "best_knee_point_separation": 0.953,
             "best_knee_point_variance": 0.0009,
+            "best_knee_point_source": "surrogate_predicted_not_empirically_confirmed",
             "phase5_completed_experiment": "EXP-142",
         },
     }
