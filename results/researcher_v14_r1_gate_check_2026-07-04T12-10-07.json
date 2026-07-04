@@ -1,0 +1,161 @@
+{
+  "report_type": "v14_r1_gate_check",
+  "config_id": "V14-R1-CORRECTED-KP-PROXY",
+  "generated_at": "2026-07-04T12:11:07.542925+00:00",
+  "config_source": "encode_defaults (Phase 5 proxy; V14-R1-CORRECTED-KP lives in orchestrator MongoDB)",
+  "parameters": {
+    "epochs": 5,
+    "trading_steps": 120
+  },
+  "spec_ref": "EMULATOR_SPEC.md \u00a79 acceptance gates",
+  "gates": [
+    {
+      "gate": "honest_mean_score",
+      "description": "Honest mean score >= 0.97",
+      "spec_ref": "\u00a79",
+      "threshold": 0.97,
+      "comparison": ">=",
+      "value": 0.900739,
+      "passed": false,
+      "pending": false
+    },
+    {
+      "gate": "attack_breach_rate",
+      "description": "Attack breach_rate: 0 adversary vectors breached at WARNING+ (floor; target <= 5e-6)",
+      "spec_ref": "\u00a79",
+      "threshold": 0.0,
+      "comparison": "<=",
+      "value": 0.0,
+      "passed": true,
+      "pending": false
+    },
+    {
+      "gate": "separation",
+      "description": "Honest/adversarial separation >= 0.90",
+      "spec_ref": "\u00a79",
+      "threshold": 0.9,
+      "comparison": ">=",
+      "value": 0.900354,
+      "passed": true,
+      "pending": false
+    },
+    {
+      "gate": "score_variance",
+      "description": "Honest score variance <= 0.002",
+      "spec_ref": "\u00a79",
+      "threshold": 0.002,
+      "comparison": "<=",
+      "value": 0.001309,
+      "passed": true,
+      "pending": false
+    },
+    {
+      "gate": "commit_reveal_effectiveness",
+      "description": "Commit-reveal effectiveness >= 0.667 floor (>= 0.76 target)",
+      "spec_ref": "\u00a79",
+      "threshold": 0.667,
+      "comparison": ">=",
+      "value": 0.76,
+      "passed": true,
+      "pending": false
+    },
+    {
+      "gate": "validator_latency_severity",
+      "description": "Validator-latency severity < 0.05",
+      "spec_ref": "\u00a79",
+      "threshold": 0.05,
+      "comparison": "<",
+      "value": 0.035109,
+      "passed": true,
+      "pending": false
+    },
+    {
+      "gate": "prediction_timing_severity",
+      "description": "Prediction-timing severity < 0.03",
+      "spec_ref": "\u00a79",
+      "threshold": 0.03,
+      "comparison": "<",
+      "value": 0.066667,
+      "passed": false,
+      "pending": false
+    },
+    {
+      "gate": "consecutive_clean_validations",
+      "description": "Consecutive clean validations >= 6",
+      "spec_ref": "\u00a79",
+      "threshold": 6,
+      "comparison": ">=",
+      "value": 6.0,
+      "passed": true,
+      "pending": false
+    },
+    {
+      "gate": "convergence_contract",
+      "description": "Convergence contract (\u00a77) unanimously met + grace period",
+      "spec_ref": "\u00a77/\u00a79",
+      "threshold": "unanimously_met",
+      "comparison": "met",
+      "value": "pending",
+      "passed": false,
+      "pending": true
+    },
+    {
+      "gate": "sentinel_posture",
+      "description": "Sentinel posture SECURE_AND_IMPROVING or stronger",
+      "spec_ref": "\u00a79",
+      "threshold": "SECURE_AND_IMPROVING",
+      "comparison": "in",
+      "value": "TARGET_ACHIEVED",
+      "passed": true,
+      "pending": false
+    }
+  ],
+  "summary": {
+    "total_gates": 10,
+    "passed": 7,
+    "failed": 2,
+    "pending": 1,
+    "promotable_to_production_reference": false
+  },
+  "failed_gates": [
+    {
+      "gate": "honest_mean_score",
+      "description": "Honest mean score >= 0.97",
+      "spec_ref": "\u00a79",
+      "threshold": 0.97,
+      "comparison": ">=",
+      "value": 0.900739,
+      "passed": false,
+      "pending": false
+    },
+    {
+      "gate": "prediction_timing_severity",
+      "description": "Prediction-timing severity < 0.03",
+      "spec_ref": "\u00a79",
+      "threshold": 0.03,
+      "comparison": "<",
+      "value": 0.066667,
+      "passed": false,
+      "pending": false
+    }
+  ],
+  "pending_gates": [
+    {
+      "gate": "convergence_contract",
+      "description": "Convergence contract (\u00a77) unanimously met + grace period",
+      "spec_ref": "\u00a77/\u00a79",
+      "threshold": "unanimously_met",
+      "comparison": "met",
+      "value": "pending",
+      "passed": false,
+      "pending": true
+    }
+  ],
+  "config_summary": "=== Model Scoring Weights ===\n  model_penalized_f1: 0.2200\n  model_penalized_sharpe: 0.1800\n  model_max_drawdown: 0.1400\n  model_variance_score: 0.1600\n  model_overfitting_penalty: 0.1400\n  model_feature_efficiency: 0.0600\n  model_latency: 0.1000\n=== Trading Scoring Weights ===\n  trading_realized_pnl: 0.2000\n  trading_omega: 0.1300\n  trading_max_drawdown: 0.1400\n  trading_win_rate: 0.0600\n  trading_consistency: 0.2000\n  trading_execution_quality: 0.1000\n  trading_annualized_volatility: 0.0500\n  trading_sharpe_ratio: 0.0600\n  trading_sortino_ratio: 0.0600\n=== Overfitting Detector ===\n  gap_threshold: 0.1500\n  decay_rate: 5.00\n=== Promotion ===\n  top_n: 8\n  min_consecutive_epochs: 3\n  max_overfitting_score: 0.3500\n=== Feedback ===\n  bonus_weight: 0.1200\n  penalty_weight: 0.1200\n=== Validation Timing ===\n  min_prediction_lead_time: 35.0s\n  validator_latency_penalty_weight: 0.2800\n  high_latency_threshold_ms: 1800\n  commit_rate_threshold: 0.75\n  commitment_violation_weight: 0.0120\n  selective_reveal_warning_streak: 1\n  selective_reveal_penalty_streak: 2\n  selective_reveal_zero_streak: 3\n=== Consensus Integrity ===\n  weight_entropy_minimum: 1.4500\n  cross_validator_score_variance_max: 0.1800\n  validator_rotation_max_epochs: 4\n  validator_agreement_threshold: 0.1700\n  collusion_lookback_epochs: 12\n=== Economic Mechanisms ===\n  identity_bond_weight: 0.0800\n  identity_bond_threshold: 0.7200\n  stake_weight_consensus: 0.3800\n  bayesian_model_weight: 0.6800\n  dominant_pair_warning_ratio: 1.3500\n  symbol_diversity_min_pairs: 3\n  max_symbol_dominance: 0.6000\n  symbol_diversity_critical_ratio: 2.0000\n  symbol_diversity_penalty_base: 0.1000\n  symbol_diversity_penalty_escalation: 1.5000\n  symbol_diversity_penalty_max: 0.5000\n  symbol_diversity_grace_generations: 2\n=== Paired Genetic Mechanism ===\n  partners_per_miner: 3\n  elite_fraction: 0.3000\n  mutation_rate: 0.2000\n  pair_blend_alpha: 0.5000\n  marginal_contribution_weight: 0.5000\n  fixed_pair_correlation_threshold: 0.8500\n  max_pairs: 64",
+  "source_reports": {
+    "step2_simulator": "results/v14_r1_empirical_validation_2026-07-04T02-21-09.json",
+    "step3_sentinel": "results/sentinel_coverage_matrix_2026-07-04T02-32-01.json",
+    "step4_tuner_seed": "results/tuner_v14_r1_warmstart_seed_2026-07-04T02-39-07.json",
+    "note": "source reports are from the feat/signal-driven-adversary-penalties branch."
+  }
+}
