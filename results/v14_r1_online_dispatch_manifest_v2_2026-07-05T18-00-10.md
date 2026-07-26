@@ -1,4 +1,4 @@
-# V14-R1 Online-Mode Gate Verification — Orchestrator Dispatch Manifest (v2)
+ing # V14-R1 Online-Mode Gate Verification — Orchestrator Dispatch Manifest (v2)
 
 **Generated:** 2026-07-05T18:00:10.830842+00:00
 **Config ID:** V14-R1-CORRECTED-KP
