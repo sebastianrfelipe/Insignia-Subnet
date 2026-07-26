@@ -1,0 +1,270 @@
+{
+  "manifest_type": "v14_r1_online_gate_verification_dispatch",
+  "manifest_version": "v2",
+  "generated_at": "2026-07-05T18:00:10.830842+00:00",
+  "config_id": "V14-R1-CORRECTED-KP",
+  "config_source": "orchestrator MongoDB memory key `v14_r1_corrected_config`",
+  "spec_ref": "EMULATOR_SPEC.md \u00a79 acceptance gates (online mode)",
+  "v1_postmortem": {
+    "v1_manifest": "results/v14_r1_online_dispatch_manifest_2026-07-04T14-45-08.json",
+    "v1_result": "2/6 done, 4 cancelled, 0 failed (dashboard 2026-07-05)",
+    "cancelled_gates": [
+      "convergence_contract (NAMESPACE_FILTER_REQUIRED)",
+      "sentinel_posture (downstream of convergence_contract cancellation)",
+      "consecutive_clean_validations (downstream)",
+      "one additional gate (downstream)"
+    ],
+    "root_causes": [
+      {
+        "error": "NAMESPACE_FILTER_REQUIRED",
+        "trigger": "mongodb_find on convergence_metrics without namespace filter",
+        "fix_in_v2": "RUN_NAMESPACE declared + namespace_filter on every MCP read"
+      },
+      {
+        "error": "PLAYBOOK_COLLECTION_FORBIDDEN",
+        "trigger": "mongodb_find on simulation_results (belongs to Insignia subnet tuner playbook)",
+        "fix_in_v2": "FORBIDDEN_COLLECTIONS list + FILESYSTEM_KRET_ARTIFACTS redirect"
+      }
+    ]
+  },
+  "namespace": {
+    "playbook": "insignia_subnet_online_verification",
+    "domain": "v14_r1",
+    "procedure": "v14_r1_online_gate_check"
+  },
+  "forbidden_collections": [
+    "simulation_results"
+  ],
+  "filesystem_kret_artifacts": {
+    "simulator_step2": "results/v14_r1_empirical_validation_2026-07-04T02-21-09.json",
+    "sentinel_step3": "results/sentinel_coverage_matrix_2026-07-04T14-35-21.json",
+    "tuner_step4": "results/tuner_v14_r1_warmstart_seed_2026-07-04T02-39-07.json",
+    "researcher_step5": "results/researcher_v14_r1_gate_check_2026-07-04T14-33-59.json"
+  },
+  "objective": "Verify the 6 online-mode \u00a79 gates against the live V14-R1-CORRECTED-KP config on-chain, across >= 2 reruns with different seeds. If all 6 clear, proceed to the HITL promotion gate (btcli hyperparameter apply + promote converged config as production reference).",
+  "offline_evidence_package": {
+    "step2_simulator": "results/v14_r1_empirical_validation_2026-07-04T02-21-09.json",
+    "step3_sentinel": "results/sentinel_coverage_matrix_2026-07-04T14-35-21.json",
+    "step4_tuner_seed": "results/tuner_v14_r1_warmstart_seed_2026-07-04T02-39-07.json",
+    "step5_gate_check": "results/researcher_v14_r1_gate_check_2026-07-04T14-33-59.json",
+    "offline_summary": "All 4 harness-mode gates PASS (attack_breach_rate=0.0, separation=0.9004, validator_latency_severity=0.0351, prediction_timing_severity=0.025). 0 adversary leaks across the 19-vector sentinel surface. 2 non-penalty-path breaches remain (random_baseline_discrimination, collusion_temporal_pattern) \u2014 both synthetic harness artifacts, not adversary leaks.",
+    "read_instruction": "Read these from the FILESYSTEM, not MongoDB. The orchestrator's mongodb_find on `simulation_results` is forbidden (belongs to the Insignia subnet tuner playbook). These JSON files are the KRET artifacts that substitute for that collection."
+  },
+  "online_gates_to_verify": [
+    {
+      "gate": "honest_mean_score",
+      "threshold": 0.97,
+      "comparison": ">=",
+      "evidence_source": {
+        "type": "on_chain",
+        "method": "live miner composite scores on-chain (mean of honest miners)",
+        "namespace_filter": {
+          "playbook": "insignia_subnet_online_verification",
+          "domain": "v14_r1",
+          "procedure": "v14_r1_online_gate_check",
+          "agent_type": "miner"
+        }
+      },
+      "note": "V13-R2 knee claimed 0.9795 (surrogate-predicted, never empirically confirmed). Offline harness produces 0.9007 via synthetic scorer; live chain must verify >= 0.97."
+    },
+    {
+      "gate": "score_variance",
+      "threshold": 0.002,
+      "comparison": "<=",
+      "evidence_source": {
+        "type": "on_chain",
+        "method": "live miner composite score variance across honest miners",
+        "namespace_filter": {
+          "playbook": "insignia_subnet_online_verification",
+          "domain": "v14_r1",
+          "procedure": "v14_r1_online_gate_check",
+          "agent_type": "miner"
+        }
+      },
+      "note": "Offline harness produces 0.0013 (synthetic); live variance must be <= 0.002."
+    },
+    {
+      "gate": "commit_reveal_effectiveness",
+      "threshold": 0.667,
+      "comparison": ">=",
+      "target": 0.76,
+      "evidence_source": {
+        "type": "on_chain",
+        "method": "commit-reveal telemetry (commit_timestamps, reveal_timestamps, no_reveal_streaks)",
+        "namespace_filter": {
+          "playbook": "insignia_subnet_online_verification",
+          "domain": "v14_r1",
+          "procedure": "v14_r1_online_gate_check",
+          "agent_type": "validator"
+        }
+      },
+      "note": "Offline harness hardcodes 0.76; live CR effectiveness must be >= 0.667 floor (>= 0.76 target)."
+    },
+    {
+      "gate": "consecutive_clean_validations",
+      "threshold": 6,
+      "comparison": ">=",
+      "evidence_source": {
+        "type": "mcp_read",
+        "collection": "sentinel_state",
+        "method": "sentinel breach-free validation streak",
+        "namespace_filter": {
+          "playbook": "insignia_subnet_online_verification",
+          "domain": "v14_r1",
+          "procedure": "v14_r1_online_gate_check",
+          "agent_type": "sentinel"
+        }
+      },
+      "note": "Offline harness hardcodes 6; live streak must be >= 6 consecutive clean validations."
+    },
+    {
+      "gate": "convergence_contract",
+      "threshold": "unanimously_met",
+      "comparison": "met",
+      "evidence_source": {
+        "type": "mcp_read",
+        "collection": "convergence_metrics",
+        "method": "\u00a77 contract: all agents agree + grace period elapsed",
+        "namespace_filter": {
+          "playbook": "insignia_subnet_online_verification",
+          "domain": "v14_r1",
+          "procedure": "v14_r1_online_gate_check",
+          "agent_type": "convergence_monitor"
+        },
+        "required_filter_fields": [
+          "procedure",
+          "agent_type",
+          "playbook",
+          "domain"
+        ]
+      },
+      "note": "Requires orchestrator-side convergence_metrics read WITH a namespace filter (v1 was rejected for missing it). The \u00a77 contract must be unanimously met with the grace period elapsed."
+    },
+    {
+      "gate": "sentinel_posture",
+      "threshold": "SECURE_AND_IMPROVING",
+      "comparison": "in",
+      "accepted_values": [
+        "SECURE_AND_IMPROVING",
+        "SECURE",
+        "HARDENED",
+        "TARGET_ACHIEVED"
+      ],
+      "evidence_source": {
+        "type": "mcp_read",
+        "collection": "sentinel_state",
+        "method": "security_status field",
+        "namespace_filter": {
+          "playbook": "insignia_subnet_online_verification",
+          "domain": "v14_r1",
+          "procedure": "v14_r1_online_gate_check",
+          "agent_type": "sentinel"
+        }
+      },
+      "note": "Offline harness hardcodes TARGET_ACHIEVED; live sentinel posture must be SECURE_AND_IMPROVING or stronger."
+    }
+  ],
+  "acceptance_criteria": {
+    "reruns_required": 2,
+    "seeds": "different seeds for each rerun",
+    "all_gates_must_clear": true,
+    "if_any_gate_fails": "Do NOT promote V14-R1. File a correction task for the failing gate's root cause and re-run the cycle from the appropriate step.",
+    "if_all_gates_clear": "Proceed to HITL promotion gate: (1) btcli hyperparameter apply with the V14-R1-CORRECTED-KP config, (2) promote the converged config as the production reference in research_targets."
+  },
+  "mcp_dispatch_commands": {
+    "note": "Execute these commands in the orchestrator's agent env via the insignia-local MCP. v2 adds namespace filters and forbids simulation_results \u2014 fixes for the v1 guardrail rejections.",
+    "step1_file_task": {
+      "mcp_tool": "insignia-local.file_task",
+      "arguments": {
+        "assignee": "orchestrator",
+        "priority": 10,
+        "description": "V14-R1 online-mode gate verification (v2 \u2014 fixes v1 guardrail rejections): run the live V14-R1-CORRECTED-KP config on-chain across >= 2 reruns with different seeds. Verify the 6 online-mode \u00a79 gates. Scope every MCP read with the namespace {'playbook': 'insignia_subnet_online_verification', 'domain': 'v14_r1', 'procedure': 'v14_r1_online_gate_check'}. Do NOT mongodb_find on ['simulation_results'] \u2014 read filesystem KRET artifacts in results/ instead.",
+        "metadata": {
+          "cycle_step": "5_to_HITL",
+          "config_id": "V14-R1-CORRECTED-KP",
+          "manifest_version": "v2",
+          "namespace": {
+            "playbook": "insignia_subnet_online_verification",
+            "domain": "v14_r1",
+            "procedure": "v14_r1_online_gate_check"
+          },
+          "forbidden_collections": [
+            "simulation_results"
+          ],
+          "filesystem_kret_artifacts": {
+            "simulator_step2": "results/v14_r1_empirical_validation_2026-07-04T02-21-09.json",
+            "sentinel_step3": "results/sentinel_coverage_matrix_2026-07-04T14-35-21.json",
+            "tuner_step4": "results/tuner_v14_r1_warmstart_seed_2026-07-04T02-39-07.json",
+            "researcher_step5": "results/researcher_v14_r1_gate_check_2026-07-04T14-33-59.json"
+          },
+          "offline_evidence_branch": "feat/signal-driven-adversary-penalties",
+          "offline_gate_check": "results/researcher_v14_r1_gate_check_2026-07-04T14-33-59.json"
+        }
+      }
+    },
+    "step2_write_agent_memory_dispatch": {
+      "mcp_tool": "insignia-local.write_agent_memory",
+      "arguments": {
+        "key": "v14_r1_online_verification_dispatch",
+        "value": {
+          "status": "DISPATCHED_V2",
+          "manifest_version": "v2",
+          "timestamp": "2026-07-05T18:00:10.830870+00:00",
+          "config_id": "V14-R1-CORRECTED-KP",
+          "config_source": "v14_r1_corrected_config (MongoDB)",
+          "namespace": {
+            "playbook": "insignia_subnet_online_verification",
+            "domain": "v14_r1",
+            "procedure": "v14_r1_online_gate_check"
+          },
+          "forbidden_collections": [
+            "simulation_results"
+          ],
+          "filesystem_kret_artifacts": {
+            "simulator_step2": "results/v14_r1_empirical_validation_2026-07-04T02-21-09.json",
+            "sentinel_step3": "results/sentinel_coverage_matrix_2026-07-04T14-35-21.json",
+            "tuner_step4": "results/tuner_v14_r1_warmstart_seed_2026-07-04T02-39-07.json",
+            "researcher_step5": "results/researcher_v14_r1_gate_check_2026-07-04T14-33-59.json"
+          },
+          "offline_evidence": {
+            "harness_mode_gates_passed": 4,
+            "harness_mode_gates_failed": 0,
+            "online_mode_gates_pending": 6,
+            "adversary_leaks": 0,
+            "separation": 0.9004
+          },
+          "reruns_required": 2,
+          "gates_to_verify": [
+            "honest_mean_score",
+            "score_variance",
+            "commit_reveal_effectiveness",
+            "consecutive_clean_validations",
+            "convergence_contract",
+            "sentinel_posture"
+          ],
+          "v1_postmortem": "4/6 cancelled by NAMESPACE_FILTER_REQUIRED + PLAYBOOK_COLLECTION_FORBIDDEN; v2 fixes both."
+        }
+      }
+    },
+    "step3_invalidate_prior_result": {
+      "mcp_tool": "insignia-local.write_agent_memory",
+      "arguments": {
+        "key": "v14_r1_online_verification_result",
+        "value": null,
+        "note": "Clear the v1 result (2/6 done, 4 cancelled) so the orchestrator starts v2 fresh."
+      }
+    }
+  },
+  "post_verification": {
+    "on_success": [
+      "Write agent_memory key `v14_r1_online_verification_result` with status=ALL_GATES_CLEARED.",
+      "File a HITL task for `btcli hyperparameter apply` with the V14-R1-CORRECTED-KP config.",
+      "Update `research_targets` in parameter_space.py: target_achieved=True, current_candidate_status=promoted_to_production_reference."
+    ],
+    "on_failure": [
+      "Write agent_memory key `v14_r1_online_verification_result` with status=GATES_FAILED and the failing gate(s).",
+      "File a correction task for the failing gate's root cause.",
+      "Do NOT promote V14-R1."
+    ]
+  }
+}

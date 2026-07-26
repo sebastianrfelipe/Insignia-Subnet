@@ -1,0 +1,32 @@
+[project]
+name = "insignia-fund"
+version = "0.1.0"
+description = "Fund-backed alpha flywheel layer for the Insignia Bittensor subnet (docs/SPEC.md)"
+requires-python = ">=3.12"
+dependencies = [
+    "numpy",
+    "matplotlib",
+]
+
+[project.optional-dependencies]
+chain = ["bittensor", "requests"]
+dev = ["pytest"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = [
+    "chainio",
+    "treasury",
+    "treasury.execution",
+    "lockmgr",
+    "otc",
+    "risk",
+    "dashboards",
+    "dashboards.investor_api",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

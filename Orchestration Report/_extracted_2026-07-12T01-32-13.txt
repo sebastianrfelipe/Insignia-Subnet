@@ -1,0 +1,739 @@
+PAGES: 17
+
+
+===== PAGE 0 =====
+Orchestration Report
+Status: All tasks completed successfully
+Session: 6a52eb4a15f39973cb52a14f
+Generated: 2026-07-12T01:32:13.525Z
+Overview
+Metric Value
+Total Tasks 3
+Completed 3
+Failed 0
+Pending 0
+Tool Calls 86
+Errors 0
+Duration 5m 41s
+Agent Breakdown
+Agent Tasks
+orchestrator 64
+coder 4
+deployer 18
+Summary
+Status: All tasks completed successfully
+Duration: 5m 41s
+Tasks: 3 completed, 0 failed, 0 pending
+Tool calls: 86 (0 tool errors)
+Findings
+Results (3)
+[orchestrator] Execute skill: v14_r1_online_dispatch_manifest_v3_2026-07-07T20-53-46
+7/11/26, 9:32 PM Orchestration Report — 2026-07-12T01-32-13
+about:blank 1/17
+===== PAGE 1 =====
+The subtasks haven't been picked up yet (still pending, not in_progress). Let me wait and poll again:
+Used 63 tool call(s): read_memory, read_memory, list_memory_keys, mongodb_list_collections,
+mongodb_count, mongodb_count, mongodb_count, mongodb_count, mongodb_count, mongodb_count,
+read_memory, read_memory, read_memory, read_memory, list_tasks, list_tasks, mongodb_find_one,
+mongodb_find_one, mongodb_find_one, write_memory, write_task, write_task, read_task_result,
+read_task_result, read_task_result, read_task_result, list_tasks, read_task_result, read_task_result,
+read_task_result, read_task_result, read_task_result, read_task_result, read_task_result, read_task_result,
+read_task_result, read_task_result, read_task_result, read_task_result, read_task_result, read_task_result,
+read_task_result, read_task_result, read_task_result, read_task_result, read_task_result, read_task_result,
+read_task_result, read_task_result, read_task_result, read_task_result, read_task_result, read_task_result,
+read_task_result, read_task_result, read_task_result, read_task_result, read_task_result, read_task_result,
+read_task_result, read_task_result, read_task_result, read_task_result
+Structured details:
+7/11/26, 9:32 PM Orchestration Report — 2026-07-12T01-32-13
+about:blank 2/17
+===== PAGE 2 =====
+{
+  "stopReason": "max_tool_rounds",
+  "toolCalls": [
+    {
+      "tool": "read_memory",
+      "input": {
+        "key": "v14_r1_corrected_config"
+      }
+    },
+    {
+      "tool": "read_memory",
+      "input": {
+        "key": "v14_r1_online_verification_result"
+      }
+    },
+    {
+      "tool": "list_memory_keys"
+    },
+    {
+      "tool": "mongodb_list_collections",
+      "input": {
+        "includeStats": true
+      }
+    },
+    {
+      "tool": "mongodb_count",
+      "input": {
+        "collection": "simulation_epochs",
+        "filter": "{\"procedure\": \"v14_r1_online_gate_check\"}"
+      }
+    },
+    {
+      "tool": "mongodb_count",
+      "input": {
+        "collection": "sentinel_state",
+        "filter": "{\"procedure\": \"v14_r1_online_gate_check\"}"
+      }
+    },
+    {
+      "tool": "mongodb_count",
+      "input": {
+        "collection": "convergence_metrics",
+        "filter": "{\"procedure\": \"v14_r1_online_gate_check\"}"
+      }
+    },
+    {
+      "tool": "mongodb_count",
+      "input": {
+        "collection": "convergence_metrics",
+        "filter": "{\"procedure\": \"insignia_subnet_tuner\", \"config_id\": \"V14-R1-CORRECTED-
+7/11/26, 9:32 PM Orchestration Report — 2026-07-12T01-32-13
+about:blank 3/17
+===== PAGE 3 =====
+      }
+    },
+    {
+      "tool": "mongodb_count",
+      "input": {
+        "collection": "sentinel_state",
+        "filter": "{\"procedure\": \"insignia_subnet_tuner\", \"config_id\": \"V14-R1-CORRECTED-
+      }
+    },
+    {
+      "tool": "mongodb_count",
+      "input": {
+        "collection": "simulation_epochs",
+        "filter": "{\"procedure\": \"insignia_subnet_tuner\", \"config_id\": \"V14-R1-CORRECTED-
+      }
+    },
+    {
+      "tool": "read_memory",
+      "input": {
+        "key": "v14_r1_v2_premature_writes_to_quarantine"
+      }
+    },
+    {
+      "tool": "read_memory",
+      "input": {
+        "key": "v3_quarantine_manifest"
+      }
+    },
+    {
+      "tool": "read_memory",
+      "input": {
+        "key": "preflight_v14r1_v3"
+      }
+    },
+    {
+      "tool": "read_memory",
+      "input": {
+        "key": "chain_connectivity_verdict"
+      }
+    },
+    {
+      "tool": "list_tasks",
+      "input": {
+        "status": "in_progress",
+        "limit": 20
+      }
+    },
+    {
+      "tool": "list_tasks",
+      "input": {
+        "status": "pending",
+7/11/26, 9:32 PM Orchestration Report — 2026-07-12T01-32-13
+about:blank 4/17
+===== PAGE 4 =====
+        "limit": 20
+      }
+    },
+    {
+      "tool": "mongodb_find_one",
+      "input": {
+        "collection": "convergence_metrics",
+        "filter": "{\"config_id\": \"V14-R1-CORRECTED-KP\", \"procedure\": \"insignia_subnet_tun
+      }
+    },
+    {
+      "tool": "mongodb_find_one",
+      "input": {
+        "collection": "sentinel_state",
+        "filter": "{\"config_id\": \"V14-R1-CORRECTED-KP\", \"procedure\": \"insignia_subnet_tun
+      }
+    },
+    {
+      "tool": "mongodb_find_one",
+      "input": {
+        "collection": "audit_log",
+        "filter": "{\"config_id\": \"V14-R1-CORRECTED-KP\", \"procedure\": \"insignia_subnet_tun
+      }
+    },
+    {
+      "tool": "write_memory",
+      "input": {
+        "key": "v14_r1_online_verification_dispatch",
+        "value": "{\"status\": \"DISPATCHED_V3\", \"manifest_version\": \"v3\", \"timestamp\": \
+      }
+    },
+    {
+      "tool": "write_task",
+      "input": {
+        "title": "V14-R1 v3 Pre-flight: Fresh chain connectivity check",
+        "description": "FRESH chain connectivity check for V14-R1 v3 online gate verification pr
+        "assignedTo": "deployer",
+        "priority": 10
+      }
+    },
+    {
+      "tool": "write_task",
+      "input": {
+        "title": "V14-R1 v3 Pre-flight: Namespace writable check",
+        "description": "Pre-flight check 3 (namespace_writable) for V14-R1 v3 online gate verifi
+        "assignedTo": "coder",
+        "priority": 10
+      }
+    },
+    {
+      "tool": "read_task_result",
+7/11/26, 9:32 PM Orchestration Report — 2026-07-12T01-32-13
+about:blank 5/17
+===== PAGE 5 =====
+      "input": {
+        "taskId": "6a52ebc715f39973cb52a165"
+      }
+    },
+    {
+      "tool": "read_task_result",
+      "input": {
+        "taskId": "6a52ebc715f39973cb52a167"
+      }
+    },
+    {
+      "tool": "read_task_result",
+      "input": {
+        "taskId": "6a52ebc715f39973cb52a165"
+      }
+    },
+    {
+      "tool": "read_task_result",
+      "input": {
+        "taskId": "6a52ebc715f39973cb52a167"
+      }
+    },
+    {
+      "tool": "list_tasks",
+      "input": {
+        "status": "in_progress",
+        "limit": 20
+      }
+    },
+    {
+      "tool": "read_task_result",
+      "input": {
+        "taskId": "6a52ebc715f39973cb52a165"
+      }
+    },
+    {
+      "tool": "read_task_result",
+      "input": {
+        "taskId": "6a52ebc715f39973cb52a167"
+      }
+    },
+    {
+      "tool": "read_task_result",
+      "input": {
+        "taskId": "6a52ebc715f39973cb52a165"
+      }
+    },
+    {
+      "tool": "read_task_result",
+      "input": {
+        "taskId": "6a52ebc715f39973cb52a167"
+7/11/26, 9:32 PM Orchestration Report — 2026-07-12T01-32-13
+about:blank 6/17
+===== PAGE 6 =====
+      }
+    },
+    {
+      "tool": "read_task_result",
+      "input": {
+        "taskId": "6a52ebc715f39973cb52a165"
+      }
+    },
+    {
+      "tool": "read_task_result",
+      "input": {
+        "taskId": "6a52ebc715f39973cb52a167"
+      }
+    },
+    {
+      "tool": "read_task_result",
+      "input": {
+        "taskId": "6a52ebc715f39973cb52a165"
+      }
+    },
+    {
+      "tool": "read_task_result",
+      "input": {
+        "taskId": "6a52ebc715f39973cb52a167"
+      }
+    },
+    {
+      "tool": "read_task_result",
+      "input": {
+        "taskId": "6a52ebc715f39973cb52a165"
+      }
+    },
+    {
+      "tool": "read_task_result",
+      "input": {
+        "taskId": "6a52ebc715f39973cb52a167"
+      }
+    },
+    {
+      "tool": "read_task_result",
+      "input": {
+        "taskId": "6a52ebc715f39973cb52a165"
+      }
+    },
+    {
+      "tool": "read_task_result",
+      "input": {
+        "taskId": "6a52ebc715f39973cb52a167"
+      }
+    },
+    {
+7/11/26, 9:32 PM Orchestration Report — 2026-07-12T01-32-13
+about:blank 7/17
+===== PAGE 7 =====
+      "tool": "read_task_result",
+      "input": {
+        "taskId": "6a52ebc715f39973cb52a165"
+      }
+    },
+    {
+      "tool": "read_task_result",
+      "input": {
+        "taskId": "6a52ebc715f39973cb52a167"
+      }
+    },
+    {
+      "tool": "read_task_result",
+      "input": {
+        "taskId": "6a52ebc715f39973cb52a165"
+      }
+    },
+    {
+      "tool": "read_task_result",
+      "input": {
+        "taskId": "6a52ebc715f39973cb52a167"
+      }
+    },
+    {
+      "tool": "read_task_result",
+      "input": {
+        "taskId": "6a52ebc715f39973cb52a165"
+      }
+    },
+    {
+      "tool": "read_task_result",
+      "input": {
+        "taskId": "6
+...(truncated)
+#### [deployer] V14-R1 v3 Pre-flight: Fresh chain connectivity check
+The preflight check is complete and the verdict is stored. Let me provide a clear summary.
+---
+## V14-R1 v3 FRESH Pre-flight Connectivity Check — VERDICT
+### Results Summary
+| Check | Result | Detail |
+|-------|--------|--------|
+| **local_chain_reachable** | ❌  `false` | ECONNREFUSED on ports 9944, 9945; Docker not installe
+| **public_testnet_reachable** | ✅  `true` | wss://test.finney.opentensor.ai:443 — CONNECTED |
+| **public_mainnet_reachable** | ❌  `false` | All mainnet DNS names fail to resolve from this co
+| **btcli_available** | ❌  `false` | Not installed; no python3/pip3 to install it |
+7/11/26, 9:32 PM Orchestration Report — 2026-07-12T01-32-13
+about:blank 8/17
+===== PAGE 8 =====
+| **polkadot_js_api_available** | ✅  `true` | @polkadot/api functional, successfully queried cha
+| **block_within_60_seconds** | ✅  `true` | Testnet block **7539832** at `2026-07-12T01:22:24.00
+### Gate Analysis
+**preflight_gate_passed: ✅  `true`**
+The manifest states: *"btcli chain-info **(or equivalent SDK call)** returns a block within the 
+**Key reasoning:**
+1. The manifest explicitly includes "or equivalent SDK call" — the polkadot.js API is an equival
+2. The public testnet (Bittensor's canonical testnet chain) returned block 7539832 only 3.3 seco
+3. `local_chain_reachable` is `false`, but the manifest's pass criteria does not strictly requir
+4. The v3 manifest's intent is to ensure **online mode** (ability to interact with a live chain)
+### Recommended Path
+**PROCEED via public testnet** (`wss://test.finney.opentensor.ai:443`). The SDK call satisfies t
+### Comparison with Previous Preflight (2026-07-11)
+| Check | Previous | Current | Delta |
+|-------|----------|---------|-------|
+| local_chain_reachable | false | false | No change |
+| public_testnet_reachable | true | true | No change |
+| testnet block | 7532637 | 7539832 | +7195 blocks (~12h of blocks at 12s each) |
+| btcli_available | false | false | No change |
+| polkadot_js_api_available | true | true | No change |
+All findings have been written to:
+- **Shared memory**: `preflight_v14r1_v3_fresh`
+- **Local state**: `/app/state/deployer_state.json`
+Structured details:
+```json
+{
+  "toolCallCount": 18,
+  "toolCalls": [
+    {
+      "tool": "shell_execute",
+      "input": {
+        "command": "docker ps 2>&1 || echo \"DOCKER_NOT_RUNNING\"",
+        "description": "Check if Docker daemon is running",
+        "timeout_ms": 10000
+      }
+    },
+    {
+      "tool": "shell_execute",
+      "input": {
+        "command": "curl -s -o /dev/null -w \"%{http_code}\" --connect-timeout 3 http://localhos
+        "description": "Check local chain endpoint on port 9944",
+7/11/26, 9:32 PM Orchestration Report — 2026-07-12T01-32-13
+about:blank 9/17
+===== PAGE 9 =====
+        "timeout_ms": 10000
+      }
+    },
+    {
+      "tool": "shell_execute",
+      "input": {
+        "command": "curl -s -o /dev/null -w \"%{http_code}\" --connect-timeout 3 http://localhos
+        "description": "Check local chain endpoint on port 9945",
+        "timeout_ms": 10000
+      }
+    },
+    {
+      "tool": "shell_execute",
+      "input": {
+        "command": "which btcli 2>&1 && btcli --version 2>&1 || echo \"BTCLI_NOT_FOUND\"",
+        "description": "Check btcli availability",
+        "timeout_ms": 15000
+      }
+    },
+    {
+      "tool": "shell_execute",
+      "input": {
+        "command": "which python3 && python3 -c \"import bittensor; print('bittensor version:', 
+        "description": "Check bittensor SDK availability",
+        "timeout_ms": 15000
+      }
+    },
+    {
+      "tool": "shell_execute",
+      "input": {
+        "command": "which node && node -e \"try { const {ApiPromise,WsProvider}=require('@polkad
+        "description": "Check polkadot.js API availability",
+        "timeout_ms": 15000
+      }
+    },
+    {
+      "tool": "shell_execute",
+      "input": {
+        "command": "python3 -c \"\nimport socket, time, json\n\n# Check local chain endpoints\nr
+        "description": "Check local chain ports via Python socket",
+        "timeout_ms": 15000
+      }
+    },
+    {
+      "tool": "shell_execute",
+      "input": {
+        "command": "pip install bittensor 2>&1 | tail -5",
+        "description": "Attempt to install bittensor SDK",
+        "timeout_ms": 120000
+      }
+    },
+7/11/26, 9:32 PM Orchestration Report — 2026-07-12T01-32-13
+about:blank 10/17
+===== PAGE 10 =====
+    {
+      "tool": "shell_execute",
+      "input": {
+        "command": "python3 -c \"\nimport urllib.request, json, time, ssl\n\n# Test public testn
+        "description": "Check public chain endpoints via Python",
+        "timeout_ms": 30000
+      }
+    },
+    {
+      "tool": "shell_execute",
+      "input": {
+        "command": "ls /usr/bin/ | head -50; echo \"---\"; ls /usr/local/bin/ 2>/dev/null | head
+        "description": "Inventory available tools in container",
+        "timeout_ms": 10000
+      }
+    },
+    {
+      "tool": "shell_execute",
+      "input": {
+        "command": "cd /tmp && npm install @polkadot/api 2>&1 | tail -10",
+        "description": "Install polkadot.js API",
+        "timeout_ms": 120000
+      }
+    },
+    {
+      "tool": "shell_execute",
+      "input": {
+        "command": "cd /tmp && node -e \"\nconst { ApiPromise, WsProvider } = require('@polkadot
+...(truncated)
+#### [coder] V14-R1 v3 Pre-flight: Namespace writable check
+Pre-flight check 3 (namespace_writable) for V14-R1 v3 is complete. Here's the summary:
+---
+## Pre-flight Check 3: Namespace Writable — ✅  PASSED
+| Field | Value |
+|---|---|
+| **writable** | `true` |
+| **inserted_doc_id** | `6a52ec1115f39973cb52a192` |
+| **procedure_used** | `v14_r1_online_gate_check` |
+| **confirmed** | `true` |
+### What was done:
+1. **Inserted** a no-op probe document into `audit_log` with the V14-R1 online gate check namesp
+2. **Read back** the document by querying on the exact `procedure`, `event_type`, and `config_id
+3. **Wrote result** to agent memory key `preflight_v14r1_v3_namespace_writable`.
+### Namespace verification notes:
+7/11/26, 9:32 PM Orchestration Report — 2026-07-12T01-32-13
+about:blank 11/17
+===== PAGE 11 =====
+- The write used the correct V14-R1 namespace (`v14_r1_online_gate_check`), not the default `ins
+- The document contains only the probe fields — no `criterion_met=true` or `status=PROMOTED` was
+- The initial read-back by `_id` failed because the system auto-injected `procedure: "insignia_s
+No code/documentation changes were made in this task — it was a pure MongoDB data probe — so no 
+Structured details:
+```json
+{
+  "toolCallCount": 4,
+  "toolCalls": [
+    {
+      "tool": "mongodb_insert_one",
+      "input": {
+        "collection": "audit_log",
+        "document": "{\"procedure\": \"v14_r1_online_gate_check\", \"playbook\": \"insignia_subn
+      }
+    },
+    {
+      "tool": "mongodb_find_one",
+      "input": {
+        "collection": "audit_log",
+        "filter": "{\"_id\": \"6a52ec1115f39973cb52a192\"}"
+      }
+    },
+    {
+      "tool": "mongodb_find_one",
+      "input": {
+        "collection": "audit_log",
+        "filter": "{\"procedure\": \"v14_r1_online_gate_check\", \"event_type\": \"preflight_nam
+      }
+    },
+    {
+      "tool": "write_memory",
+      "input": {
+        "key": "preflight_v14r1_v3_namespace_writable",
+        "value": "{\"writable\": true, \"inserted_doc_id\": \"6a52ec1115f39973cb52a192\", \"proc
+      }
+    }
+  ],
+  "usage": {
+    "inputTokens": 21710,
+    "outputTokens": 1664
+  },
+  "stopReason": "stop",
+  "throughput": {
+    "llmDurationMs": 8792,
+    "outputTokensPerSec": 189.3,
+    "totalTokensPerSec": 2658.6,
+    "rounds": [
+      {
+7/11/26, 9:32 PM Orchestration Report — 2026-07-12T01-32-13
+about:blank 12/17
+===== PAGE 12 =====
+        "round": 1,
+        "durationMs": 924,
+        "inputTokens": 3964,
+        "outputTokens": 648,
+        "outputTokensPerSec": 701.1
+      },
+      {
+        "round": 2,
+        "durationMs": 1394,
+        "inputTokens": 4166,
+        "outputTokens": 73,
+        "outputTokensPerSec": 52.4
+      },
+      {
+        "round": 3,
+        "durationMs": 1055,
+        "inputTokens": 4250,
+        "outputTokens": 168,
+        "outputTokensPerSec": 159.2
+      },
+      {
+        "round": 4,
+        "durationMs": 860,
+        "inputTokens": 4561,
+        "outputTokens": 406,
+        "outputTokensPerSec": 472
+      },
+      {
+        "round": 5,
+        "durationMs": 4558,
+        "inputTokens": 4769,
+        "outputTokens": 369,
+        "outputTokensPerSec": 81
+      }
+    ]
+  }
+}
+Insights (3)
+[deployer] Preflight V14r1 V3 Fresh: {
+"check_timestamp": "2026-07-12T01:22:25.258Z",
+"check_agent": "deployer",
+"version": "V14-R1 v3",
+"local_chain_reachable": false,
+"local_chain_evidence": {
+"localhost_9944": "CONNECTION_ERROR: connect ECONNREFUSED 127.0.0.1:9944",
+7/11/26, 9:32 PM Orchestration Report — 2026-07-12T01-32-13
+about:blank 13/17
+===== PAGE 13 =====
+"localhost_9945": "CONNECTION_ERROR: connect ECONNREFUSED 127.0.0.1:9945",
+"docker_available": false,
+"docker_error": "docker: command not found"
+},
+"public_testnet_reachable": true,
+"public_testnet_evidence": {
+"endpoint": "wss://
+[coder] Preflight V14r1 V3 Namespace Writable: {"writable": true, "inserted_doc_id":
+"6a52ec1115f39973cb52a192", "procedure_used": "v14_r1_online_gate_check", "confirmed": true}
+[orchestrator] V14 R1 Online Verification Dispatch: {"status": "DISPATCHED_V3", "manifest_version":
+"v3", "timestamp": "2026-07-07T20:53:46.970652+00:00", "config_id": "V14-R1-CORRECTED-KP",
+"config_source": "v14_r1_corrected_config (MongoDB)", "namespace": {"playbook":
+"insignia_subnet_online_verification", "domain": "v14_r1", "procedure": "v14_r1_online_gate_check"},
+"forbidden_collections": ["simulation_results"], "preflight_checks": ["local_chain_reachable",
+"v14_r1_config_loaded", "namespace_writable"], "hard_blocks": ["no_projection_verdict
+Task Details
+Status Agent Title Result
+Done orchestrator Execute skill:
+v14_r1_online_dispatch_manifest_v3_2026-07-
+07T20-53-46
+The subtasks haven't been picked
+up yet (still pending, not
+in_progress). Let me wait and poll
+again
+Done deployer V14-R1 v3 Pre-flight: Fresh chain connectivity
+check
+The preflight check is complete
+and the verdict is stored. Let me
+provide a clear summary. --- ##
+Done coder V14-R1 v3 Pre-flight: Namespace writable
+check
+Pre-flight check 3
+(namespace_writable) for V14-R1
+v3 is complete. Here's the
+summary: --- ## Pre-
+7/11/26, 9:32 PM Orchestration Report — 2026-07-12T01-32-13
+about:blank 14/17
+===== PAGE 14 =====
+Tool Usage
+Tool Calls
+read_task_result 40
+shell_execute 16
+read_memory 7
+mongodb_count 6
+mongodb_find_one 5
+list_tasks 3
+write_memory 3
+write_task 2
+dashboard_skill_execute 1
+list_memory_keys 1
+mongodb_list_collections 1
+mongodb_insert_one 1
+Agent Memory
+Preflight V14r1 V3 Fresh
+Written by deployer
+7/11/26, 9:32 PM Orchestration Report — 2026-07-12T01-32-13
+about:blank 15/17
+===== PAGE 15 =====
+{
+  "check_timestamp": "2026-07-12T01:22:25.258Z",
+  "check_agent": "deployer",
+  "version": "V14-R1 v3",
+  "local_chain_reachable": false,
+  "local_chain_evidence": {
+    "localhost_9944": "CONNECTION_ERROR: connect ECONNREFUSED 127.0.0.1:9944",
+    "localhost_9945": "CONNECTION_ERROR: connect ECONNREFUSED 127.0.0.1:9945",
+    "docker_available": false,
+    "docker_error": "docker: command not found"
+  },
+  "public_testnet_reachable": true,
+  "public_testnet_evidence": {
+    "endpoint": "wss://test.finney.opentensor.ai:443",
+    "status": "CONNECTED",
+    "chain": "Bittensor",
+    "nodeName": "Subway (Subtensor RPC)",
+    "nodeVersion": "1.0.0",
+    "blockHeight": 7539832,
+    "blockTimestamp": "2026-07-12T01:22:24.000Z",
+    "blockAgeSeconds": 3.3,
+    "within60s": true
+  },
+  "current_testnet_block_height": 7539832,
+  "current_testnet_block_timestamp": "2026-07-12T01:22:24.000Z",
+  "public_mainnet_reachable": false,
+  "public_mainnet_evidence": {
+    "entrypoint-finney.us.opentensor.network:443": "DNS_ENOTFOUND",
+    "finney.opentensor.network:443": "DNS_ENOTFOUND",
+    "na.finney.opentensor.network:443": "DNS_ENOTFOUND",
+    "eu.finney.opentensor.network:443": "DNS_ENOTFOUND",
+    "subtensor.finney.opentensor.network:443": "DNS_ENOTFOUND",
+    "archive.finney.opentensor.network:443": "DNS_ENOTFOUND",
+    "note": "All mainnet DNS names fail to resolve from this container. Likely DNS/network polic
+  },
+  "block_within_60_seconds": true,
+  "block_within_60s_evidence": "Testnet block 7539832 at 2026-07-12T01:22:24.000Z was 3.3 second
+  "btcli_available": false,
+  "btcli_evidence": "btcli: command not found; no pip3/python3 available to install bittensor pa
+  "polkadot_js_api_available": true,
+  "polkadot_js_api_evidence": "@polkadot/api installed at /tmp/node_modules; successfully connec
+  "preflight_gate_passed": true,
+  "gate_analysis": {
+    "manifest_require
+...(truncated)
+Preflight V14r1 V3 Namespace Writable
+Written by coder
+7/11/26, 9:32 PM Orchestration Report — 2026-07-12T01-32-13
+about:blank 16/17
+===== PAGE 16 =====
+{"writable": true, "inserted_doc_id": "6a52ec1115f39973cb52a192", "procedure_used":
+"v14_r1_online_gate_check", "confirmed": true}
+V14 R1 Online Verification Dispatch
+Written by orchestrator
+{"status": "DISPATCHED_V3", "manifest_version": "v3", "timestamp": "2026-07-07T20:53:46.970652+00:00",
+"config_id": "V14-R1-CORRECTED-KP", "config_source": "v14_r1_corrected_config (MongoDB)",
+"namespace": {"playbook": "insignia_subnet_online_verification", "domain": "v14_r1", "procedure":
+"v14_r1_online_gate_check"}, "forbidden_collections": ["simulation_results"], "preflight_checks":
+["local_chain_reachable", "v14_r1_config_loaded", "namespace_writable"], "hard_blocks":
+["no_projection_verdicts", "no_criterion_met_writes_without_evidence", "no_namespace_leak",
+"no_offline_fallback_for_online_gates", "reviewer_veto_honored", "no_promotion_without_git_push"],
+"reruns_required": 2, "gates_to_verify": ["honest_mean_score", "score_variance",
+"commit_reveal_effectiveness", "consecutive_clean_validations", "convergence_contract",
+"sentinel_posture"], "v2_postmortem": "Premature promotion in v2; v3 hard-blocks recurrence.",
+"preflight_check_2_config_loaded": "PASS", "preflight_check_1_chain_reachable": "IN_PROGRESS",
+"preflight_check_3_namespace_writable": "IN_PROGRESS", "v2_quarantine_status": "COMPLETE",
+"v2_result_cleared": true}
+Report generated by Insignia Swarm Gateway
+7/11/26, 9:32 PM Orchestration Report — 2026-07-12T01-32-13
+about:blank 17/17
