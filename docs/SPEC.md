@@ -7,7 +7,7 @@
 **References:**
 - Bittensor docs — https://www.bittensor.com/docs (emissions, dTAO, conviction; pull formulas from here, never from memory)
 - Taostats — https://taostats.io/ (live chain data + API for pool reserves, prices, emission shares)
-- Insignia MCP — internal data service at `http://10.0.0.249:3100/mcp` (MongoDB-backed; see [scripts/mcp_probe.py](../scripts/mcp_probe.py) for the wire protocol). Fund accounting and factsheet pipelines may read attested revenue and desk P&L from here.
+- Insignia MCP — internal data service (MongoDB-backed; see [scripts/mcp_probe.py](../scripts/mcp_probe.py) for the wire protocol). Fund accounting and factsheet pipelines may read attested revenue and desk P&L from here.
 - Quantitative model source: [dashboards/charts.py](../dashboards/charts.py) (port of `model_v6.py`), regenerating [docs/investor/](investor/).
 
 ---
@@ -40,7 +40,7 @@ The design in this repo MUST be built against the **actual** Conviction v2 mecha
     ```
     root_proportion = root_tao × tao_weight / (root_tao × tao_weight + alpha_issuance)
     ```
-    with `tao_weight` = 0.18 (governance-set). Because a young subnet's alpha issuance is small, the slice is large. Alpha stakers actually receive roughly **12.7% of alpha_out at 1 month, 23.5% at 3 months, 29.9% at 6 months, 34.6% at 1 year** — against the 41% everyone quotes. This is worst precisely during the 12-month LP lock. (Paid only while Σ of all subnet EMA prices > 1.0; otherwise that alpha is recycled.) Within a validator's dividends the split is `α / (α + τ·w)` to alpha stakers, `τ·w / (α + τ·w)` to TAO stakers, after the validator's take.
+    with `tao_weight` = 0.18 (governance-set). Because a young subnet's alpha issuance is small, the slice is large. Alpha stakers actually receive roughly **12.7% of alpha_out at 1 month, 23.5% at 3 months, 29.9% at 6 months, 34.6% at 1 year** — against the 41% everyone quotes. This is worst precisely during the 12-month LP lock. **Note: LP acceptance occurs 12 months after the subnet is deployed on mainnet, so this year-1 haircut falls on the fund's own locked alpha before any external LP is exposed to it — the desk absorbs the worst of the root-proportion ramp, and incoming LPs enter as the curve flattens.** (Paid only while Σ of all subnet EMA prices > 1.0; otherwise that alpha is recycled.) Within a validator's dividends the split is `α / (α + τ·w)` to alpha stakers, `τ·w / (α + τ·w)` to TAO stakers, after the validator's take.
 
 11. **Never route miner incentive to owner hotkeys.** `b_i` taxes emission share **one-for-one**: SN4 Targon's 51% burn penalty costs it roughly half its unpenalised share. Boosting the owner cut this way directly destroys the emission share the whole thesis rests on.
 
