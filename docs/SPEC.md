@@ -44,17 +44,16 @@ The design in this repo MUST be built against the **actual** Conviction v2 mecha
 
 11. **Never route miner incentive to owner hotkeys.** `b_i` taxes emission share **one-for-one**
 
-12. **Mature subnets get free buybacks.** Once `alpha_in` hits its cap (`root_proportion × alpha_emission`), the excess `tao_in` is instead **swapped for alpha on the subnet's own pool**, accumulating as protocol-owned alpha. Model this tailwind — it reduces the treasury's maintenance burden as the subnet ages, partially offsetting the year-1 root-proportion headwind.
+12. **Mature subnets get free buybacks.** Once `alpha_in` hits its cap (`root_proportion × alpha_emission`), the excess `tao_in` is instead **swapped for alpha on the subnet's own pool**, accumulating as protocol-owned alpha. It reduces the treasury's maintenance burden as the subnet ages, partially offsetting the year-1 root-proportion headwind.
 
 13. **Pool mechanics (for `treasury/execution` and `otc/settlement`).** Balancer weighted pool, `p = (w1·TAO_res)/(w2·alpha_res)`, weights start 0.5/0.5 and are bounded [0.01, 0.99]. Buying alpha: `Δx = x·(1 − (y/(y+Δy))^(w2/w1))`. Fee ≈0.05% (`FeeRate` 33/65535, per-subnet) off the **input** side to the block author. Single swaps > 1,000× the TAO reserve are rejected (`InsufficientLiquidity`). **No unbonding period.** Required implementation rules:
     - Use `add-stake-limit` / `remove-stake-limit` with explicit `limit_price` and `allow_partial=false` for treasury execution; max fill at a limit is `Δy = y·((p′/p)^w1 − 1)`.
-    - Use **MEV-shielded submission** (`submit_shielded`, ML-KEM-768) for any large swap with a loose limit. Shield *and* bound — they defend against different attacks.
-    - `move-stake` between hotkeys **on the same subnet is not a swap** — no fee, no price impact. Use it for OTC delivery and for any owner-hotkey migration. Cross-subnet moves run two swaps.
+    - Use **MEV-shielded submission** (`submit_shielded`, ML-KEM-768) for any large swap with a loose limit. Shield *and* bound, they defend against different attacks.
+    - `move-stake` between hotkeys **on the same subnet is not a swap**, no fee, no price impact. Use it for OTC delivery and for any owner-hotkey migration. Cross-subnet moves run two swaps.
 
-14. **NAV must be quoted, not marked — this is now a hard requirement.** The docs state plainly that spot valuation (`alpha × price`) ignores what your own exit would do to the reserve ratio. On the finney SN4 pool snapshot, unwinding 200k alpha realises −7.6% versus spot, 500k realises −17.1%, 900k realises −27.1%. [treasury/accounting.py](../treasury/accounting.py) MUST value positions via `quote-unstake` against live reserves, and the investor factsheet MUST report depth-adjusted NAV. A concentrated LP redemption window walks this curve down for every LP behind it in the queue — which is the quantitative justification for the ≤25%-per-60-day cohort cap in M6.
+14. **NAV must be quoted, not marked, this is now a hard requirement.** Value positions via `quote-unstake` against live reserves, and the investor factsheet must report depth-adjusted NAV. A concentrated LP redemption window walks this curve down for every LP behind it in the queue, which is the quantitative justification for the ≤25%-per-60-day cohort cap in M6.
 
-15. **Live anchors (2026-07-25):** TAO $191.38, mcap $2.14B, block ~8,695,534; block emission 0.5 TAO (first halving Dec 2025) ≈ 3,600 TAO/day; tempo default 360 blocks (~72 min, owner-settable 360–50,400); `MaxAllowedValidators` 128; validator stake threshold ~1,000 tokens. Pull live values via the taostats API / `btcli query`; never hardcode.
-16. **All parameters are mutable by root** (UnlockRate, ConvictionMaturityRate, auto-lock defaults, flow accounting). Every module must read parameters from chain at runtime and tolerate change. In this repo the shared read layer is [chainio/params.py](../chainio/params.py); pure-math modules take parameters as arguments and never embed chain constants.
+15. **All parameters are mutable by root** (UnlockRate, ConvictionMaturityRate, auto-lock defaults, flow accounting). Every module must read parameters from chain at runtime and tolerate change. In this repo the shared read layer is [chainio/params.py](../chainio/params.py); pure-math modules take parameters as arguments and never embed chain constants.
 
 ---
 
