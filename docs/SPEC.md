@@ -22,7 +22,7 @@ The design in this repo MUST be built against the **actual** Conviction v2 mecha
 4. **Instant conviction rule.** Any coldkey locking to the **subnet owner's hotkey** gets `conviction = locked_mass` immediately. This is the strategically correct target for LP locks: instant governance weight AND it fortifies Insignia's ownership against subnet-king challenges (aggregation is per-hotkey).
 5. **One lock per coldkey per subnet**, single hotkey target, top-ups must match the same hotkey.
 6. **Subnet king is currently disabled** (code present, transfer call commented out). Design defensively as if it will be enabled: subnets ≥ 1 year old, subnet-wide rolled conviction ≥ 10% of SubnetAlphaOut, highest-conviction hotkey takes ownership.
-7. **CORRECTION TO EARLIER DRAFTS — emission share is NOT flow-based.** An earlier version of this spec claimed "TAO Flow V2 / emissions ∝ net TAO inflow". That is **wrong**. Per bittensor.com/docs/concepts/emissions, the formula (shipped June 2026) is:
+7. Emissions: the formula (shipped June 2026) is:
    ```
    share_i = p_i × (1 − b_i) / Σ_j p_j × (1 − b_j)
    ```
