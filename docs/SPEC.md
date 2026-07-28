@@ -28,7 +28,7 @@ The design in this repo MUST be built against the **actual** Conviction v2 mecha
    ```
    where `p_i` = `SubnetMovingPrice` (an **EMA of spot alpha price**, capped at 1.0) and `b_i` = the proportion of last tempo's miner incentive withheld by being directed to subnet-owner hotkeys. Flow matters only insofar as it moves **spot price**, which moves the **EMA**, which moves share. Emission-disabled subnets get zero; there is no zero-emission floor otherwise.
 
-8. **The EMA is an explicit anti-manipulation defence, and it is aimed at our mechanism.**
+8. EMA:
    ```
    ema_alpha = base_alpha × blocks_since_start / (blocks_since_start + 201,600)
    ```
