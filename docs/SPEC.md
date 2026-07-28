@@ -42,7 +42,7 @@ The design in this repo MUST be built against the **actual** Conviction v2 mecha
     ```
     with `tao_weight` = 0.18 (governance-set). Because a young subnet's alpha issuance is small, the slice is large. **Note: LP acceptance occurs 12 months after the subnet is deployed on mainnet, so this year-1 haircut falls on the fund's own locked alpha before any external LP is exposed to it, the desk absorbs the worst of the root-proportion ramp, and incoming LPs enter as the curve flattens.** (Paid only while Σ of all subnet EMA prices > 1.0; otherwise that alpha is recycled.) Within a validator's dividends the split is `α / (α + τ·w)` to alpha stakers, `τ·w / (α + τ·w)` to TAO stakers, after the validator's take.
 
-11. **Never route miner incentive to owner hotkeys.** `b_i` taxes emission share **one-for-one**: SN4 Targon's 51% burn penalty costs it roughly half its unpenalised share. Boosting the owner cut this way directly destroys the emission share the whole thesis rests on.
+11. **Never route miner incentive to owner hotkeys.** `b_i` taxes emission share **one-for-one**
 
 12. **Mature subnets get free buybacks.** Once `alpha_in` hits its cap (`root_proportion × alpha_emission`), the excess `tao_in` is instead **swapped for alpha on the subnet's own pool**, accumulating as protocol-owned alpha. Model this tailwind — it reduces the treasury's maintenance burden as the subnet ages, partially offsetting the year-1 root-proportion headwind.
 
