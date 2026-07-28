@@ -2,7 +2,10 @@
 import http.client, json, sys
 from urllib.parse import urlparse
 
-URL = "http://10.0.0.249:3100/mcp"
+if len(sys.argv) < 2:
+    print(f"usage: {sys.argv[0]} <mcp-url>", file=sys.stderr)
+    sys.exit(2)
+URL = sys.argv[1]
 u = urlparse(URL)
 
 def post(body, headers=None, timeout=15):

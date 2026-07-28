@@ -8,10 +8,10 @@ Talks to the MCP HTTP endpoint directly (JSON-RPC over HTTP, SSE response)
 so it can be run outside Cursor with plain `python sync_documents.py`.
 
 Usage:
-    python sync_documents.py                 # sync subnet/ (default)
-    python sync_documents.py --dir subnet --dir running_on_staging.md
-    python sync_documents.py --dry-run       # compute, don't write
-    python sync_documents.py --verbose
+    python sync_documents.py <mcp-url>                 # sync subnet/ (default)
+    python sync_documents.py <mcp-url> --dir subnet --dir running_on_staging.md
+    python sync_documents.py <mcp-url> --dry-run       # compute, don't write
+    python sync_documents.py <mcp-url> --verbose
 """
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import Any, Iterable
 from urllib.parse import urlparse
 
-MCP_URL = "http://10.0.0.249:3100/mcp"
+MCP_URL: str | None = None
 COLLECTION = "documents"
 SYNC_SOURCE = "filesystem-sync-script-v1"
 MAX_DOC_BYTES = 1_000_000          # skip files larger than ~1MB
@@ -211,6 +211,7 @@ def build_doc(p: Path, repo_root: Path) -> dict[str, Any] | None:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("mcp_url", help="Insignia MCP endpoint URL")
     ap.add_argument("--dir", action="append", default=None,
                     help="Directory or file to sync (repeatable). Default: subnet")
     ap.add_argument("--repo-root", default=r"c:\Projects\Insignia-Subnet",
@@ -219,6 +220,9 @@ def main() -> int:
                     help="Compute and print stats; don't write to MCP")
     ap.add_argument("--verbose", "-v", action="store_true")
     args = ap.parse_args()
+
+    global MCP_URL
+    MCP_URL = args.mcp_url
 
     repo_root = Path(args.repo_root).resolve()
     targets = [repo_root / d if not Path(d).is_absolute() else Path(d)
