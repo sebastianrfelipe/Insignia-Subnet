@@ -32,7 +32,7 @@ The design in this repo MUST be built against the **actual** Conviction v2 mecha
    ```
    ema_alpha = base_alpha × blocks_since_start / (blocks_since_start + 201,600)
    ```
-   New subnets start near zero responsiveness: 20% at day 7, 50% at day 28, 76% at day 90, 93% at day 365. The docs state this exists to blunt launch pumps, coordinated buys, and flash attacks on emission shares. **Treasury buy-flow therefore cannot buy emission share quickly** — budget for a 3–6 month lag between sustained buy-flow and emission-share response, and never promise LPs a fast ramp.
+   New subnets start near zero responsiveness: 20% at day 7, 50% at day 28, 76% at day 90, 93% at day 365. The docs state this exists to blunt launch pumps, coordinated buys, and flash attacks on emission shares. **Treasury buy-flow must be DCA** — budget for a 3–6 month lag between sustained buy-flow and emission-share response, and never promise LPs a fast ramp.
 
 9. **`alpha_out` is flat and price-neutral injections mean emission does not move the market.** `alpha_out` = 1 alpha/block for every subnet regardless of rank (subject to that subnet's own halving curve; alpha issuance also has a 21M cap). `alpha_in ≈ tao_in / price` is injected into the pool, and because injections shift the **balancer weights** rather than the price, protocol emission is price-neutral. (Model v3's assumption that injections move price was wrong.)
 
