@@ -20,8 +20,4 @@
 | R13 | **Execution / MEV** | Large unshielded swaps with loose limits are sandwichable; large single swaps rejected above 1,000× TAO reserve | Medium | Medium | `add-stake-limit` with explicit `limit_price`, `allow_partial=false`; MEV-shielded submission for size; TWAP slicing with randomized timing; slippage budget per lot | `treasury/execution/` |
 | R14 | **Emission-share regime change** | Share formula itself changed by root (as happened June 2026: flow-based → EMA-price-based) | Low | High | Circuit breaker (c): share falls > y% WoW despite flow → halt and investigate; spec §0 maintained as living document against bittensor.com/docs | `treasury/policy.py`, `docs/SPEC.md` |
 
-## Standing conflict-of-interest disclosures
 
-1. **Toggle operator** (R9): the desk controls redemption timing within a hard outer bound; the bound, delay conditions, and any exercised delay are contractual and disclosed.
-2. **NAV oracle:** the desk computes trading AUM, an input to `NAV_per_alpha`. Mitigation: monthly proof-of-reserves; attested revenue deposits; depth-adjusted on-chain treasury holdings are independently verifiable.
-3. **OTC pricing:** the desk sells alpha it also values. Mitigation: pool-referenced quotes with a published discount schedule; no issuance above 1.1×NAV band exception without factsheet disclosure.
