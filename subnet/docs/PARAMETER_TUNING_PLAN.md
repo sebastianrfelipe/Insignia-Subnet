@@ -1,18 +1,18 @@
-# Insignia Subnet — Parameter Tuning Strategy
+# Insignia Subnet, Parameter Tuning Strategy
 
 ## Executive Summary
 
 The Insignia subnet's incentive mechanism involves **two composite scoring vectors** (model: 7 metrics, trading: 9 metrics), **pairing parameters**, **anti-gaming thresholds**, **commit-reveal parameters**, legacy cross-layer parameters, and **subnet hyperparameters**. The full tuning landscape spans two distinct levels:
 
-- **55 Insignia application-level parameters** — scoring weights, thresholds, commit-reveal timing, defense parameters, emission distribution, and mechanism knobs (tuned by the emulator)
-- **39 Bittensor on-chain subnet hyperparameters** — network-level parameters controlling registration, consensus, staking, and bonds (set via `btcli subnets hyperparameters`)
+- **55 Insignia application-level parameters**, scoring weights, thresholds, commit-reveal timing, defense parameters, emission distribution, and mechanism knobs (tuned by the emulator)
+- **39 Bittensor on-chain subnet hyperparameters**, network-level parameters controlling registration, consensus, staking, and bonds (set via `btcli subnets hyperparameters`)
 
 Together these form a **94-parameter optimization surface**. Tuning by hand is infeasible because:
 
 1. The parameter space is high-dimensional (80 total parameters across two levels)
 2. Interactions between parameters are non-linear (e.g., changing the model overfitting weight affects which pairs rank highly; changing `tempo` affects how frequently weights are set)
 3. Attack vectors exploit specific parameter configurations
-4. You cannot iterate quickly on mainnet — miners are real actors with real stakes
+4. You cannot iterate quickly on mainnet, miners are real actors with real stakes
 
 **Solution:** Deploy on Bittensor testnet, replace real miners with AI agent bots that simulate honest, adversarial, and degenerate strategies, instrument everything with Prometheus/Grafana, and use evolutionary multi-objective optimization (pymoo NSGA-II) to search the parameter space automatically.
 
@@ -70,7 +70,7 @@ Together these form a **94-parameter optimization surface**. Tuning by hand is i
 | Category | Parameters | Count |
 |----------|-----------|-------|
 | Model Scoring Weights | penalized_f1, penalized_sharpe, max_drawdown, variance_score, overfitting_penalty, feature_efficiency, latency | 7 |
-| Trading Scoring Weights | realized_pnl, omega, max_drawdown, win_rate, consistency, execution_quality, annualized_volatility, sharpe_ratio, sortino_ratio | 9 |
+| Trading Scoring Weights | annualized_return, omega, max_drawdown, consistency, execution_quality, annualized_volatility, sharpe_ratio, sortino_ratio | 8 |
 | Overfitting Detector | gap_threshold, decay_rate | 2 |
 | Cross-Layer Promotion | top_n, min_consecutive_epochs, max_overfitting_score, max_score_decay_pct, expiry_epochs | 5 |
 | Cross-Layer Feedback | feedback_bonus_weight, feedback_penalty_weight | 2 |
@@ -121,7 +121,7 @@ Together these form a **94-parameter optimization surface**. Tuning by hand is i
 - Thresholds must be positive
 - `feedback_penalty_threshold` < `feedback_bonus_threshold`
 
-**Implementation:** `tuning/parameter_space.py` — defines the search space, encoding/decoding, and constraint handling.
+**Implementation:** `tuning/parameter_space.py`, defines the search space, encoding/decoding, and constraint handling.
 
 ---
 
@@ -133,7 +133,7 @@ Together these form a **94-parameter optimization surface**. Tuning by hand is i
 
 | Agent Type | Behavior | Purpose |
 |------------|----------|---------|
-| **Honest** | Trains models normally, submits best effort | Baseline — represents good-faith miners |
+| **Honest** | Trains models normally, submits best effort | Baseline, represents good-faith miners |
 | **Overfitter** | Deliberately overfits to training data | Tests overfitting detection |
 | **Copycat** | Copies another miner's model with small perturbations | Tests plagiarism detection |
 | **Spammer** | Submits many low-quality models rapidly | Tests rate limiting |
@@ -157,7 +157,7 @@ Key properties:
 - assignments are emitted into simulation and emulator telemetry
 - route diversity is treated as a realism/control variable, not as untracked noise
 
-**Implementation:** `tuning/simulation.py` — contains `MinerAgent` classes, `SimulationHarness`, and the full pipeline runner.
+**Implementation:** `tuning/simulation.py`, contains `MinerAgent` classes, `SimulationHarness`, and the full pipeline runner.
 
 ---
 
@@ -174,7 +174,7 @@ For each attack vector, define a **breach condition** (boolean) and a **severity
 | 3 | Model plagiarism (researcher) | Copycat miner is not detected and scores independently |
 | 4 | Copy-trading (trader) | Copy-trader is not detected and scores independently |
 | 5 | Single-metric gaming | Single-metric gamer ranks in top 50% |
-| 6 | Validator data leakage | (Structural check — no simulation needed) |
+| 6 | Validator data leakage | (Structural check, no simulation needed) |
 | 7 | Paper trading manipulation | Inflated P&L not caught by slippage model |
 | 8 | Sybil attack | Sybil identities collectively earn >2x single miner share |
 | 9 | Regime-specific exploitation | Model that only works in 1 regime ranks in top 25% |
@@ -189,9 +189,9 @@ For each attack vector, define a **breach condition** (boolean) and a **severity
 | 18 | Validator latency exploitation (Vector 8) | Miner accuracy correlated with validator latency; post-market submissions scored as predictions. **Commit-reveal validated: projected severity 0.047 < 0.05 target** |
 | 19 | Miner-validator collusion | Validator weight/score bias toward specific miners not justified by performance |
 
-**Implementation:** `tuning/attack_detector.py` — runs the simulation with adversarial agents and returns a breach report. The active detector is modeled around the 19 post-commit-reveal vectors used by the second orchestration run.
+**Implementation:** `tuning/attack_detector.py`, runs the simulation with adversarial agents and returns a breach report. The active detector is modeled around the 19 post-commit-reveal vectors used by the second orchestration run.
 
-**Commit-reveal impact on Vector 18:** Sentinel validation (session 69dab601) confirmed that the commit-reveal scheme reduces Vector 18 severity from 0.09 to projected 0.047, clearing the 0.05 target. Companion Vector 11 (prediction timing manipulation) also drops from 0.06 to 0.025. The critical effectiveness threshold is 0.667 — this must be validated in simulation before production deployment.
+**Commit-reveal impact on Vector 18:** Sentinel validation (session 69dab601) confirmed that the commit-reveal scheme reduces Vector 18 severity from 0.09 to projected 0.047, clearing the 0.05 target. Companion Vector 11 (prediction timing manipulation) also drops from 0.06 to 0.025. The critical effectiveness threshold is 0.667, this must be validated in simulation before production deployment.
 
 ---
 
@@ -205,7 +205,8 @@ For each attack vector, define a **breach condition** (boolean) and a **severity
 - `insignia_researcher_composite_score` (gauge, per miner, per epoch)
 - `insignia_researcher_consensus_weight` (gauge, per miner)
 - `insignia_trader_composite_score` (gauge, per strategy)
-- `insignia_trader_realized_pnl` (gauge, per strategy)
+- `insignia_trader_annualized_return` (gauge, per strategy)
+- `insignia_trader_realized_pnl` (gauge, per strategy, diagnostic only)
 - `insignia_trader_max_drawdown` (gauge, per strategy)
 - `insignia_promotion_count` (counter)
 - `insignia_feedback_adjustment` (gauge, per model)
@@ -221,17 +222,17 @@ For each attack vector, define a **breach condition** (boolean) and a **severity
 - `insignia_population_diversity` (gauge)
 - `insignia_pareto_front_size` (gauge)
 
-**Implementation:** `tuning/metrics_exporter.py` — Prometheus client library exposing metrics on `:8000/metrics`.
+**Implementation:** `tuning/metrics_exporter.py`, Prometheus client library exposing metrics on `:8000/metrics`.
 
 #### Grafana Dashboard
 
 Pre-configured dashboard with panels for:
-1. **Scoring Distribution** — histogram of model/trading composite scores across miners
-2. **Attack Status** — traffic light panel for each attack vector
-3. **Weight Evolution** — how scoring weights change across generations
-4. **Pareto Front** — scatter plot of multi-objective fitness
-5. **P&L Distribution** — trader strategy returns across miners
-6. **Cross-Layer Flow** — promotion counts and feedback adjustments
+1. **Scoring Distribution**, histogram of model/trading composite scores across miners
+2. **Attack Status**, traffic light panel for each attack vector
+3. **Weight Evolution**, how scoring weights change across generations
+4. **Pareto Front**, scatter plot of multi-objective fitness
+5. **P&L Distribution**, trader strategy returns across miners
+6. **Cross-Layer Flow**, promotion counts and feedback adjustments
 
 **Implementation:** `monitoring/` directory with `docker-compose.yml`, Prometheus config, and Grafana provisioning.
 
@@ -266,11 +267,11 @@ falsified the separation claim:
 - NSGA-II v13 R3 knee `V13-R3-KP-020-a3c7` **predicted** breach_rate `2.6e-6`,
   honest_score `0.9808`, separation `0.963`, variance `0.00081`
 - **Empirical:** honest_score `~0.977` (holds), but separation `~0.23` (best
-  adversary `0.733`; adversaries hold ~64.7% of chain weight) — **fails the
+  adversary `0.733`; adversaries hold ~64.7% of chain weight), **fails the
   `≥0.90` gate**, so V13-R3 is **not promoted**
 - **Root cause:** the optimizer's internal analytical adversary model scored
   Copycat/CopyTrader `~0.02-0.05` vs `~0.73` empirically; the GP surrogate
-  (`R²=0.96`) faithfully fit those **biased** targets — garbage-in/garbage-out —
+  (`R²=0.96`) faithfully fit those **biased** targets, garbage-in/garbage-out .
   and the Pareto front collapsed into a `0.958-0.967` separation band (false
   local optimum)
 - **Required change:** surrogate training targets must come from the empirical
@@ -296,7 +297,7 @@ For each individual in population:
   7. Return fitness to optimizer
 ```
 
-**Implementation:** `tuning/optimizer.py` — pymoo Problem subclass + runner.
+**Implementation:** `tuning/optimizer.py`, pymoo Problem subclass + runner.
 
 ---
 

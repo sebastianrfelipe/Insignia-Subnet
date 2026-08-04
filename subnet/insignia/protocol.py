@@ -105,6 +105,16 @@ class ModelSubmission(_SynapseBase):
     target_horizon_minutes: int = 60
     self_reported_overfitting_score: float = 0.0
 
+    # --- Data provenance (optional in v1; unaudited and unscored) ---
+    # One entry per training data source:
+    #   {"source": str, "license_class": str, "time_range": str,
+    #    "pit_attestation_hash": str}
+    # Sources MUST be point-in-time: no back-populated revisions, and each
+    # entry's attestation hash commits to the as-of snapshot the miner trained
+    # on. Candidate to become a required, audited field post-launch; later
+    # feeds the feature-diversity scoring dimension.
+    data_provenance: List[Dict[str, Any]] = []
+
     # --- Code submission (reproducibility) fields (miner fills these) ---
     code_bundle: Optional[bytes] = None        # deterministic tar.gz of source
     code_bundle_hash: str = ""                 # sha256 of code_bundle (signed/committed)
@@ -183,10 +193,12 @@ class TradingStrategySubmission(_SynapseBase):
     position_log: List[Dict[str, Any]] = []
     realized_pnl: float = 0.0
     unrealized_pnl: float = 0.0
+    cumulative_return: float = 0.0
+    annualized_return: float = 0.0
     max_drawdown_pct: float = 0.0
     sharpe_ratio: float = 0.0
     omega_ratio: float = 0.0
-    win_rate: float = 0.0
+    win_rate: float = 0.0  # diagnostic only — not weighted in the composite
     total_trades: int = 0
     evaluation_window_hours: int = 720  # 30 days default
 
@@ -292,6 +304,7 @@ class PairEvaluationRequest(_SynapseBase):
     # Response (researcher side)
     model_artifact: Optional[bytes] = None
     model_metadata: Dict[str, Any] = {}
+    data_provenance: List[Dict[str, Any]] = []  # same schema as ModelSubmission
     code_bundle: Optional[bytes] = None        # source that produces/serves the model
     code_bundle_hash: str = ""
     code_entrypoint: str = ""

@@ -1,6 +1,6 @@
-# Insignia Subnet — Paired Genetic Incentive Mechanism
+# Insignia Subnet, Paired Genetic Incentive Mechanism
 
-**Status:** Migration spec — supersedes the two-layer (L1 → promotion → L2) design.
+**Status:** Migration spec, supersedes the two-layer (L1 → promotion → L2) design.
 **Scope:** Replaces the dual Yuma-cycle architecture with a *single* incentive
 mechanism in which researcher miners and trader miners are matched into pairs,
 jointly evaluated, and selected/rewarded with an NSGA-II-style genetic algorithm.
@@ -29,8 +29,8 @@ This created three structural problems:
 3. **Self-selection enabled collusion.** Because traders chose their own models,
    a researcher and trader could privately agree to only ever work together.
 
-The firm still wants the *same two skill sets* — ML researchers and trading
-operations engineers, like the desks of a pod shop — and the *same evaluation
+The firm still wants the *same two skill sets*, ML researchers and trading
+operations engineers, like the desks of a pod shop, and the *same evaluation
 math and weights*. What changes is how those two skill sets are combined and
 rewarded.
 
@@ -42,10 +42,10 @@ The subnet keeps **two miner roles on one subnet (one UID space, one
 `set_weights` vector):**
 
 - **Researcher miners** submit ML model artifacts (unchanged from the old L1
-  miner task — see `neurons/researcher_miner.py`).
+  miner task, see `neurons/researcher_miner.py`).
 - **Trader miners** submit trading-operation logic that consumes a *supplied*
   model's signals (the old L2 miner task, but the model is *assigned by pairing*
-  rather than self-selected — see `neurons/trader_miner.py`).
+  rather than self-selected, see `neurons/trader_miner.py`).
 
 A **candidate strategy is a genome**: a `(researcher_uid, trader_uid)` pair. The
 set of active pairs in an epoch is the **population** of one **generation**.
@@ -75,7 +75,8 @@ For each pair `(R, T)` a validator:
 2. Runs the model on the proprietary benchmark → the **7 model metrics**
    (`CompositeScorer.score_model`).
 3. Runs `T`'s strategy **using `R`'s model signals** through paper/live trading
-   → the **9 trading metrics** (`CompositeScorer.score_trading`).
+   → the **8 headline trading metrics** plus the unweighted win-rate
+   diagnostic (`CompositeScorer.score_trading`).
 4. Combines the two `ScoreVector`s into a `PairScore` (see
    `CompositeScorer.combine_pair_scores`):
    - `pair_composite = alpha * model_composite + (1 - alpha) * trading_composite`
@@ -178,7 +179,7 @@ A colluding researcher/trader agree to look good *only together*.
   `tuning/attack_detector.py`, vectors 12–17).
 - Because pair assignment is deterministic from chain state, every honest
   validator evaluating the same generation reproduces the same pairs and
-  therefore the same scores — a colluding validator that deviates is detectable
+  therefore the same scores, a colluding validator that deviates is detectable
   as a cross-validator variance/agreement anomaly.
 
 ### 3.3 Latency arbitrage
@@ -204,18 +205,18 @@ Removed (cross-layer artifacts; see [parameter_space.py](../tuning/parameter_spa
 - the `feedback_*` promotion-feedback group and `promotion_*` group are repurposed
   (promotion no longer exists; pairing replaces it).
 
-Added — `pairing` group:
+Added, `pairing` group:
 
-- `partners_per_miner` (K) — minimum partners each miner is evaluated against.
-- `elite_fraction` — fraction of pairs retained as elites for reproduction.
-- `mutation_rate` — probability of random re-pairing per offspring pair.
-- `pair_blend_alpha` — weight on model composite vs. trading composite in
+- `partners_per_miner` (K), minimum partners each miner is evaluated against.
+- `elite_fraction`, fraction of pairs retained as elites for reproduction.
+- `mutation_rate`, probability of random re-pairing per offspring pair.
+- `pair_blend_alpha`, weight on model composite vs. trading composite in
   `pair_composite`.
-- `marginal_contribution_weight` — λ in the variance-penalized credit.
-- `fixed_pair_correlation_threshold` — interaction-anomaly threshold for the
+- `marginal_contribution_weight`, λ in the variance-penalized credit.
+- `fixed_pair_correlation_threshold`, interaction-anomaly threshold for the
   collusion detector.
-- `pairing_seed_source` — source of pairing randomness (`chain_block_hash`).
-- `max_pairs` — population cap per generation.
+- `pairing_seed_source`, source of pairing randomness (`chain_block_hash`).
+- `max_pairs`, population cap per generation.
 
 The 7 model weights and 9 trading weights, the commit-reveal parameters, the
 consensus-integrity parameters, the symbol-diversity (PC-VH-006) parameters, and
@@ -228,7 +229,7 @@ the economic-mechanism parameters are all preserved.
 The subnet now runs as a conventional single-mechanism Bittensor subnet:
 
 - One netuid, one metagraph, one UID space shared by researcher and trader
-  miners (role declared via the `role` field / commitment — see
+  miners (role declared via the `role` field / commitment, see
   `insignia/protocol.py::MinerRole`).
 - Each validator computes one weight vector over all miner UIDs and calls
   `subtensor.set_weights(...)` once per epoch (Yuma consensus), instead of the
@@ -245,20 +246,20 @@ The subnet now runs as a conventional single-mechanism Bittensor subnet:
 
 ## 6. File map
 
-- `insignia/pairing.py` — `PairGenome`, `PairFitness`, `PairingConfig`,
+- `insignia/pairing.py`, `PairGenome`, `PairFitness`, `PairingConfig`,
   `ChainSeededPairing`, `NSGA2Matchmaker`, `MarginalContributionCredit`,
   `CollusionGraphDetector`.
-- `insignia/scoring.py` — adds `PairScore` + `combine_pair_scores`
+- `insignia/scoring.py`, adds `PairScore` + `combine_pair_scores`
   (`WeightConfig.pair_blend_alpha`); metrics/weights unchanged.
-- `insignia/protocol.py` — adds `MinerRole`, `role` fields, `PairAssignment`,
+- `insignia/protocol.py`, adds `MinerRole`, `role` fields, `PairAssignment`,
   `PairEvaluationRequest`, `PairScoreReport`.
-- `neurons/validator.py` — unified `PairedValidator`
+- `neurons/validator.py`, unified `PairedValidator`
   (assign → evaluate → rank → credit → single `set_weights`).
-- `neurons/researcher_miner.py`, `neurons/trader_miner.py` — role-aware miner
+- `neurons/researcher_miner.py`, `neurons/trader_miner.py`, role-aware miner
   templates.
-- `tuning/simulation.py` — pair-based generations with colluding/partner-gaming
+- `tuning/simulation.py`, pair-based generations with colluding/partner-gaming
   adversaries.
-- `tuning/attack_detector.py` — adds `pair_collusion`,
+- `tuning/attack_detector.py`, adds `pair_collusion`,
   `partner_selection_gaming`, `latency_arbitrage_pairing` vectors.
-- `tuning/parameter_space.py`, `tuning/optimizer.py` — pairing parameters and
+- `tuning/parameter_space.py`, `tuning/optimizer.py`, pairing parameters and
   pair-harness wiring.

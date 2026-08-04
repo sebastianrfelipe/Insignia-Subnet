@@ -1,4 +1,4 @@
-ing # V14-R1 Online-Mode Gate Verification — Orchestrator Dispatch Manifest (v2)
+ing # V14-R1 Online-Mode Gate Verification, Orchestrator Dispatch Manifest (v2)
 
 **Generated:** 2026-07-05T18:00:10.830842+00:00
 **Config ID:** V14-R1-CORRECTED-KP
@@ -12,22 +12,22 @@ ing # V14-R1 Online-Mode Gate Verification — Orchestrator Dispatch Manifest (v
 
 v1 cancelled 4/6 gates due to two MCP guardrail rejections:
 
-- **`NAMESPACE_FILTER_REQUIRED`** — trigger: mongodb_find on convergence_metrics without namespace filter
+- **`NAMESPACE_FILTER_REQUIRED`**, trigger: mongodb_find on convergence_metrics without namespace filter
   - v2 fix: RUN_NAMESPACE declared + namespace_filter on every MCP read
-- **`PLAYBOOK_COLLECTION_FORBIDDEN`** — trigger: mongodb_find on simulation_results (belongs to Insignia subnet tuner playbook)
+- **`PLAYBOOK_COLLECTION_FORBIDDEN`**, trigger: mongodb_find on simulation_results (belongs to Insignia subnet tuner playbook)
   - v2 fix: FORBIDDEN_COLLECTIONS list + FILESYSTEM_KRET_ARTIFACTS redirect
 
 ## v2 fixes
 
-1. **Namespace declared up front:** `{'playbook': 'insignia_subnet_online_verification', 'domain': 'v14_r1', 'procedure': 'v14_r1_online_gate_check'}` — every MCP read must include one of these filter fields.
-2. **Forbidden collections:** `['simulation_results']` — orchestrator must NOT `mongodb_find` on these.
+1. **Namespace declared up front:** `{'playbook': 'insignia_subnet_online_verification', 'domain': 'v14_r1', 'procedure': 'v14_r1_online_gate_check'}`, every MCP read must include one of these filter fields.
+2. **Forbidden collections:** `['simulation_results']`, orchestrator must NOT `mongodb_find` on these.
 3. **Filesystem KRET redirect:** offline evidence read from filesystem (`results/`), not MongoDB.
 
 ## Objective
 
 Verify the 6 online-mode §9 gates against the live V14-R1-CORRECTED-KP config on-chain, across >= 2 reruns with different seeds. If all 6 clear, proceed to the HITL promotion gate (btcli hyperparameter apply + promote converged config as production reference).
 
-## Offline Evidence Package (filesystem KRET artifacts — read from disk, NOT MongoDB)
+## Offline Evidence Package (filesystem KRET artifacts, read from disk, NOT MongoDB)
 
 - **Step 2 (simulator):** `results/v14_r1_empirical_validation_2026-07-04T02-21-09.json`
 - **Step 3 (sentinel):** `results/sentinel_coverage_matrix_2026-07-04T14-35-21.json`
@@ -36,7 +36,7 @@ Verify the 6 online-mode §9 gates against the live V14-R1-CORRECTED-KP config o
 
 **Read instruction:** Read these from the FILESYSTEM, not MongoDB. The orchestrator's mongodb_find on `simulation_results` is forbidden (belongs to the Insignia subnet tuner playbook). These JSON files are the KRET artifacts that substitute for that collection.
 
-**Offline summary:** All 4 harness-mode gates PASS (attack_breach_rate=0.0, separation=0.9004, validator_latency_severity=0.0351, prediction_timing_severity=0.025). 0 adversary leaks across the 19-vector sentinel surface. 2 non-penalty-path breaches remain (random_baseline_discrimination, collusion_temporal_pattern) — both synthetic harness artifacts, not adversary leaks.
+**Offline summary:** All 4 harness-mode gates PASS (attack_breach_rate=0.0, separation=0.9004, validator_latency_severity=0.0351, prediction_timing_severity=0.025). 0 adversary leaks across the 19-vector sentinel surface. 2 non-penalty-path breaches remain (random_baseline_discrimination, collusion_temporal_pattern), both synthetic harness artifacts, not adversary leaks.
 
 ## 6 Online-Mode Gates to Verify On-Chain (with namespaced evidence sources)
 
@@ -56,9 +56,9 @@ Verify the 6 online-mode §9 gates against the live V14-R1-CORRECTED-KP config o
 - **If any gate fails:** Do NOT promote V14-R1. File a correction task for the failing gate's root cause and re-run the cycle from the appropriate step.
 - **If all gates clear:** Proceed to HITL promotion gate: (1) btcli hyperparameter apply with the V14-R1-CORRECTED-KP config, (2) promote the converged config as the production reference in research_targets.
 
-## MCP Dispatch Commands (v2 — namespaced + forbidden-collection-aware)
+## MCP Dispatch Commands (v2, namespaced + forbidden-collection-aware)
 
-**Cannot be executed from this repo** — the insignia-local MCP server is not available in this environment. Execute in the orchestrator's agent env.
+**Cannot be executed from this repo**, the insignia-local MCP server is not available in this environment. Execute in the orchestrator's agent env.
 
 ### step1_file_task
 

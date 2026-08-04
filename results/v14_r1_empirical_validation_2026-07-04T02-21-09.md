@@ -28,7 +28,7 @@
 
 ## Verdict
 
-✅ **GATE PASSED** — all 3 trials clear §9 separation >= 0.9.
+✅ **GATE PASSED**, all 3 trials clear §9 separation >= 0.9.
 The merged anti-gaming fix (PR #34) + signal-driven SybilMiner penalty hold
 empirically. The cycle may proceed to step 3 (sentinel re-evaluation).
 

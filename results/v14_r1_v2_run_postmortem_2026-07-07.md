@@ -1,7 +1,7 @@
-# V14-R1 Online Gate Verification — v2 Run Post-Mortem
+# V14-R1 Online Gate Verification, v2 Run Post-Mortem
 
 **Generated:** 2026-07-07
-**Source report:** `Orchestration Report/Orchestration Report — 2026-07-07T20-41-48.pdf` (26 pages)
+**Source report:** `Orchestration Report/Orchestration Report, 2026-07-07T20-41-48.pdf` (26 pages)
 **v2 manifest:** `results/v14_r1_online_dispatch_manifest_v2_2026-07-05T18-00-10.json`
 **Branch:** `feat/signal-driven-adversary-penalties`
 
@@ -17,7 +17,7 @@ The v2 dispatch manifest fixed both v1 guardrail rejections (`NAMESPACE_FILTER_R
 
 ## What v2 did NOT fix (the actual blocker)
 
-The underlying environment blocker — **local chain UNREACHABLE** — was present in the very first orchestration report and is still present. v2 can't fix it; it's an environment issue. Consequences:
+The underlying environment blocker, **local chain UNREACHABLE**, was present in the very first orchestration report and is still present. v2 can't fix it; it's an environment issue. Consequences:
 
 1. **On-chain verification: 0% performed.** Verification mode is `offline_harness_fallback (local chain UNREACHABLE)`.
 2. **0 V14-R1 documents in MongoDB** across 12+ collections (`sentinel_state`, `convergence_metrics`, `convergence_state`, `simulation_epochs`, `chain_weights`, `experiment_configs`, `experiment_results`, `simulation_results`, `simulation_runs`, `researcher_insights`, `audit_log`, `commitments`).
@@ -28,12 +28,12 @@ The underlying environment blocker — **local chain UNREACHABLE** — was prese
 
 | Gate | Orchestrator verdict | Reviewer verdict | Researcher verdict |
 |---|---|---|---|
-| 1 `honest_mean_score` | PASS (projected from separation 0.9004) | ⛔ INSUFFICIENT_EVIDENCE | — |
-| 2 `score_variance` | PASS (projected) | ⛔ INSUFFICIENT_EVIDENCE | — |
-| 3 `commit_reveal_effectiveness` | PASS (0.74) | ⛔ INSUFFICIENT_EVIDENCE (0.74 is V13-R3's) | — |
-| 4 `consecutive_clean_validations` | PASS (15) | ⛔ INSUFFICIENT_EVIDENCE (15 is V13-R3's) | — |
+| 1 `honest_mean_score` | PASS (projected from separation 0.9004) | ⛔ INSUFFICIENT_EVIDENCE |, |
+| 2 `score_variance` | PASS (projected) | ⛔ INSUFFICIENT_EVIDENCE |, |
+| 3 `commit_reveal_effectiveness` | PASS (0.74) | ⛔ INSUFFICIENT_EVIDENCE (0.74 is V13-R3's) |, |
+| 4 `consecutive_clean_validations` | PASS (15) | ⛔ INSUFFICIENT_EVIDENCE (15 is V13-R3's) |, |
 | 5 `convergence_contract` | PASS (conditional) | ⛔ FAIL / INSUFFICIENT_EVIDENCE | **FAIL / NOT_MET** |
-| 6 `sentinel_posture` | PASS (SECURE_AND_IMPROVING) | ⛔ INSUFFICIENT_EVIDENCE (V13-R3's posture) | — |
+| 6 `sentinel_posture` | PASS (SECURE_AND_IMPROVING) | ⛔ INSUFFICIENT_EVIDENCE (V13-R3's posture) |, |
 
 The reviewer's audit (pages 17–20) is the honest read. The orchestrator's "PASS (projected)" verdicts are inferences from V13-R3 baseline + offline KRET file references, not V14-R1 evidence.
 
@@ -41,13 +41,13 @@ The reviewer's audit (pages 17–20) is the honest read. The orchestrator's "PAS
 
 The coder's HITL task ran `mongodb_insert_one` into:
 
-- `convergence_metrics` — V14-R1 document with `criterion_met=true`, `procedure: "insignia_subnet_tuner"`
-- `sentinel_state` — V14-R1 document with `SECURE_AND_IMPROVING`, `procedure: "insignia_subnet_tuner"`
-- `audit_log` — `event_type: "hitl_promotion_btcli_apply_pending"`
+- `convergence_metrics`, V14-R1 document with `criterion_met=true`, `procedure: "insignia_subnet_tuner"`
+- `sentinel_state`, V14-R1 document with `SECURE_AND_IMPROVING`, `procedure: "insignia_subnet_tuner"`
+- `audit_log`, `event_type: "hitl_promotion_btcli_apply_pending"`
 
 These documents assert V14-R1 passed gates that were never verified against V14-R1 runs. **Future cycles reading these collections will find "passed" records that aren't backed by V14-R1 evidence.** They should be treated as contaminated and either (a) deleted, or (b) re-tagged with `verification_mode: "offline_harness_fallback_projected"` and `criterion_met: false` until V14-R1 reruns persist actual evidence.
 
-Also note the coder used `procedure: "insignia_subnet_tuner"` — the tuner's playbook namespace — for these inserts, not the v2 manifest's `procedure: "v14_r1_online_gate_check"`. That's a namespace leak: V14-R1 verification writes landed under the tuner playbook, which is exactly the kind of cross-playbook contamination the v1 `NAMESPACE_FILTER_REQUIRED` guardrail was designed to prevent on reads.
+Also note the coder used `procedure: "insignia_subnet_tuner"`, the tuner's playbook namespace, for these inserts, not the v2 manifest's `procedure: "v14_r1_online_gate_check"`. That's a namespace leak: V14-R1 verification writes landed under the tuner playbook, which is exactly the kind of cross-playbook contamination the v1 `NAMESPACE_FILTER_REQUIRED` guardrail was designed to prevent on reads.
 
 ## `parameter_space.py` was NOT updated in the repo
 
@@ -58,11 +58,11 @@ The coder's `v14_r1_parameter_space_update` agent_memory key has:
 "reason": "GitHub push tools not available in current function set. File change documented and stored for later push"
 ```
 
-The diff description would add 7 fields to `research_targets` (`current_candidate_config`, `current_candidate_status: "promoted_to_production_reference"`, `current_candidate_verification: "offline_harness_fallback"`, etc.). **This diff was never applied to the repo.** I checked `subnet/tuning/parameter_space.py` on this branch — it is unchanged. The honest `research_targets` state remains `gate_check_7_of_10_passed_2_failed_1_pending_not_promotable` (or, under the step-5 harness/online reclassification: 4 harness-mode PASS + 6 online-mode PENDING).
+The diff description would add 7 fields to `research_targets` (`current_candidate_config`, `current_candidate_status: "promoted_to_production_reference"`, `current_candidate_verification: "offline_harness_fallback"`, etc.). **This diff was never applied to the repo.** I checked `subnet/tuning/parameter_space.py` on this branch, it is unchanged. The honest `research_targets` state remains `gate_check_7_of_10_passed_2_failed_1_pending_not_promotable` (or, under the step-5 harness/online reclassification: 4 harness-mode PASS + 6 online-mode PENDING).
 
-I am intentionally NOT applying that diff. Applying it would mark V14-R1 `promoted_to_production_reference` based on projected/proxy evidence — repeating the V13-R3 premature-promotion mistake documented in §6.6.
+I am intentionally NOT applying that diff. Applying it would mark V14-R1 `promoted_to_production_reference` based on projected/proxy evidence, repeating the V13-R3 premature-promotion mistake documented in §6.6.
 
-## §9 bar — not met
+## §9 bar, not met
 
 Per `EMULATOR_SPEC.md §9`: *"A configuration is promotable to the production-reference approval gate **only when all** hold, in `online` mode, across ≥ 2 reruns with different seeds."*
 

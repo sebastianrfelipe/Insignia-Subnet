@@ -5,16 +5,19 @@ Validates trader miner strategies by scoring their real/paper trading
 outcomes. Trading validators track positions in real-time, compute
 risk-adjusted performance metrics, and assign scores for Yuma consensus.
 
-Scoring Dimensions (9):
-  - Realized P&L (absolute returns)
-  - Omega Ratio (full distribution measure, captures tail behavior)
+Scoring Dimensions (8 headline + diagnostics):
+  - Annualized Return (scale-invariant profitability, 365-day basis)
+  - Omega Ratio (full distribution measure, captures tail behavior;
+    retained for Student-t return innovations in the production stack)
   - Max Drawdown (hard ceiling — breach = elimination)
-  - Win Rate & Trade Quality (signal precision)
   - Consistency (rolling sub-window analysis)
   - Execution Quality (latency, reliability, slippage)
   - Annualized Volatility (cumulative realized volatility — lower = better)
   - Sharpe Ratio (risk-adjusted return per unit total volatility)
   - Sortino Ratio (risk-adjusted return per unit downside volatility)
+
+Diagnostics tier (reported, unweighted):
+  - Win Rate (signal precision; diagnoses churn vs. directional edge)
 
 Under the single paired mechanism, the unified ``PairedValidator``
 (``neurons/validator.py``) scores the trading half of each pair using
@@ -70,6 +73,7 @@ class StrategyTracker:
     strategy_id: str
     miner_uid: str
     model_ids_used: List[str] = field(default_factory=list)
+    initial_capital: float = 100_000.0
 
     # State
     positions: List[Dict] = field(default_factory=list)
@@ -99,6 +103,9 @@ class StrategyTracker:
     # Flags
     eliminated: bool = False
     elimination_reason: str = ""
+
+    def __post_init__(self):
+        self.peak_equity = self.initial_capital
 
     def record_trade(self, trade: Dict):
         pnl = trade.get("pnl", 0.0)
@@ -283,13 +290,18 @@ class TradingValidator:
                 continue
 
             trades_pnl = [t.get("pnl", 0.0) for t in tracker.trades]
-            returns = np.array(trades_pnl) / 100_000 if trades_pnl else np.array([0.0])
+            returns = (
+                np.array(trades_pnl) / tracker.initial_capital
+                if trades_pnl
+                else np.array([0.0])
+            )
             daily_ret = np.array(tracker.daily_returns) if tracker.daily_returns else returns
 
             exec_metrics = tracker.build_execution_metrics()
 
             score = self.scorer.score_trading(
-                realized_pnl=tracker.total_pnl,
+                cumulative_return=tracker.total_pnl / tracker.initial_capital,
+                epoch_days=max(len(tracker.daily_returns), 1),
                 returns=returns,
                 max_dd=tracker.max_drawdown,
                 trades=trades_pnl,

@@ -83,12 +83,12 @@ post-CR 19-vector posture.
 ⚠️ **Update (Orchestration Report 2026-06-29T01-35-48):** what looked like an
 "empirical validation problem" turned out to be a **design/measurement gap**.
 Validating the V13-R3 surrogate knee against the real adversarial population
-showed its separation claim (`0.963`) was false — empirical separation is `~0.23`,
+showed its separation claim (`0.963`) was false, empirical separation is `~0.23`,
 the best adversary (Copycat) scores `0.733`, and adversaries capture ~64.7% of
 chain weight. V13-R3 **fails** the `≥0.90` separation gate and is not promoted.
 
 - breach_rate prediction (`2.6e-6`, R3 knee `V13-R3-KP-020-a3c7`) is unconfirmed; the binding failure is **separation**, not breach
-- PC-VH-006 is deployed (offline measure: Sybil `0.274 → 0.041`), but its on-chain effect is unmeasured — the chain at `<chain-host>` is currently unreachable
+- PC-VH-006 is deployed (offline measure: Sybil `0.274 → 0.041`), but its on-chain effect is unmeasured, the chain at `<chain-host>` is currently unreachable
 - root cause: the optimizer's analytical adversary model under-scored Copycat/CopyTrader (`~0.02-0.05` vs `~0.73` empirical), so the surrogate optimized a false objective
 - next step: re-validate adversary scoring empirically before trusting any sentinel "secure" verdict derived from surrogate runs
 
@@ -120,3 +120,15 @@ chain weight. V13-R3 **fails** the `≥0.90` separation gate and is not promoted
 - `PC-VH-006` is deployed, but its projected 60-70% Sybil reduction still needs live empirical confirmation.
 - The earlier harsh simulation benchmark (`0.124` breach rate, `0.847` honest score) should now be treated as calibration context, not the current system-level security posture.
 - Historical docs may use older vector numbering or the richer telemetry catalog; repository docs should prefer the post-CR sentinel framing when discussing transition readiness.
+
+## Standing audit rule: defense wiring
+
+No defense enters a knee-point config unless the wiring test passes
+(`tests/test_defense_wiring.py`, run from the subnet package root). The test
+enforces `tuning/defense_registry.py` in three directions: every registered
+implementation symbol imports, every defense has runtime evidence in the
+simulator (multiplier applied in the scoring loop or telemetry key emitted),
+and every simulator penalty multiplier / ensemble detector key is claimed by a
+registry entry. This is the permanent fix for the V13-R3 failure mode, where
+the surrogate assumed defenses the scoring path never implemented. A knee-point
+promoted with a failing wiring test is invalid by definition.

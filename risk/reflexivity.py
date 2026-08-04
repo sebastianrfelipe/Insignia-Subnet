@@ -57,6 +57,9 @@ class ScenarioConfig:
     toggle_prob_stressed: float = 0.30        # when discount is deep or yield collapsed
     stress_discount: float = -0.30            # premium_discount below this = stressed
     redemption_sell_frac: float = 0.5         # share of newly redeemable alpha sold monthly
+    hedge_relief_frac: float = 0.0            # share of stressed selling diverted to
+                                              # short-side hedging (chain shorting), never
+                                              # hitting the spot pool; 0 until it ships
 
     # spiral definition
     spiral_share_threshold: float = 0.004     # emission share floor
@@ -79,13 +82,16 @@ class SpiralReport:
         shock = self.config.revenue_shock
         shock_txt = (f"revenue −{shock.severity:.0%} months {shock.start_month}–"
                      f"{shock.start_month + shock.duration_months}" if shock else "no shock")
-        return (
+        text = (
             f"reflexivity MC ({self.config.n_paths} paths, {self.config.months}m, {shock_txt}):\n"
             f"  P(spiral)              {self.p_spiral:6.1%}\n"
             f"  median terminal disc.  {self.median_terminal_discount:+6.1%}\n"
             f"  p5 terminal discount   {self.p5_terminal_discount:+6.1%}\n"
             f"  mean terminal share    {self.mean_terminal_share:6.2%}"
         )
+        if self.config.hedge_relief_frac > 0:
+            text += f"\n  hedge relief           {self.config.hedge_relief_frac:6.1%} of stressed selling diverted"
+        return text
 
 
 def _absorbable_alpha(pool: PoolSnapshot, max_slippage: float) -> float:
@@ -101,6 +107,8 @@ def _absorbable_alpha(pool: PoolSnapshot, max_slippage: float) -> float:
 
 
 def run(config: ScenarioConfig = ScenarioConfig()) -> SpiralReport:
+    if not 0.0 <= config.hedge_relief_frac <= 1.0:
+        raise ValueError(f"hedge_relief_frac must be in [0, 1], got {config.hedge_relief_frac}")
     rng = np.random.default_rng(config.seed)
     p = config.params
     spiral_hits = np.zeros(config.months, dtype=float)
@@ -153,13 +161,14 @@ def run(config: ScenarioConfig = ScenarioConfig()) -> SpiralReport:
             monthly_release = 1.0 - math.exp(-30.0 / p.unlock_tau_days)
             redeemable_overhang += toggled * monthly_release
             sold = redeemable_overhang * config.redemption_sell_frac
+            spot_sold = sold * (1.0 - config.hedge_relief_frac)
             redeemable_overhang -= sold
-            if sold > 0:
-                tao_out = pool_math.quote_unstake(pool, sold)
+            if spot_sold > 0:
+                tao_out = pool_math.quote_unstake(pool, spot_sold)
                 extra = 0.10 * config.tao_drawdown_corr if shocked else 0.0
                 pool = replace(pool,
                                tao_reserve=(pool.tao_reserve - tao_out) * (1.0 - extra),
-                               alpha_reserve=pool.alpha_reserve + sold)
+                               alpha_reserve=pool.alpha_reserve + spot_sold)
 
             # EMA responds to time-at-price on the anti-manipulation ramp
             resp = emissions.ema_responsiveness(p, age_days * p.blocks_per_day)

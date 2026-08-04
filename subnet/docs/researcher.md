@@ -6,12 +6,12 @@ Researcher miners submit the **source code that produces/serves their model**
 alongside the serialized artifact. `ModelTrainer.build_code_bundle()` packages a
 deterministic `tar.gz` containing:
 
-- `inference.py` — the sandbox entrypoint the validator runs (reads
+- `inference.py`, the sandbox entrypoint the validator runs (reads
   `input.json`, writes `result.json`, using the same prediction convention as
   the validator's `ModelEvaluator`);
-- `model.joblib` — the serialized model the entrypoint loads;
-- `train.py` — the training source, for audit;
-- `metadata.json` — declared model type, features, and hyperparameters.
+- `model.joblib`, the serialized model the entrypoint loads;
+- `train.py`, the training source, for audit;
+- `metadata.json`, declared model type, features, and hyperparameters.
 
 The bundle bytes, their SHA-256 hash, the entrypoint name, and the manifest are
 attached to every `ModelSubmission` (`code_bundle`, `code_bundle_hash`,
@@ -22,7 +22,7 @@ predictions before scoring. A submission whose code does not reproduce its
 artifact is gated out (zero weight); see `docs/SUBNET_SPEC.md` →
 "Reproducible Code Submission".
 
-Miners are free to replace the reference training pipeline entirely — the only
+Miners are free to replace the reference training pipeline entirely, the only
 hard requirement is that `inference.py` reproduces the submitted artifact's
 predictions from `input.json` within tolerance.
 

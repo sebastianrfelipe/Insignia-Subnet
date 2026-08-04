@@ -36,11 +36,11 @@ This document is the MCP swarm prompt for the Insignia subnet repository.
   - the optimizer has moved from target-seeking into empirical validation of the achieved regime
   - commit-reveal remains above the acceptance floor of `0.667`
 - Best reported experiment series:
-  - baseline checkpoint: **EXP-116** — breach_rate `0.000049`, honest_score `0.9705`, separation `0.903`, variance `0.0030`
-  - Phase 5 seed checkpoint: **EXP-118** — breach_rate `0.000048`, honest_score `0.9720`, separation `0.907`, variance `0.0029`
-  - current best executed researcher baseline: **EXP-140** — breach_rate `0.000025`, honest_score `0.9748`, separation `0.929`, variance `0.0016`
-  - runner-up: **EXP-141** — breach_rate `0.000028`, honest_score `0.9750`, separation `0.922`, variance `0.0017`
-  - latest kept follow-on: **EXP-142** — breach_rate `0.000023`, honest_score `0.9752`, separation `0.931`, scalarized_fitness `0.976`
+  - baseline checkpoint: **EXP-116**, breach_rate `0.000049`, honest_score `0.9705`, separation `0.903`, variance `0.0030`
+  - Phase 5 seed checkpoint: **EXP-118**, breach_rate `0.000048`, honest_score `0.9720`, separation `0.907`, variance `0.0029`
+  - current best executed researcher baseline: **EXP-140**, breach_rate `0.000025`, honest_score `0.9748`, separation `0.929`, variance `0.0016`
+  - runner-up: **EXP-141**, breach_rate `0.000028`, honest_score `0.9750`, separation `0.922`, variance `0.0017`
+  - latest kept follow-on: **EXP-142**, breach_rate `0.000023`, honest_score `0.9752`, separation `0.931`, scalarized_fitness `0.976`
 - Optimization status:
   - active NSGA-II profile: **v13 R3 surrogate-guided run**
   - operating spec: `20 generations`, `30 population`, `4 objectives`, `SBX prob=0.9 eta=15`, `PM eta=20`
@@ -204,20 +204,23 @@ Use these as the default model priorities unless a run explicitly overrides them
 
 ### Trading weights (trader) kept in repository defaults
 
-The codebase preserves a 9-metric trading scorer. The `model_attribution` metric was
+The codebase preserves an 8-metric trading scorer, plus win rate as an
+unweighted diagnostic. The `model_attribution` metric was
 removed in the migration to the single paired genetic mechanism (the model is
 assigned to the trader by the genetic algorithm, not self-selected), and its
-weight was redistributed. Current compatible defaults are:
+weight was redistributed. On 2026-08-03 absolute `realized_pnl` was replaced
+by scale-invariant `annualized_return`, `win_rate` was demoted to the
+diagnostics tier, and the surviving weights were renormalized pro-rata
+(x 1/0.94). Current compatible defaults are:
 
-- `trading_realized_pnl = 0.20`
-- `trading_omega = 0.13`
-- `trading_max_drawdown = 0.14`
-- `trading_win_rate = 0.06`
-- `trading_consistency = 0.20`
-- `trading_execution_quality = 0.10`
-- `trading_annualized_volatility = 0.05`
-- `trading_sharpe_ratio = 0.06`
-- `trading_sortino_ratio = 0.06`
+- `trading_annualized_return = 0.2128`
+- `trading_omega = 0.1383`
+- `trading_max_drawdown = 0.1489`
+- `trading_consistency = 0.2128`
+- `trading_execution_quality = 0.1064`
+- `trading_annualized_volatility = 0.0532`
+- `trading_sharpe_ratio = 0.0638`
+- `trading_sortino_ratio = 0.0638`
 
 ### Validation timing defaults
 
