@@ -55,6 +55,30 @@ v3 changes vs v2:
      status="PENDING_GITHUB_PUSH" MUST NOT be interpreted as promotion;
      they are TODO items.
 
+AMENDMENT 2026-08-03 (trading metric revamp, subnet/CHANGELOG.md 2026-08-03):
+
+  The subnet's trading composite was redesigned: annualized_return
+  replaced realized_pnl as the profitability headline and win_rate was
+  demoted to a reported-only diagnostic. The tunable trading-weight
+  space went from 9 weights to 8 (survivors renormalized pro-rata
+  x1/0.94), and WeightConfig/parameter_space.py/protocol were rewired.
+
+  Consequences for this dispatch:
+
+  - V14-R1-CORRECTED-KP was tuned under the OLD parameter space
+    (trading_realized_pnl + trading_win_rate). It must be re-based to
+    the current space BEFORE verification; a new pre-flight check
+    (config_matches_current_parameter_space) ABORTs the run otherwise.
+  - Tuner warm-start vectors persisted under results/ (e.g.
+    tuner_v14_r1_warmstart_seed_*.json) are invalidated by the renames
+    and MUST NOT be decoded with the new parameter space; tuner_step4
+    is removed from the context artifacts and quarantined.
+  - Every gate evidence document must be scored under the post-revamp
+    composite and carry scoring_schema="annualized_return_v2";
+    pre-revamp evidence is added to every gate's forbidden_evidence.
+  - New hard block no_stale_parameter_space_promotion: no git-push
+    promotion, no btcli hyperparameter apply for a stale-space config.
+
 This script CANNOT dispatch the orchestrator from this repo — the
 insignia-local MCP server is not available in this environment. It writes
 the v3 manifest to results/ for manual execution in the orchestrator env.
@@ -92,9 +116,55 @@ FORBIDDEN_COLLECTIONS: List[str] = [
 FILESYSTEM_KRET_ARTIFACTS: Dict[str, str] = {
     "simulator_step2": "results/v14_r1_empirical_validation_2026-07-04T02-21-09.json",
     "sentinel_step3": "results/sentinel_coverage_matrix_2026-07-04T14-35-21.json",
-    "tuner_step4": "results/tuner_v14_r1_warmstart_seed_2026-07-04T02-39-07.json",
     "researcher_step5": "results/researcher_v14_r1_gate_check_2026-07-04T14-33-59.json",
 }
+
+# Artifacts invalidated by the 2026-08-03 trading metric revamp. The
+# WeightConfig/parameter-space renames (trading_realized_pnl ->
+# trading_annualized_return, trading_win_rate removed) make these vectors
+# undecodable under the current parameter space. Quarantined: retained for
+# provenance, MUST NOT be decoded or used even as context.
+INVALIDATED_KRET_ARTIFACTS: Dict[str, Dict[str, str]] = {
+    "tuner_step4": {
+        "path": "results/tuner_v14_r1_warmstart_seed_2026-07-04T02-39-07.json",
+        "invalidated_by": "subnet/CHANGELOG.md 2026-08-03 (trading metric revamp)",
+        "reason": "Warm-start vector encoded in the pre-2026-08-03 parameter space (9 trading weights incl. realized_pnl + win_rate). Must not be decoded with the new 8-weight annualized_return parameter space.",
+    },
+}
+
+# Evidence scoring schema. Every V14-R1 evidence document must carry this
+# tag; documents without it do NOT count toward any gate's min_documents.
+EVIDENCE_SCORING_SCHEMA: Dict[str, Any] = {
+    "required_field": "scoring_schema",
+    "required_value": "annualized_return_v2",
+    "applies_to_collections": ["simulation_epochs", "sentinel_state", "convergence_metrics"],
+    "rule": "Every V14-R1 evidence document must carry scoring_schema='annualized_return_v2' (composite scored under the 2026-08-03 metric revamp: annualized_return headline, win_rate diagnostic-only). Documents without the tag, or produced under the pre-revamp realized_pnl/win_rate composite, do NOT count toward any gate's min_documents.",
+    "source": "subnet/CHANGELOG.md 2026-08-03, trading metric revamp",
+}
+
+# String appended to every gate's forbidden_evidence by the 2026-08-03
+# amendment: pre-revamp evidence is not V14-R1 evidence.
+STALE_COMPOSITE_FORBIDDEN_EVIDENCE = (
+    "pre-2026-08-03 evidence scored under the realized_pnl/win_rate composite"
+)
+
+# Amendment log (recorded in the manifest for auditability, same convention
+# as the CORRECTION block in reference_configs/knee_point_V13-R3.json).
+AMENDMENTS: List[Dict[str, Any]] = [
+    {
+        "id": "AMEND-2026-08-03-trading-metric-revamp",
+        "date": "2026-08-03",
+        "source": "subnet/CHANGELOG.md (2026-08-03): annualized return replaces realized P&L; win rate demoted to diagnostics",
+        "summary": "Config compatibility + evidence freshness. V14-R1-CORRECTED-KP predates the parameter-space revamp and must be re-based before verification; tuner warm-start vectors under results/ are invalidated; all gate evidence must be scored under the annualized_return_v2 composite.",
+        "changes": [
+            "Added pre-flight check config_matches_current_parameter_space (abort status ABORTED_CONFIG_PARAMETER_SPACE_STALE).",
+            "Added hard block no_stale_parameter_space_promotion.",
+            "Added evidence_scoring_schema requirement (scoring_schema='annualized_return_v2').",
+            "Appended the stale-composite entry to every gate's forbidden_evidence.",
+            "Quarantined tuner_step4 warm-start artifact into invalidated_kret_artifacts (must not be decoded with the new parameter space).",
+        ],
+    },
+]
 
 
 # Pre-flight checks that MUST pass before any gate evaluation begins.
@@ -112,6 +182,12 @@ PREFLIGHT_CHECKS: List[Dict[str, Any]] = [
         "description": "V14-R1-CORRECTED-KP config must be loadable from agent_memory key v14_r1_corrected_config.",
         "pass_criteria": "read_memory(v14_r1_corrected_config) returns a non-null config dict.",
         "on_fail": "ABORT. The config is the substrate for the entire verification; without it nothing can be verified.",
+    },
+    {
+        "id": "config_matches_current_parameter_space",
+        "description": "V14-R1-CORRECTED-KP was tuned under the pre-2026-08-03 parameter space (9 trading weights incl. trading_realized_pnl + trading_win_rate). The 2026-08-03 revamp replaced realized P&L with annualized_return and demoted win_rate to a diagnostic (8 trading weights, survivors renormalized x1/0.94). The config must be re-based before it can be run or verified.",
+        "pass_criteria": "The loaded config dict has exactly 8 trading-weight keys including trading_annualized_return, and contains neither trading_realized_pnl nor trading_win_rate.",
+        "on_fail": "ABORT with status=ABORTED_CONFIG_PARAMETER_SPACE_STALE. File a config re-basing task (drop realized_pnl + win_rate, renormalize the surviving weights x1/0.94, re-persist under config_id V14-R1-CORRECTED-KP) and re-dispatch after it completes. Do NOT verify or promote the stale-space config.",
     },
     {
         "id": "namespace_writable",
@@ -190,6 +266,10 @@ EVIDENCE_REQUIREMENTS: List[Dict[str, Any]] = [
     },
 ]
 
+# 2026-08-03 amendment: pre-revamp evidence is forbidden for every gate.
+for _gate in EVIDENCE_REQUIREMENTS:
+    _gate["forbidden_evidence"].append(STALE_COMPOSITE_FORBIDDEN_EVIDENCE)
+
 
 # Hard blocks — actions the orchestrator/coder MUST NOT take.
 HARD_BLOCKS: List[Dict[str, Any]] = [
@@ -223,6 +303,11 @@ HARD_BLOCKS: List[Dict[str, Any]] = [
         "rule": "The coder MUST NOT write agent_memory with status=PROMOTED or status=PROMOTED_WITH_PENDING_BTCLI unless the parameter_space.py change is actually pushed to the git branch.",
         "enforcement": "If GitHub push tools are unavailable, the coder writes status=BLOCKED_NO_GIT_PUSH with the diff description, and the orchestrator files a follow-up task for manual push. PENDING_GITHUB_PUSH is a TODO, not a promotion.",
     },
+    {
+        "id": "no_stale_parameter_space_promotion",
+        "rule": "The coder MUST NOT push a parameter_space.py promotion diff, set current_candidate_status=promoted_*, or apply btcli hyperparameters for a config expressed in the pre-2026-08-03 trading-weight space (trading_realized_pnl / trading_win_rate present, or trading_annualized_return absent). Promotion applies only to the re-based config.",
+        "enforcement": "If the config fails the config_matches_current_parameter_space pre-flight, the HITL promotion task returns BLOCKED_CONFIG_STALE and the orchestrator files a config re-basing task instead of promoting. btcli apply with stale-space weights is a chain-mutating write of a mis-scored production config.",
+    },
 ]
 
 
@@ -232,6 +317,8 @@ def build_manifest() -> Dict[str, Any]:
         "manifest_type": "v14_r1_online_gate_verification_dispatch",
         "manifest_version": "v3",
         "generated_at": datetime.now(timezone.utc).isoformat(),
+        "amended_at": "2026-08-03",
+        "amendments": AMENDMENTS,
         "config_id": "V14-R1-CORRECTED-KP",
         "config_source": "orchestrator MongoDB memory key `v14_r1_corrected_config`",
         "spec_ref": "EMULATOR_SPEC.md §9 acceptance gates (online mode)",
@@ -278,6 +365,8 @@ def build_manifest() -> Dict[str, Any]:
         "forbidden_collections": FORBIDDEN_COLLECTIONS,
         "filesystem_kret_artifacts": FILESYSTEM_KRET_ARTIFACTS,
         "filesystem_kret_role": "CONTEXT ONLY — usable for cycle continuity / debugging, NOT as primary evidence for any §9 online gate verdict in v3.",
+        "invalidated_kret_artifacts": INVALIDATED_KRET_ARTIFACTS,
+        "evidence_scoring_schema": EVIDENCE_SCORING_SCHEMA,
         "preflight_checks": PREFLIGHT_CHECKS,
         "hard_blocks": HARD_BLOCKS,
         "objective": (
@@ -285,7 +374,11 @@ def build_manifest() -> Dict[str, Any]:
             "config on-chain, across >= 2 reruns with different seeds, with V14-R1 "
             "evidence persisted to MongoDB. If all 6 clear against V14-R1 evidence "
             "(not projections), proceed to the HITL promotion gate. v3 hard-blocks "
-            "the premature-promotion failure mode observed in the v2 run."
+            "the premature-promotion failure mode observed in the v2 run. "
+            "Amended 2026-08-03: the config must first be re-based to the current "
+            "parameter space (annualized_return_v2; realized_pnl replaced, win_rate "
+            "diagnostic-only) and all gate evidence must be scored under the "
+            "post-revamp composite."
         ),
         "online_gates_to_verify": EVIDENCE_REQUIREMENTS,
         "acceptance_criteria": {
@@ -318,10 +411,15 @@ def build_manifest() -> Dict[str, Any]:
                         "V14-R1 online-mode gate verification (v3 — hard-blocks premature "
                         "promotion): run the live V14-R1-CORRECTED-KP config on-chain across "
                         ">= 2 reruns with different seeds. PRE-FLIGHT: abort if local chain "
-                        "unreachable. EVIDENCE: each gate must cite a V14-R1 MongoDB document "
-                        "(V13-R3 projections forbidden). PROMOTION WRITE-BLOCK: do not write "
-                        "criterion_met=true until >= 2 V14-R1 simulation_epochs + V14-R1 "
-                        "sentinel_state are persisted. NAMESPACE: every write uses "
+                        "unreachable; abort with ABORTED_CONFIG_PARAMETER_SPACE_STALE if the "
+                        "config is still in the pre-2026-08-03 trading-weight space "
+                        "(trading_realized_pnl / trading_win_rate), file a re-basing task "
+                        "instead of verifying. EVIDENCE: each gate must cite a V14-R1 MongoDB "
+                        "document tagged scoring_schema='annualized_return_v2' (V13-R3 "
+                        "projections and pre-revamp composite evidence forbidden). PROMOTION "
+                        "WRITE-BLOCK: do not write criterion_met=true until >= 2 V14-R1 "
+                        "simulation_epochs + V14-R1 sentinel_state are persisted. NAMESPACE: "
+                        "every write uses "
                         f"{RUN_NAMESPACE} (procedure=insignia_subnet_tuner is FORBIDDEN). "
                         "REVIEWER VETO: orchestrator summary must match reviewer verdicts."
                     ),
@@ -383,12 +481,12 @@ def build_manifest() -> Dict[str, Any]:
         },
         "post_verification": {
             "on_success": [
-                "All 6 gates PASS against V14-R1 MongoDB evidence (not projections).",
+                "All 6 gates PASS against V14-R1 MongoDB evidence tagged scoring_schema='annualized_return_v2' (not projections, not pre-revamp composite runs).",
                 ">= 2 V14-R1 simulation_epochs documents persisted with distinct seeds.",
                 ">= 1 V14-R1 sentinel_state document persisted with security_status=SECURE_AND_IMPROVING+ and consecutive_evals_below_threshold >= 6.",
                 ">= 1 V14-R1 convergence_metrics document persisted with criterion_met=true (this is the evidence, written LAST).",
-                "parameter_space.py change PUSHED to git branch (not PENDING_GITHUB_PUSH).",
-                "btcli hyperparameter apply completed (not pending).",
+                "parameter_space.py change PUSHED to git branch (not PENDING_GITHUB_PUSH), expressing the re-based V14-R1-CORRECTED-KP values in the current 8 trading-weight (annualized_return) space.",
+                "btcli hyperparameter apply completed (not pending) with the re-based config.",
                 "Write agent_memory v14_r1_online_verification_result with status=ALL_GATES_CLEARED_V14_R1_EVIDENCE.",
             ],
             "on_failure": [
@@ -402,6 +500,7 @@ def build_manifest() -> Dict[str, Any]:
                 "Do NOT evaluate any gate.",
                 "Do NOT dispatch the HITL promotion task.",
                 "File a task to restore the local chain, then re-dispatch v3.",
+                "On config_matches_current_parameter_space failure: status=ABORTED_CONFIG_PARAMETER_SPACE_STALE; file a config re-basing task (renormalize surviving trading weights x1/0.94 into the annualized_return space, re-persist under config_id V14-R1-CORRECTED-KP), then re-dispatch v3 after it completes.",
             ],
         },
     }
@@ -429,9 +528,28 @@ def main() -> int:
         "# V14-R1 Online-Mode Gate Verification — Orchestrator Dispatch Manifest (v3)",
         "",
         f"**Generated:** {manifest['generated_at']}",
+        f"**Amended:** {manifest['amended_at']} ({AMENDMENTS[0]['id']}, {AMENDMENTS[0]['source']})",
         f"**Config ID:** {manifest['config_id']}",
         f"**Config source:** {manifest['config_source']}",
         f"**Spec ref:** {manifest['spec_ref']}",
+        "",
+        "## 2026-08-03 amendment, trading metric revamp",
+        "",
+        AMENDMENTS[0]["summary"],
+        "",
+        "Design change (subnet/CHANGELOG.md 2026-08-03): annualized_return replaces realized_pnl as the trading profitability headline; win_rate is demoted to a reported-only diagnostic; the tunable trading-weight space drops from 9 weights to 8 with the survivors renormalized pro-rata x1/0.94. V14-R1-CORRECTED-KP was tuned under the old space, so:",
+        "",
+    ]
+    for ch in AMENDMENTS[0]["changes"]:
+        lines.append(f"- {ch}")
+    lines += [
+        "",
+        "Invalidated KRET artifacts (quarantined, retained for provenance, MUST NOT be decoded with the new parameter space):",
+        "",
+    ]
+    for k, v in INVALIDATED_KRET_ARTIFACTS.items():
+        lines.append(f"- `{k}`: `{v['path']}`, {v['reason']}")
+    lines += [
         "",
         "## v2 post-mortem (why v3 exists)",
         "",
@@ -459,6 +577,8 @@ def main() -> int:
         "5. **REVIEWER VETO** — orchestrator summary must match reviewer verdicts; disagreement → correction task, not promotion.",
         "6. **NO PROJECTION VERDICTS** — `PASS (projected)` / `PASS (conditional)` are forbidden; verdicts are PASS / FAIL / INSUFFICIENT_EVIDENCE.",
         "7. **NO PROMOTION WITHOUT GIT PUSH** — `PENDING_GITHUB_PUSH` is a TODO, not a promotion.",
+        "8. **CONFIG PARAMETER-SPACE GATE (2026-08-03)** — abort with `ABORTED_CONFIG_PARAMETER_SPACE_STALE` if V14-R1-CORRECTED-KP is still expressed in the pre-revamp trading-weight space; file a re-basing task instead of verifying.",
+        "9. **EVIDENCE SCORING SCHEMA (2026-08-03)** — gate evidence must carry `scoring_schema='annualized_return_v2'`; pre-revamp composite runs do not count toward `min_documents`.",
         "",
         "## Objective",
         "",
@@ -491,6 +611,12 @@ def main() -> int:
         fe = "; ".join(g["forbidden_evidence"])
         lines.append(f"| {i} | `{g['gate']}` | {g['threshold']} | `{g['required_collection']}` | `{g['required_field']}` | {g['min_documents']} | {fe} |")
     lines += [
+        "",
+        "## Evidence scoring schema (2026-08-03)",
+        "",
+        manifest["evidence_scoring_schema"]["rule"],
+        "",
+        f"Applies to collections: {', '.join(manifest['evidence_scoring_schema']['applies_to_collections'])}. Source: {manifest['evidence_scoring_schema']['source']}.",
         "",
         "## Acceptance Criteria",
         "",

@@ -1,9 +1,26 @@
 # V14-R1 Online-Mode Gate Verification, Orchestrator Dispatch Manifest (v3)
 
 **Generated:** 2026-07-07T20:53:46.970624+00:00
+**Amended:** 2026-08-03 (AMEND-2026-08-03-trading-metric-revamp, subnet/CHANGELOG.md 2026-08-03)
 **Config ID:** V14-R1-CORRECTED-KP
 **Config source:** orchestrator MongoDB memory key `v14_r1_corrected_config`
 **Spec ref:** EMULATOR_SPEC.md §9 acceptance gates (online mode)
+
+## 2026-08-03 amendment, trading metric revamp
+
+Config compatibility + evidence freshness. V14-R1-CORRECTED-KP predates the parameter-space revamp and must be re-based before verification; tuner warm-start vectors under results/ are invalidated; all gate evidence must be scored under the annualized_return_v2 composite.
+
+Design change (subnet/CHANGELOG.md 2026-08-03): annualized_return replaces realized_pnl as the trading profitability headline; win_rate is demoted to a reported-only diagnostic; the tunable trading-weight space drops from 9 weights to 8 with the survivors renormalized pro-rata x1/0.94. V14-R1-CORRECTED-KP was tuned under the old space, so:
+
+- Added pre-flight check config_matches_current_parameter_space (abort status ABORTED_CONFIG_PARAMETER_SPACE_STALE).
+- Added hard block no_stale_parameter_space_promotion.
+- Added evidence_scoring_schema requirement (scoring_schema='annualized_return_v2').
+- Appended the stale-composite entry to every gate's forbidden_evidence.
+- Quarantined tuner_step4 warm-start artifact into invalidated_kret_artifacts (must not be decoded with the new parameter space).
+
+Invalidated KRET artifacts (quarantined, retained for provenance, MUST NOT be decoded with the new parameter space):
+
+- `tuner_step4`: `results/tuner_v14_r1_warmstart_seed_2026-07-04T02-39-07.json`, Warm-start vector encoded in the pre-2026-08-03 parameter space (9 trading weights incl. realized_pnl + win_rate). Must not be decoded with the new 8-weight annualized_return parameter space.
 
 ## v2 post-mortem (why v3 exists)
 
@@ -42,10 +59,12 @@ Root causes v3 fixes:
 5. **REVIEWER VETO**, orchestrator summary must match reviewer verdicts; disagreement → correction task, not promotion.
 6. **NO PROJECTION VERDICTS**, `PASS (projected)` / `PASS (conditional)` are forbidden; verdicts are PASS / FAIL / INSUFFICIENT_EVIDENCE.
 7. **NO PROMOTION WITHOUT GIT PUSH**, `PENDING_GITHUB_PUSH` is a TODO, not a promotion.
+8. **CONFIG PARAMETER-SPACE GATE (2026-08-03)**, abort with `ABORTED_CONFIG_PARAMETER_SPACE_STALE` if V14-R1-CORRECTED-KP is still expressed in the pre-revamp trading-weight space; file a re-basing task instead of verifying.
+9. **EVIDENCE SCORING SCHEMA (2026-08-03)**, gate evidence must carry `scoring_schema='annualized_return_v2'`; pre-revamp composite runs do not count toward `min_documents`.
 
 ## Objective
 
-Verify the 6 online-mode §9 gates against the live V14-R1-CORRECTED-KP config on-chain, across >= 2 reruns with different seeds, with V14-R1 evidence persisted to MongoDB. If all 6 clear against V14-R1 evidence (not projections), proceed to the HITL promotion gate. v3 hard-blocks the premature-promotion failure mode observed in the v2 run.
+Verify the 6 online-mode §9 gates against the live V14-R1-CORRECTED-KP config on-chain, across >= 2 reruns with different seeds, with V14-R1 evidence persisted to MongoDB. If all 6 clear against V14-R1 evidence (not projections), proceed to the HITL promotion gate. v3 hard-blocks the premature-promotion failure mode observed in the v2 run. Amended 2026-08-03: the config must first be re-based to the current parameter space (annualized_return_v2; realized_pnl replaced, win_rate diagnostic-only) and all gate evidence must be scored under the post-revamp composite.
 
 ## Pre-flight checks (ABORT on any failure)
 
@@ -53,7 +72,8 @@ Verify the 6 online-mode §9 gates against the live V14-R1-CORRECTED-KP config o
 |---|---|---|---|
 | 1 | `local_chain_reachable` | btcli chain-info (or equivalent SDK call) returns a block within the last 60 seconds. | ABORT. Do not fall back to offline/harness projections. §9 requires online mode. |
 | 2 | `v14_r1_config_loaded` | read_memory(v14_r1_corrected_config) returns a non-null config dict. | ABORT. The config is the substrate for the entire verification; without it nothing can be verified. |
-| 3 | `namespace_writable` | A no-op mongodb_insert_one into audit_log with the RUN_NAMESPACE succeeds. | ABORT. If the namespace isn't writable, the verification cannot persist evidence under the correct procedure. |
+| 3 | `config_matches_current_parameter_space` | The loaded config dict has exactly 8 trading-weight keys including trading_annualized_return, and contains neither trading_realized_pnl nor trading_win_rate. | ABORT with status=ABORTED_CONFIG_PARAMETER_SPACE_STALE. File a config re-basing task (drop realized_pnl + win_rate, renormalize the surviving weights x1/0.94, re-persist under config_id V14-R1-CORRECTED-KP) and re-dispatch after it completes. Do NOT verify or promote the stale-space config. |
+| 4 | `namespace_writable` | A no-op mongodb_insert_one into audit_log with the RUN_NAMESPACE succeeds. | ABORT. If the namespace isn't writable, the verification cannot persist evidence under the correct procedure. |
 
 ## Hard blocks (orchestrator/coder MUST NOT do these)
 
@@ -81,16 +101,26 @@ Verify the 6 online-mode §9 gates against the live V14-R1-CORRECTED-KP config o
 **Rule:** The coder MUST NOT write agent_memory with status=PROMOTED or status=PROMOTED_WITH_PENDING_BTCLI unless the parameter_space.py change is actually pushed to the git branch.
 **Enforcement:** If GitHub push tools are unavailable, the coder writes status=BLOCKED_NO_GIT_PUSH with the diff description, and the orchestrator files a follow-up task for manual push. PENDING_GITHUB_PUSH is a TODO, not a promotion.
 
+### `no_stale_parameter_space_promotion`
+**Rule:** The coder MUST NOT push a parameter_space.py promotion diff, set current_candidate_status=promoted_*, or apply btcli hyperparameters for a config expressed in the pre-2026-08-03 trading-weight space (trading_realized_pnl / trading_win_rate present, or trading_annualized_return absent). Promotion applies only to the re-based config.
+**Enforcement:** If the config fails the config_matches_current_parameter_space pre-flight, the HITL promotion task returns BLOCKED_CONFIG_STALE and the orchestrator files a config re-basing task instead of promoting. btcli apply with stale-space weights is a chain-mutating write of a mis-scored production config.
+
 ## 6 Online-Mode Gates with V14-R1 Evidence Requirements
 
 | # | Gate | Threshold | Required collection | Required field | Min docs | Forbidden evidence |
 |---|---|---|---|---|---|---|
-| 1 | `honest_mean_score` | 0.97 | `simulation_epochs` | `honest_mean_score` | 2 | V13-R3 simulation_epochs; offline KRET file references; separation-based projections |
-| 2 | `score_variance` | 0.002 | `simulation_epochs` | `honest_score_variance` | 2 | V13-R3 simulation_epochs; projections |
-| 3 | `commit_reveal_effectiveness` | 0.667 | `simulation_epochs` | `cr_effectiveness` | 2 | V13-R3 sentinel_state cr_effectiveness; agent_memory sentinel_state from V13-R3 |
-| 4 | `consecutive_clean_validations` | 6 | `sentinel_state` | `consecutive_evals_below_threshold` | 1 | V13-R3 sentinel_state; agent_memory sentinel_state from V13-R3 |
-| 5 | `convergence_contract` | unanimously_met | `convergence_metrics` | `criterion_met` | 1 | V13-R3 convergence_metrics (criterion_met=false); offline summary claims |
-| 6 | `sentinel_posture` | SECURE_AND_IMPROVING | `sentinel_state` | `security_status` | 1 | V13-R3 sentinel_state; agent_memory sentinel_state from V13-R3 |
+| 1 | `honest_mean_score` | 0.97 | `simulation_epochs` | `honest_mean_score` | 2 | V13-R3 simulation_epochs; offline KRET file references; separation-based projections; pre-2026-08-03 evidence scored under the realized_pnl/win_rate composite |
+| 2 | `score_variance` | 0.002 | `simulation_epochs` | `honest_score_variance` | 2 | V13-R3 simulation_epochs; projections; pre-2026-08-03 evidence scored under the realized_pnl/win_rate composite |
+| 3 | `commit_reveal_effectiveness` | 0.667 | `simulation_epochs` | `cr_effectiveness` | 2 | V13-R3 sentinel_state cr_effectiveness; agent_memory sentinel_state from V13-R3; pre-2026-08-03 evidence scored under the realized_pnl/win_rate composite |
+| 4 | `consecutive_clean_validations` | 6 | `sentinel_state` | `consecutive_evals_below_threshold` | 1 | V13-R3 sentinel_state; agent_memory sentinel_state from V13-R3; pre-2026-08-03 evidence scored under the realized_pnl/win_rate composite |
+| 5 | `convergence_contract` | unanimously_met | `convergence_metrics` | `criterion_met` | 1 | V13-R3 convergence_metrics (criterion_met=false); offline summary claims; pre-2026-08-03 evidence scored under the realized_pnl/win_rate composite |
+| 6 | `sentinel_posture` | SECURE_AND_IMPROVING | `sentinel_state` | `security_status` | 1 | V13-R3 sentinel_state; agent_memory sentinel_state from V13-R3; pre-2026-08-03 evidence scored under the realized_pnl/win_rate composite |
+
+## Evidence scoring schema (2026-08-03)
+
+Every V14-R1 evidence document must carry scoring_schema='annualized_return_v2' (composite scored under the 2026-08-03 metric revamp: annualized_return headline, win_rate diagnostic-only). Documents without the tag, or produced under the pre-revamp realized_pnl/win_rate composite, do NOT count toward any gate's min_documents.
+
+Applies to collections: simulation_epochs, sentinel_state, convergence_metrics. Source: subnet/CHANGELOG.md 2026-08-03, trading metric revamp.
 
 ## Acceptance Criteria
 
@@ -113,7 +143,7 @@ Verify the 6 online-mode §9 gates against the live V14-R1-CORRECTED-KP config o
 {
   "assignee": "orchestrator",
   "priority": 10,
-  "description": "V14-R1 online-mode gate verification (v3 \u2014 hard-blocks premature promotion): run the live V14-R1-CORRECTED-KP config on-chain across >= 2 reruns with different seeds. PRE-FLIGHT: abort if local chain unreachable. EVIDENCE: each gate must cite a V14-R1 MongoDB document (V13-R3 projections forbidden). PROMOTION WRITE-BLOCK: do not write criterion_met=true until >= 2 V14-R1 simulation_epochs + V14-R1 sentinel_state are persisted. NAMESPACE: every write uses {'playbook': 'insignia_subnet_online_verification', 'domain': 'v14_r1', 'procedure': 'v14_r1_online_gate_check'} (procedure=insignia_subnet_tuner is FORBIDDEN). REVIEWER VETO: orchestrator summary must match reviewer verdicts.",
+  "description": "V14-R1 online-mode gate verification (v3 \u2014 hard-blocks premature promotion): run the live V14-R1-CORRECTED-KP config on-chain across >= 2 reruns with different seeds. PRE-FLIGHT: abort if local chain unreachable; abort with ABORTED_CONFIG_PARAMETER_SPACE_STALE if the config is still in the pre-2026-08-03 trading-weight space (trading_realized_pnl / trading_win_rate), file a re-basing task instead of verifying. EVIDENCE: each gate must cite a V14-R1 MongoDB document tagged scoring_schema='annualized_return_v2' (V13-R3 projections and pre-revamp composite evidence forbidden). PROMOTION WRITE-BLOCK: do not write criterion_met=true until >= 2 V14-R1 simulation_epochs + V14-R1 sentinel_state are persisted. NAMESPACE: every write uses {'playbook': 'insignia_subnet_online_verification', 'domain': 'v14_r1', 'procedure': 'v14_r1_online_gate_check'} (procedure=insignia_subnet_tuner is FORBIDDEN). REVIEWER VETO: orchestrator summary must match reviewer verdicts.",
   "metadata": {
     "cycle_step": "5_to_HITL_v3",
     "config_id": "V14-R1-CORRECTED-KP",
@@ -129,6 +159,7 @@ Verify the 6 online-mode §9 gates against the live V14-R1-CORRECTED-KP config o
     "preflight_checks": [
       "local_chain_reachable",
       "v14_r1_config_loaded",
+      "config_matches_current_parameter_space",
       "namespace_writable"
     ],
     "hard_blocks": [
@@ -137,7 +168,8 @@ Verify the 6 online-mode §9 gates against the live V14-R1-CORRECTED-KP config o
       "no_namespace_leak",
       "no_offline_fallback_for_online_gates",
       "reviewer_veto_honored",
-      "no_promotion_without_git_push"
+      "no_promotion_without_git_push",
+      "no_stale_parameter_space_promotion"
     ],
     "v2_postmortem_doc": "results/v14_r1_v2_run_postmortem_2026-07-07.md"
   }
@@ -168,6 +200,7 @@ Verify the 6 online-mode §9 gates against the live V14-R1-CORRECTED-KP config o
     "preflight_checks": [
       "local_chain_reachable",
       "v14_r1_config_loaded",
+      "config_matches_current_parameter_space",
       "namespace_writable"
     ],
     "hard_blocks": [
@@ -176,7 +209,8 @@ Verify the 6 online-mode §9 gates against the live V14-R1-CORRECTED-KP config o
       "no_namespace_leak",
       "no_offline_fallback_for_online_gates",
       "reviewer_veto_honored",
-      "no_promotion_without_git_push"
+      "no_promotion_without_git_push",
+      "no_stale_parameter_space_promotion"
     ],
     "reruns_required": 2,
     "gates_to_verify": [
@@ -227,12 +261,12 @@ Verify the 6 online-mode §9 gates against the live V14-R1-CORRECTED-KP config o
 
 ### On success (all 6 gates clear against V14-R1 evidence)
 
-1. All 6 gates PASS against V14-R1 MongoDB evidence (not projections).
+1. All 6 gates PASS against V14-R1 MongoDB evidence tagged scoring_schema='annualized_return_v2' (not projections, not pre-revamp composite runs).
 2. >= 2 V14-R1 simulation_epochs documents persisted with distinct seeds.
 3. >= 1 V14-R1 sentinel_state document persisted with security_status=SECURE_AND_IMPROVING+ and consecutive_evals_below_threshold >= 6.
 4. >= 1 V14-R1 convergence_metrics document persisted with criterion_met=true (this is the evidence, written LAST).
-5. parameter_space.py change PUSHED to git branch (not PENDING_GITHUB_PUSH).
-6. btcli hyperparameter apply completed (not pending).
+5. parameter_space.py change PUSHED to git branch (not PENDING_GITHUB_PUSH), expressing the re-based V14-R1-CORRECTED-KP values in the current 8 trading-weight (annualized_return) space.
+6. btcli hyperparameter apply completed (not pending) with the re-based config.
 7. Write agent_memory v14_r1_online_verification_result with status=ALL_GATES_CLEARED_V14_R1_EVIDENCE.
 
 ### On failure (any gate fails or INSUFFICIENT_EVIDENCE)
@@ -248,6 +282,7 @@ Verify the 6 online-mode §9 gates against the live V14-R1-CORRECTED-KP config o
 2. Do NOT evaluate any gate.
 3. Do NOT dispatch the HITL promotion task.
 4. File a task to restore the local chain, then re-dispatch v3.
+5. On config_matches_current_parameter_space failure: status=ABORTED_CONFIG_PARAMETER_SPACE_STALE; file a config re-basing task (renormalize surviving trading weights x1/0.94 into the annualized_return space, re-persist under config_id V14-R1-CORRECTED-KP), then re-dispatch v3 after it completes.
 
 _JSON manifest: `v14_r1_online_dispatch_manifest_v3_2026-07-07T20-53-46.json`_
 
