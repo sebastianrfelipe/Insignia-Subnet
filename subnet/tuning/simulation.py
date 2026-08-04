@@ -797,7 +797,8 @@ class SimulationHarness:
                 if trades else np.array([0.0])
             )
             return scorer.score_trading(
-                realized_pnl=engine.realized_pnl,
+                cumulative_return=engine.realized_pnl / engine.initial_capital,
+                epoch_days=max(len(returns), 1),
                 returns=returns,
                 max_dd=engine.current_drawdown,
                 trades=trades,

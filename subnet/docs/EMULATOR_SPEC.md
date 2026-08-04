@@ -1,4 +1,4 @@
-# Insignia Subnet Emulator — Specification
+# Insignia Subnet Emulator, Specification
 
 **Version**: 1.0.0
 **Status**: Authoritative spec for the agent-orchestrated emulator
@@ -10,12 +10,12 @@ until the subnet reaches a **continuously-improving steady state** that is
 
 This document is the emulator-level companion to:
 
-- [SUBNET_SPEC.md](SUBNET_SPEC.md) — subnet identity and interfaces
-- [PAIRING_MECHANISM.md](PAIRING_MECHANISM.md) — the paired genetic incentive mechanism (authoritative)
-- [INCENTIVE_MECHANISM.md](INCENTIVE_MECHANISM.md) — scoring vectors, attack analysis, commit-reveal
-- [PARAMETER_TUNING_PLAN.md](PARAMETER_TUNING_PLAN.md) — the 94+ parameter optimization surface
-- [TESTNET_DEPLOYMENT.md](TESTNET_DEPLOYMENT.md) — deployment runbook and defaults
-- [../program.md](../program.md) — the agent swarm protocol (roster, reset protocol, hard rules)
+- [SUBNET_SPEC.md](SUBNET_SPEC.md), subnet identity and interfaces
+- [PAIRING_MECHANISM.md](PAIRING_MECHANISM.md), the paired genetic incentive mechanism (authoritative)
+- [INCENTIVE_MECHANISM.md](INCENTIVE_MECHANISM.md), scoring vectors, attack analysis, commit-reveal
+- [PARAMETER_TUNING_PLAN.md](PARAMETER_TUNING_PLAN.md), the 94+ parameter optimization surface
+- [TESTNET_DEPLOYMENT.md](TESTNET_DEPLOYMENT.md), deployment runbook and defaults
+- [../program.md](../program.md), the agent swarm protocol (roster, reset protocol, hard rules)
 
 External references (Bittensor):
 [SDK API](https://docs.learnbittensor.org/sdk/bt-api-ref) ·
@@ -27,8 +27,8 @@ External references (Bittensor):
 
 ## 1. Objective
 
-> Find a configuration of the Insignia incentive mechanism — its scoring weights,
-> defense thresholds, pairing knobs, and on-chain subnet hyperparameters — under
+> Find a configuration of the Insignia incentive mechanism, its scoring weights,
+> defense thresholds, pairing knobs, and on-chain subnet hyperparameters, under
 > which **honest contribution is the only profitable strategy**, and prove it by
 > running the configuration against a continuously adversarial population on a
 > real consensus chain until the system stops improving only because it has
@@ -39,7 +39,7 @@ candidate configuration to a local subtensor chain, lets honest *and* adversaria
 agent miners compete under real Yuma consensus, measures whether any adversary
 captured emission it did not earn, and feeds the result back into a
 multi-objective optimizer. The loop halts only when a formal **convergence
-contract** (§7) is unanimously satisfied — i.e. the subnet is in a
+contract** (§7) is unanimously satisfied, i.e. the subnet is in a
 self-sustaining, attack-resistant steady state.
 
 ### Success is defined by four simultaneous conditions
@@ -91,30 +91,30 @@ gaming strategy is a **failed** configuration, regardless of headline numbers.
 ```
 
 > **Environment addressing (read before deploying).** The orchestration plane,
-> the chain, and the MCP store run on **separate hosts** — do **not** assume
+> the chain, and the MCP store run on **separate hosts**, do **not** assume
 > `127.0.0.1`. The deployer must address them explicitly:
 >
 > | Plane | Address | How the stack reaches it |
 > |-------|---------|--------------------------|
 > | Subtensor chain (Docker) | `ws://<chain-host>:9945` | `SUBTENSOR_LOCAL_ENDPOINT` env var → `config.endpoint` |
-> | insignia-local MCP (MongoDB) | _(internal host — set via `MONGO_URI`, not published)_ | `MONGO_URI` env var (insignia-local MCP server) |
+> | insignia-local MCP (MongoDB) | _(internal host, set via `MONGO_URI`, not published)_ | `MONGO_URI` env var (insignia-local MCP server) |
 >
 > The chain container is **already running** on `<chain-host>`; the deployer's job
 > is to *connect to and verify* it, **not** to `docker compose up` a new chain on
 > its own host (that was the cause of the cancelled/failed deploy tasks). If the
 > container runs the upstream `localnet.sh` instead of this repo's
-> `docker-compose.testnet.yml`, the WS port is `9946` — confirm with the
+> `docker-compose.testnet.yml`, the WS port is `9946`, confirm with the
 > connectivity check below before funding wallets.
 
 Three planes, cleanly separated:
 
-1. **Orchestration plane** — the agent swarm. Agents do not share memory in
+1. **Orchestration plane**, the agent swarm. Agents do not share memory in
    process; they share *durable state* through the insignia-local MCP. This makes
    the loop resumable, auditable, and safe to run unattended (per
    [program.md](../program.md) §13: *continue until interrupted*).
-2. **Emulator plane** — deterministic Python that turns a parameter vector into a
+2. **Emulator plane**, deterministic Python that turns a parameter vector into a
    measured fitness vector against a real chain. This is the unit of evaluation.
-3. **Chain plane** — a local subtensor node running real Yuma consensus, so the
+3. **Chain plane**, a local subtensor node running real Yuma consensus, so the
    emulator measures *emission* (the thing adversaries actually want), not a
    proxy.
 
@@ -220,7 +220,7 @@ Key collections (observed live; treat as the canonical run ledger):
 | `experiment_results`, `experiment_configs`, `experiment_tsv_tracking` | Researcher loop ledger (mirrors `results/experiments.tsv`). |
 | `sentinel_state`, `breach_trends`, `breach_alerts`, `attack_monitoring`, `simulation_vector_severities` | Attack surveillance posture and per-vector severity over time. |
 | `composite_integrity_scores` | EXP-023 integrity scoring (§7 stability signal). |
-| `chain_weights` | Weights actually set on-chain per epoch — the emission ground truth. |
+| `chain_weights` | Weights actually set on-chain per epoch, the emission ground truth. |
 | `defense_strategies` | Catalog of deployed/candidate defenses (e.g. PC-VH-006). |
 | `convergence_metrics`, `convergence_state`, `reset_checkpoints`, `state_preservation` | Convergence state machine + reset/rollback points. |
 | `agent_memory`, `audit_log` | Cross-agent memory and a full audit trail of every action. |
@@ -236,12 +236,12 @@ Key collections (observed live; treat as the canonical run ledger):
 
 **Scope: local testnet only.** For now the emulator targets the
 **local subtensor** (`NetworkTarget.LOCAL`) exclusively. Do **not** deploy to the
-public Bittensor testnet (`test.finney`, `NetworkTarget.TESTNET`) — that path is
+public Bittensor testnet (`test.finney`, `NetworkTarget.TESTNET`), that path is
 out of scope until the local loop is validated.
 
 The chain is a **pre-provisioned Docker subtensor on `<chain-host>`**, not a chain
-the deployer brings up locally. The whole stack — `subnet_manager`,
-`wallet_manager`, and the emulator's `ChainInterface` — derives its endpoint from
+the deployer brings up locally. The whole stack, `subnet_manager`,
+`wallet_manager`, and the emulator's `ChainInterface`, derives its endpoint from
 `config.endpoint`, which reads `SUBTENSOR_LOCAL_ENDPOINT`
 (see [testnet/config.py](../testnet/config.py), default `ws://127.0.0.1:9945`).
 So the **only** thing needed to point everything at the real chain is to export
@@ -263,13 +263,13 @@ No code change is required; the previous deploy failures were purely the default
 | Miner | 12 | `insignia-miner-{i}` / `default` |
 
 The 12 miner wallets host the agent-miner suite (§5). One UID space, one
-metagraph, one `set_weights` vector — per the paired genetic mechanism
+metagraph, one `set_weights` vector, per the paired genetic mechanism
 ([PAIRING_MECHANISM.md](PAIRING_MECHANISM.md) §5).
 
 ### 4.2 Deploy sequence (deployer agent)
 
 The chain already exists on `<chain-host>`, so the sequence **connects and verifies**
-rather than provisioning a chain. Pass the endpoint explicitly — the check scripts
+rather than provisioning a chain. Pass the endpoint explicitly, the check scripts
 take it as their first argument.
 
 ```bash
@@ -279,7 +279,7 @@ export SUBTENSOR_LOCAL_ENDPOINT="ws://<chain-host>:9945"   # 9946 if upstream lo
 # 1. Verify connectivity to the EXISTING Docker chain (do NOT docker compose up here)
 bash testnet/scripts/check_chain_connectivity.sh "$SUBTENSOR_LOCAL_ENDPOINT"
 bash testnet/scripts/check_wallet_balances.sh   "$SUBTENSOR_LOCAL_ENDPOINT"
-#   If connectivity fails: the container is unreachable or on a different port —
+#   If connectivity fails: the container is unreachable or on a different port.
 #   resolve addressing with the infra owner; do NOT fall back to a local chain.
 
 # 2. Create wallets, register subnet, fund miners/validator (HITL-gated, §6.5)
@@ -396,10 +396,10 @@ weights sum to 1.0, all weights ∈ [0.01, 0.50], thresholds positive.
 
 ### 6.2 Objectives (NSGA-II, all minimized)
 
-1. `-mean_honest_score` — maximize honest performance.
-2. `attack_breach_rate` — minimize fraction of the 19 vectors breached.
-3. `score_variance` — minimize honest-score instability.
-4. `-score_separation` — maximize honest-vs-adversarial gap.
+1. `-mean_honest_score`, maximize honest performance.
+2. `attack_breach_rate`, minimize fraction of the 19 vectors breached.
+3. `score_variance`, minimize honest-score instability.
+4. `-score_separation`, maximize honest-vs-adversarial gap.
 
 Multi-objective by design: a high-return config with deep drawdowns or any breach
 does **not** dominate a steadier, breach-free one, so the Pareto front retains a
@@ -415,8 +415,8 @@ The subnet must satisfy one invariant:
 > to emission is closed structurally (by the mechanism), not just penalized after
 > the fact.
 
-The three classes the user named — **overfit**, **latency arbitrage**,
-**collusion** — plus their relatives, each map to a structural defense whose
+The three classes the user named, **overfit**, **latency arbitrage**,
+**collusion**, plus their relatives, each map to a structural defense whose
 effectiveness the emulator continuously re-measures:
 
 #### A. Overfitting / benchmark gaming
@@ -437,7 +437,7 @@ effectiveness the emulator continuously re-measures:
 
 | Shortcut | Why it fails (structural) | Emulator check |
 |----------|---------------------------|----------------|
-| Researcher + trader agree to only look good together | **No self-selection** — pairing is chain-seeded; **K-partner floor** forces evaluation against unchosen partners; **variance-penalized marginal-contribution credit** makes non-transferable lift unprofitable; `CollusionGraphDetector` flags the interaction anomaly directly | Colluding-pair archetypes earn **below** honest; `pair_collusion` / `partner_selection_gaming` not breached |
+| Researcher + trader agree to only look good together | **No self-selection**, pairing is chain-seeded; **K-partner floor** forces evaluation against unchosen partners; **variance-penalized marginal-contribution credit** makes non-transferable lift unprofitable; `CollusionGraphDetector` flags the interaction anomaly directly | Colluding-pair archetypes earn **below** honest; `pair_collusion` / `partner_selection_gaming` not breached |
 | Sybil cluster splits one entity across many UIDs | Fingerprint + prediction-correlation catch behavioral clones; staking cost scales linearly while per-identity reward falls; PC-VH-006 caps symbol dominance | `sybil_attack` severity declining; Sybil archetype share < 2× single-honest share |
 | Validator inflates a friend's weight | Validators **no longer choose pairings/promotion** (lever removed); weight-entropy minimum, cross-validator variance cap, rotation limits, agreement threshold, temporal-correlation monitoring; deterministic pairing means honest validators reproduce identical scores, so a deviating validator is a detectable cross-validator anomaly | `miner_validator_collusion`, `weight_entropy_violation`, `cross_validator_score_variance`, `validator_agreement_anomaly` not breached |
 
@@ -461,7 +461,7 @@ sentinel computes a breach boolean + severity for its vector. A defense is
 3. the result holds **on-chain** (real emission), not just in offline sim.
 
 If any of these fail, the sentinel raises an alert and the config is rejected.
-This makes "ungameable" an empirically maintained property, not a one-time claim —
+This makes "ungameable" an empirically maintained property, not a one-time claim.
 exactly the standing the swarm must defend (program.md §6).
 
 ### 6.5 Human-in-the-loop approval gate
@@ -484,19 +484,19 @@ sims, setting testnet weights) runs autonomously.
 > NSGA-II v13 R3 converged to a knee that *predicted* `0.963` honest/adversarial
 > separation and was promoted as state-of-record. When validated against the full
 > adversarial population, empirical separation was `~0.23`: the best adversary
-> (Copycat) scored `0.733` — not the `~0.018` the prediction implied (a ~40×
-> underestimate) — and adversaries captured ~64.7% of chain weight. The config
+> (Copycat) scored `0.733`, not the `~0.018` the prediction implied (a ~40×
+> underestimate), and adversaries captured ~64.7% of chain weight. The config
 > **failed** the `≥0.90` separation gate.
 
 > **Correction (2026-07-01, code audit).** The original §6.6 attributed the
 > divergence to a "GP surrogate trained on a simplified analytical adversary
 > model." A code audit of `subnet/tuning/optimizer.py:172-213`
 > (`InsigniaTuningProblem._evaluate`) found **no surrogate exists in the codebase**
-> — the optimizer calls `SimulationHarness.run()` directly per candidate, and
+>, the optimizer calls `SimulationHarness.run()` directly per candidate, and
 > `compute_fitness` (`optimizer.py:88-112`) reads `sim_result.adversarial_researcher_scores`
 > straight from the harness. The "GP surrogate," "analytical adversary model,"
 > "R²=0.96," and "ExpectedImprovement infill" described in earlier docs and in
-> `reference_configs/knee_point_V13-R3.json` are metadata only — none of that
+> `reference_configs/knee_point_V13-R3.json` are metadata only, none of that
 > machinery is implemented. The §6.6 contract clause "the optimizer's adversary
 > scores must come from the same evaluation path as the acceptance gates" was
 > therefore **already satisfied by construction**. The real root cause is below.
@@ -509,20 +509,20 @@ incomplete anti-gaming penalty coverage*:
    applies an anti-copy multiplier only to `CopycatMiner` and `CopyTrader`. The
    other adversaries (`SybilMiner`, `OverfittingMiner`, `SingleMetricGamer`,
    `PartnerGamer`) have **no penalty path** in the scoring loop and score
-   ~0.90 — the same as honest. `SybilMiner` actually scores *higher* than honest
+   ~0.90, the same as honest. `SybilMiner` actually scores *higher* than honest
    (0.9163 vs 0.9151) because the harness computes `sybil_pressure` and
    `ensemble_signals` but never feeds them back into `miner_scores`. This is the
    real separation leak.
 2. **Empirical reproduction.** `tests/test_simulation_separation.py` reproduces
    the V13-R3 invalidation numbers against the current harness: with the prior
    `0.50` multiplier, separation = 0.1510 (honest 0.9007, adversarial 0.7498).
-   Tightening the multiplier to `0.10` only raised separation to 0.2195 —
+   Tightening the multiplier to `0.10` only raised separation to 0.2195.
    Copycat/CopyTrader dropped, but the other adversaries were unchanged. The
    `0.733` "best adversary" figure from the invalidation report is consistent
    with the harness's adversarial mean and was real; it was just attributed to
    the wrong cause.
 3. **Pareto collapse (symptom, not cause).** All 26 Pareto solutions sat in a
-   narrow `0.958–0.967` separation band — a tell-tale of a false local optimum.
+   narrow `0.958–0.967` separation band, a tell-tale of a false local optimum.
    With no surrogate in the loop, the collapse is explained by the optimizer
    maximizing separation against a harness in which 4 of 6 adversary types
    score ~0.90 regardless of parameters: there is no parameter direction that
@@ -531,7 +531,7 @@ incomplete anti-gaming penalty coverage*:
 
 **Contract the loop must honor:**
 
-- **The optimizer's adversary scores already come from the harness** — this
+- **The optimizer's adversary scores already come from the harness**, this
   clause is satisfied by `optimizer.py:190-200`. No change needed.
 - **The harness must penalize every adversary type enumerated in §6.3, not
   just Copycat/CopyTrader.** Each adversary archetype in §5.1 / §5.2 must have
@@ -542,8 +542,8 @@ incomplete anti-gaming penalty coverage*:
 - **No surrogate-only promotion.** A predicted gate pass (§9) is provisional
   until the gates clear on empirical (harness, then online) scores across ≥2
   seeds. Record both the predicted and empirical vectors so divergence is
-  auditable. (This clause is now vacuous for the harness-direct optimizer —
-  there is no surrogate to diverge from — but is retained for any future
+  auditable. (This clause is now vacuous for the harness-direct optimizer.
+  there is no surrogate to diverge from, but is retained for any future
   surrogate-assisted search.)
 - **Divergence is a sentinel signal.** If predicted-vs-empirical separation
   (or any gate metric) diverges beyond a small tolerance, treat the run as
@@ -580,7 +580,7 @@ improving": when progress stalls, the researcher *escalates* (boundary expansion
 declaring premature victory.
 
 > **Steady state ≠ frozen.** Convergence means the optimizer cannot improve any
-> objective without regressing another *and* the adversarial entropy has settled —
+> objective without regressing another *and* the adversarial entropy has settled.
 > i.e. there are no remaining unexploited gaming strategies and no free
 > performance left. The system then enters an empirical-validation hold (re-run
 > the converged config under fresh seeds; confirm breach_rate and
@@ -592,10 +592,10 @@ declaring premature victory.
 If sentinel detects breach severity rising or hypervolume decreasing for 10
 cycles → `diverged`. Reset workflows (program.md §9):
 
-- **SOFT** — double breach-rate emphasis, inject 5 random candidates, keep elites.
-- **HARD** — keep 30% Pareto elites + 30% researcher-best + 40% random; reset
+- **SOFT**, double breach-rate emphasis, inject 5 random candidates, keep elites.
+- **HARD**, keep 30% Pareto elites + 30% researcher-best + 40% random; reset
   convergence counters; restart generations.
-- **FULL** — save state to `state_preservation`, tear down & rebuild local infra,
+- **FULL**, save state to `state_preservation`, tear down & rebuild local infra,
   restart from a fresh population (HITL-gated).
 
 ---
@@ -643,7 +643,7 @@ The bar is "match or beat the proven state of record." The last
 `0.9795`, breach `3.5e-6`, separation `0.953`). ⚠️ The newer
 `V13-R3-KP-020-a3c7` knee **looked** better on paper (honest `0.9808`, breach
 `2.6e-6`, separation `0.963`) but **failed empirical validation on separation**
-(`~0.23` vs gate `≥0.90`) — see §6.6 and
+(`~0.23` vs gate `≥0.90`), see §6.6 and
 [../reference_configs/knee_point_V13-R3.json](../reference_configs/knee_point_V13-R3.json).
 **A surrogate-predicted gate pass is not a pass.** Promotion requires the gates
 to clear on *empirical* (harness/online) scores, per §6.6 and §11.
@@ -664,7 +664,7 @@ python -m tuning.orchestrator --mode attack --trials 10
 # Full offline evolutionary tuning
 python -m tuning.orchestrator --mode optimize --generations 20 --population 30
 
-# On-chain emulator loop (local testnet — pre-provisioned Docker chain on <chain-host>)
+# On-chain emulator loop (local testnet, pre-provisioned Docker chain on <chain-host>)
 export SUBTENSOR_LOCAL_ENDPOINT="ws://<chain-host>:9945"   # 9946 if upstream localnet.sh
 python -m tuning.orchestrator --mode testnet --network local --netuid <NETUID> \
        --generations 20 --population 30
@@ -676,7 +676,7 @@ python -m tuning.autoresearch_loop --max-experiments 25
 python -m unittest discover -s tests -p "test_*.py"
 ```
 
-Chain checks (against the existing remote chain — pass the endpoint explicitly):
+Chain checks (against the existing remote chain, pass the endpoint explicitly):
 
 ```bash
 export SUBTENSOR_LOCAL_ENDPOINT="ws://<chain-host>:9945"
@@ -692,7 +692,7 @@ docker compose -f testnet/docker-compose.testnet.yml up -d
 ## 11. Hard rules (emulator)
 
 1. A config that leaks emission to **any** adversary archetype is rejected, no
-   matter how high its honest score — anti-gaming dominates performance.
+   matter how high its honest score, anti-gaming dominates performance.
 2. Acceptance gates (§9) must be cleared in **online** (real-chain) mode, not just
    offline sim. Offline is the harder *stress* environment; chain is the *truth*.
 3. Every evaluation, breach report, and optimizer step is persisted to the

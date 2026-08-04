@@ -33,14 +33,14 @@
 **Target output quality metric miners are scored on.**
 
 - **Layer 1**: Multi-metric evaluation vector (7 dimensions: Penalized F1, Penalized Sharpe, Max Drawdown, Variance Score, Overfitting Penalty, Feature Efficiency, Latency) scored against proprietary tick-by-tick benchmark dataset
-- **Layer 2**: Real trading outcomes (9 dimensions: Realized P&L, Omega Ratio, Max Drawdown, Win Rate, Consistency, Execution Quality, Annualized Volatility, Sharpe Ratio, Sortino Ratio) measured against actual market performance, with commit-reveal enforcement preventing post-hoc manipulation
+- **Layer 2**: Real trading outcomes (8 headline dimensions: Annualized Return, Omega Ratio, Max Drawdown, Consistency, Execution Quality, Annualized Volatility, Sharpe Ratio, Sortino Ratio — plus Win Rate as an unweighted diagnostic) measured against actual market performance, with commit-reveal enforcement preventing post-hoc manipulation
 - Published metric definitions with configurable weights (see `scoring.py`)
 
 ### Evaluation Loop
 **How validators score miners; cost, scale consideration.**
 
-- **L1**: Vectorized batch backtesting — O(n) per miner per epoch; parallelizable across miners
-- **L2**: Incremental P&L tracking — O(1) per position close; continuous streaming
+- **L1**: Vectorized batch backtesting, O(n) per miner per epoch; parallelizable across miners
+- **L2**: Incremental P&L tracking, O(1) per position close; continuous streaming
 - Cost scales linearly with miner count, not quadratically
 - Validators converge deterministically (same scorer + same data = same scores)
 
@@ -50,9 +50,10 @@
 - **L1 Task**: Train and submit ML model artifacts (ONNX/joblib) for directional prediction, plus a reproducible code bundle that regenerates them
   - Interface: `POST /l1/submit_model` with defined schema (see `protocol.py`)
   - Measurable via composite score vector; gated on sandbox reproducibility of the submitted code
+  - **Data provenance (optional in v1):** submissions may carry a `data_provenance` manifest, one entry per training source (`source`, `license_class`, `time_range`, `pit_attestation_hash`). Sources must be **point-in-time**: no back-populated revisions, and the attestation hash commits to the as-of snapshot trained on. Unaudited and unscored in v1; post-launch candidates are required-field promotion, attestation audits, and a feature-diversity scoring dimension (weight changes only via a tuner run)
 - **L2 Task**: Build and operate paper/live trading strategy using promoted L1 models
   - Interface: `POST /l2/submit_strategy` with position log
-  - Measurable via realized P&L, Omega, drawdown, consistency, execution quality
+  - Measurable via annualized return, Omega, drawdown, consistency, execution quality
 
 ### Incentive Design
 **Why scoring rewards genuine quality; why top attack vectors fail.**
@@ -64,7 +65,7 @@
 - The core post-commit-reveal operating model is evaluated against 19 active surveillance vectors
 - The latest orchestration run validated commit-reveal effectiveness at `0.76`, above the `0.667` acceptance floor, with a stronger operating margin than the prior run
 - Sentinel classified the system as `SECURE_AND_IMPROVING`, with Sybil reduced to `0.195`, commitment violation reduced to `0.019`, and no new anomalies detected
-- NSGA-II v13 R3 (knee point `V13-R3-KP-020-a3c7`) *predicted* breach_rate `2.6e-6`, honest_score `0.9808`, separation `0.963`, but ⚠️ **empirical validation invalidated it** — real separation is `~0.23` (best adversary `0.733`), failing the `≥0.90` gate. The last non-contradicted checkpoint remains the R2 knee (`3.5e-6` / `0.9795` / `0.953`). V13-R3 is not promoted; see CHANGELOG 2026-06-29
+- NSGA-II v13 R3 (knee point `V13-R3-KP-020-a3c7`) *predicted* breach_rate `2.6e-6`, honest_score `0.9808`, separation `0.963`, but ⚠️ **empirical validation invalidated it**, real separation is `~0.23` (best adversary `0.733`), failing the `≥0.90` gate. The last non-contradicted checkpoint remains the R2 knee (`3.5e-6` / `0.9795` / `0.953`). V13-R3 is not promoted; see CHANGELOG 2026-06-29
 
 ### Market Demand
 **Who pays for output and why.**
@@ -76,7 +77,7 @@
 ### Sovereignty Test
 **Subnet survives if any single cloud, company, API disappears.**
 
-- L1 miners run their own compute — no cloud dependency
+- L1 miners run their own compute, no cloud dependency
 - L1 validators can fall back to premium public data sources
 - L2 paper trading can switch exchange price feeds trivially
 - Core architecture (competitive model selection + live validation) survives any single provider outage
@@ -133,7 +134,7 @@ class ModelSubmission(bt.Synapse):
     target_instrument: str         # e.g., "BTC-USDT-PERP"
     target_horizon_minutes: int    # Prediction horizon
 
-    # Code submission (reproducibility) — see "Reproducible Code Submission"
+    # Code submission (reproducibility), see "Reproducible Code Submission"
     code_bundle: bytes             # Deterministic tar.gz of source + model + entrypoint
     code_bundle_hash: str          # SHA-256 of code_bundle (signed/committed)
     code_entrypoint: str           # Script the validator runs in-sandbox (e.g. inference.py)
@@ -151,12 +152,12 @@ hash and manifest) to `ModelSubmission`.
 
 On receipt the validator:
 
-1. **Verifies** the bundle — hash match, manifest per-file hashes, entrypoint
+1. **Verifies** the bundle, hash match, manifest per-file hashes, entrypoint
    presence, archive/extraction limits (size, file count, traversal, zip-bomb),
    and a static safety scan that rejects sandbox-escaping source.
 2. **Fingerprints** the normalized source to flag verbatim/lightly-edited code
    plagiarism across miners (re-serializing a stolen model no longer hides it).
-3. **Reproduces** the artifact — re-runs the entrypoint in an isolated sandbox
+3. **Reproduces** the artifact, re-runs the entrypoint in an isolated sandbox
    (POSIX resource limits, wall-clock budget, scrubbed env, best-effort
    network-namespace drop via `unshare -n`) over the same evaluation features and
    confirms the reproduced predictions match the submitted artifact's.
@@ -175,10 +176,12 @@ class TradingStrategySubmission(bt.Synapse):
     model_ids_used: List[str]      # Which assigned model(s) are inferenced
     trading_mode: str              # "paper" | "live_capital"
     position_log: List[Dict]       # Signed position records
-    realized_pnl: float            # Total P&L
+    realized_pnl: float            # Total P&L (informational)
+    cumulative_return: float       # Return on allocated capital over the epoch
+    annualized_return: float       # Cumulative return annualized (365-day basis)
     max_drawdown_pct: float        # Peak-to-trough loss
     omega_ratio: float             # Risk-adjusted return measure
-    win_rate: float                # Fraction of profitable trades
+    win_rate: float                # Fraction of profitable trades (diagnostic)
 ```
 
 ### Public Feature Registry
@@ -202,6 +205,43 @@ FEATURES = [
 ]
 ```
 
+### Validator Infrastructure & Latency SLA
+
+Validator latency is a **security property, not a performance preference**. The
+attack-surveillance program tracks validator-latency exploitation (V10) and
+prediction-timing manipulation (V11) as active vectors: a validator that cannot
+meet timing bounds widens the window both attacks need. Infrastructure
+requirements are therefore part of the mechanism spec.
+
+**Hardware.**
+
+- NVIDIA GPU is non-negotiable for model evaluation (cloud CPU instances are too
+  slow for the benchmark suite within the evaluation window).
+- Dedicated machine recommended (reference class: $30–40k workstation); shared
+  cloud tenancy introduces noisy-neighbor jitter that breaks the timing bounds below.
+- Co-location near major exchange infrastructure (e.g., NYSE-adjacent for
+  traditional-market validation feeds) materially reduces market-data lag for
+  the trading-validation leg.
+
+**Timing bounds (SLA).**
+
+- **Evaluation round-trip:** the full order-lifecycle target used by
+  `execution_quality_score` (`ExecutionMetrics.end_to_end_intent_ms`, target
+  ≤ 200 ms, exponential decay above, see `insignia/scoring.py`) is the
+  reference bound for latency-sensitive validation telemetry.
+- **Commit-reveal windows:** validators must complete commit submission inside
+  the commit window (T-35s to T-5s) and reveal inside the reveal window
+  (T+5s to T+20s) per §Incentive Design; operators should size network and
+  hardware to hold these bounds at p99, not at the median.
+- **Benchmark evaluation:** the model benchmark suite must complete inside the
+  epoch evaluation window with margin; validators that cannot are expected to
+  shed load or upgrade, since slow evaluation skews cross-validator consensus
+  timing (V14, V16 telemetry).
+
+Validators persistently missing these bounds should expect degraded consensus
+participation and heightened sentinel scrutiny, since timing outliers are
+indistinguishable from V10/V11 probing at low severity.
+
 ---
 
 ## 5. Proprietary Boundaries
@@ -215,7 +255,7 @@ The following components are proprietary and NOT included in the open-source cod
 | Exact scoring weights | Subject to ongoing tuning | Published weight ranges and default values |
 | Firm's deployment strategy | Prop trading operations | Architecture for buyback mechanism is documented |
 
-Everything else — the scoring framework, synapse definitions, incentive design, anti-gaming mechanisms, cross-layer logic — is fully transparent and open-source.
+Everything else, the scoring framework, synapse definitions, incentive design, anti-gaming mechanisms, cross-layer logic, is fully transparent and open-source.
 
 ---
 

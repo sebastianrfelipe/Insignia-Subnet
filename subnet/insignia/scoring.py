@@ -340,15 +340,27 @@ class ReferenceOverfittingDetector(OverfittingDetector):
 # Trading Metrics
 #
 # Trading scoring evaluates real/paper trading outcomes rather than model
-# predictions. The nine metrics below capture complementary dimensions
+# predictions. Eight headline metrics capture complementary dimensions
 # of strategy quality:
 #
-#   1. Realized P&L (20%)        — raw profitability vs. baseline
-#   2. Omega Ratio (13%)         — full-distribution risk (tail behavior)
-#   3. Max Drawdown (14%)        — peak-to-trough loss; hard elimination threshold
-#   4. Win Rate (6%)             — signal precision
-#   5. Consistency (20%)         — rolling sub-window steadiness
-#   6. Execution Quality (10%)   — latency, reliability, and slippage
+#   1. Annualized Return (21.28%) — scale-invariant profitability (return on
+#      capital, annualized on a 365-day crypto basis)
+#   2. Omega Ratio (13.83%)       — full-distribution risk (tail behavior)
+#   3. Max Drawdown (14.89%)      — peak-to-trough loss; hard elimination threshold
+#   4. Consistency (21.28%)       — rolling sub-window steadiness
+#   5. Execution Quality (10.64%) — latency, reliability, and slippage
+#   6. Annualized Volatility (5.32%) — cumulative realized volatility (inverted)
+#   7. Sharpe Ratio (6.38%)       — risk-adjusted return per unit total volatility
+#   8. Sortino Ratio (6.38%)      — risk-adjusted return per unit downside volatility
+#
+# Diagnostics tier (computed and reported, but NOT weighted in the composite):
+#   - Win Rate — signal precision; useful for diagnosing churn vs. edge, but
+#     deliberately unweighted so it cannot reward low-conviction noise trading.
+#
+# Omega is retained alongside Sortino deliberately: the production stack
+# assumes Student-t (fat-tailed) return innovations, and under fat tails a
+# full-distribution measure (Omega integrates the entire return CDF) captures
+# tail mass that Sortino's downside-deviation-only view understates.
 #
 # Max Drawdown reuses the model `max_drawdown_score` function applied to the
 # trading equity curve. In trading scoring it additionally serves as a hard ceiling:
@@ -372,39 +384,52 @@ class ReferenceOverfittingDetector(OverfittingDetector):
 # signals fragility that will degrade under real market conditions.
 # ---------------------------------------------------------------------------
 
-def realized_pnl_score(pnl: float, baseline: float = 0.0) -> float:
+def annualized_return_score(
+    cumulative_return: float,
+    epoch_days: int,
+    target_annualized: float = 0.50,
+) -> float:
     """
-    Realized P&L Score — absolute return quality relative to a baseline.
+    Annualized Return Score — scale-invariant profitability.
 
-    Measures the strategy's raw profitability by comparing its realized
-    profit/loss against a baseline return (typically buy-and-hold or zero).
-    This is the most direct measure of whether a strategy generates
-    economic value.
+    Replaces the old absolute Realized P&L metric. Raw P&L is denominated in
+    quote currency, which makes scores capital-dependent: a strategy running
+    10x the capital of another would dominate the composite on size alone
+    rather than skill. Scoring return-on-capital instead makes the metric
+    comparable across miners regardless of bankroll, and annualizing makes
+    scores comparable across epochs of different lengths.
 
     Calculation:
-        score = clamp((pnl - baseline) / max(|baseline|, 1.0), 0, 1)
+        ann_ret = (1 + cumulative_return) ** (365 / epoch_days) - 1
+        score   = clamp(ann_ret / target_annualized, 0, 1)
 
-    Strategies at or below the baseline receive a score of zero. The
-    denominator scales by the absolute baseline value so that the metric
-    is meaningful across different capital levels and market conditions.
-    The floor of 1.0 in the denominator prevents division-by-zero when
-    the baseline is zero (e.g., when scoring absolute P&L without a
-    benchmark).
+    The 365-day basis matches `annualized_volatility` (crypto markets trade
+    24/7). Non-positive annualized returns score zero, preserving the old
+    metric's "at or below baseline = 0" behavior. The linear map reaches a
+    perfect score at `target_annualized` (default 0.50 = 50% annualized,
+    exceptional for a sustained trading strategy).
 
     Args:
-        pnl: Realized profit/loss of the strategy in quote currency.
-        baseline: Reference return to beat (default 0.0 = absolute profit).
+        cumulative_return: Total return on allocated capital over the
+            scoring epoch as a decimal (e.g., 0.08 = +8%).
+        epoch_days: Length of the scoring epoch in days (>= 1).
+        target_annualized: Annualized return mapping to a perfect score.
 
     Returns:
-        Float in [0, 1] where 0 = at or below baseline, 1 = strong
-        outperformance.
+        Float in [0, 1] where 0 = no positive return, 1 = annualized
+        return at or above the target.
 
-    Weight: 20% of trading composite score (highest single weight, tied with
-    consistency).
+    Weight: 21.28% of trading composite score (tied with consistency as
+    the highest single weight).
     """
-    if pnl <= baseline:
+    days = max(int(epoch_days), 1)
+    base = 1.0 + cumulative_return
+    if base <= 0.0:
         return 0.0
-    return float(min(1.0, (pnl - baseline) / max(abs(baseline), 1.0)))
+    ann_ret = base ** (365.0 / days) - 1.0
+    if ann_ret <= 0.0:
+        return 0.0
+    return float(min(1.0, ann_ret / target_annualized))
 
 
 def omega_ratio(returns: np.ndarray, threshold: float = 0.0) -> float:
@@ -416,6 +441,13 @@ def omega_ratio(returns: np.ndarray, threshold: float = 0.0) -> float:
     kurtosis (fat tails). This is critical for crypto trading strategies
     where returns are rarely normally distributed and tail risk is the
     primary destroyer of capital.
+
+    Omega is retained alongside the Sortino ratio deliberately: the
+    production execution stack assumes Student-t (fat-tailed) return
+    innovations, and under fat tails Sortino's downside-deviation-only
+    view understates tail mass. Omega integrates the full return CDF on
+    both sides of the threshold, so it prices exactly the tail behavior
+    the Student-t assumption says will show up in production.
 
     Calculation:
         Omega = sum(max(r_i - threshold, 0)) / sum(max(threshold - r_i, 0))
@@ -439,7 +471,7 @@ def omega_ratio(returns: np.ndarray, threshold: float = 0.0) -> float:
         During normalization, this is scaled to [0, 1] by dividing by 3.0
         (so Omega >= 3.0 maps to a perfect normalized score).
 
-    Weight: 13% of trading composite score.
+    Weight: 13.83% of trading composite score.
     """
     gains = returns[returns > threshold] - threshold
     losses = threshold - returns[returns <= threshold]
@@ -452,18 +484,13 @@ def win_rate(trades: List[float]) -> float:
     """
     Win Rate — signal precision measuring the fraction of profitable trades.
 
-    A straightforward but important metric that captures the strategy's
-    ability to generate positive-expectancy signals. While a high win rate
-    alone doesn't guarantee profitability (a strategy can win 90% of
-    trades but lose money if losses are large), it penalizes low-conviction
-    noise trading where a strategy enters and exits positions without
-    meaningful directional skill.
-
-    In the composite score, win rate carries a deliberately lower weight
-    (6%) because profitable strategies can legitimately have moderate
-    win rates (e.g., trend-following with ~40% wins but large risk/reward).
-    Its primary role is to filter out strategies that generate excessive
-    churn without directional edge.
+    DIAGNOSTIC ONLY: win rate is computed and reported in every trading
+    ScoreVector (raw and normalized dicts), but it carries NO weight in the
+    headline composite. It was demoted from the weighted suite because a
+    high win rate alone doesn't guarantee profitability (a strategy can win
+    90% of trades but lose money if losses are large), and weighting it
+    risks rewarding low-conviction noise trading. It remains valuable for
+    diagnosing churn vs. directional edge when reviewing miner behavior.
 
     Calculation:
         win_rate = count(trade_pnl > 0) / total_trades
@@ -476,7 +503,7 @@ def win_rate(trades: List[float]) -> float:
         Float in [0, 1] where 0 = no winning trades, 1 = all trades
         profitable.
 
-    Weight: 6% of trading composite score.
+    Weight: 0% of trading composite score (diagnostics tier).
     """
     if not trades:
         return 0.0
@@ -807,19 +834,23 @@ class WeightConfig:
     # 2026-06-17: removed model_attribution (pairing is now assigned by the
     # genetic algorithm, not chosen by the miner) and redistributed its
     # weight across the remaining performance metrics.
-    trading_realized_pnl: float = 0.20
-    trading_omega: float = 0.13
-    trading_max_drawdown: float = 0.14
-    trading_win_rate: float = 0.06
-    trading_consistency: float = 0.20
-    trading_execution_quality: float = 0.10
-    trading_annualized_volatility: float = 0.05
-    trading_sharpe_ratio: float = 0.06
-    trading_sortino_ratio: float = 0.06
+    # 2026-08-03: replaced absolute realized_pnl with scale-invariant
+    # annualized_return; demoted win_rate to a reported-only diagnostic
+    # (no composite weight); remaining 8 weights renormalized pro-rata
+    # (x 1/0.94). Omega retained for full-distribution tail coverage under
+    # the production stack's Student-t return assumption.
+    trading_annualized_return: float = 0.2128
+    trading_omega: float = 0.1383
+    trading_max_drawdown: float = 0.1489
+    trading_consistency: float = 0.2128
+    trading_execution_quality: float = 0.1064
+    trading_annualized_volatility: float = 0.0532
+    trading_sharpe_ratio: float = 0.0638
+    trading_sortino_ratio: float = 0.0638
 
     # Paired mechanism: blend weight on the model composite vs. the trading
     # composite when forming a pair's scalar composite. Does not alter any of
-    # the 7 model or 10 trading metric weights above.
+    # the 7 model or 8 headline trading metric weights above.
     pair_blend_alpha: float = 0.50
 
 
@@ -888,13 +919,13 @@ class CompositeScorer:
 
     def score_trading(
         self,
-        realized_pnl: float,
+        cumulative_return: float,
+        epoch_days: int,
         returns: np.ndarray,
         max_dd: float,
         trades: List[float],
         daily_returns: np.ndarray,
         execution_metrics: ExecutionMetrics | None = None,
-        baseline_pnl: float = 0.0,
     ) -> ScoreVector:
         """
         Compute the trading composite score for a trader miner's strategy.
@@ -903,29 +934,35 @@ class CompositeScorer:
         simulation involved. This is the empirical proof layer that closes
         the gap between backtested model quality and deployment viability.
 
-        The composite score is a weighted sum of nine normalized metrics:
+        The composite score is a weighted sum of eight normalized headline
+        metrics:
 
-            composite = 0.20 * realized_pnl
-                      + 0.13 * omega
-                      + 0.14 * max_drawdown
-                      + 0.06 * win_rate
-                      + 0.20 * consistency
-                      + 0.10 * execution_quality
-                      + 0.05 * annualized_volatility
-                      + 0.06 * sharpe_ratio
-                      + 0.06 * sortino_ratio
+            composite = 0.2128 * annualized_return
+                      + 0.1383 * omega
+                      + 0.1489 * max_drawdown
+                      + 0.2128 * consistency
+                      + 0.1064 * execution_quality
+                      + 0.0532 * annualized_volatility
+                      + 0.0638 * sharpe_ratio
+                      + 0.0638 * sortino_ratio
+
+        Win rate is also computed and included in the returned raw and
+        normalized dicts as a diagnostic, but carries no composite weight.
 
         Args:
-            realized_pnl: Total P&L of the strategy in quote currency
-                over the scoring epoch.
+            cumulative_return: Total return on allocated capital over the
+                scoring epoch as a decimal (e.g., 0.08 = +8%). Used for the
+                annualized-return headline metric.
+            epoch_days: Length of the scoring epoch in days (>= 1). Used to
+                annualize the cumulative return.
             returns: Per-trade or per-period returns as a numpy array
                 (decimals, e.g., 0.02 for 2%). Used to compute the
                 Omega ratio.
             max_dd: Maximum drawdown observed over the epoch, as a
                 fraction in [0, 1]. Strategies breaching the hard
                 limit (default 0.20) are eliminated before scoring.
-            trades: List of per-trade P&L values. Used to compute win
-                rate.
+            trades: List of per-trade P&L values. Used to compute the
+                win-rate diagnostic.
             daily_returns: Array of daily returns. Used to compute the
                 consistency score, annualized volatility, Sharpe ratio,
                 and Sortino ratio.
@@ -935,17 +972,17 @@ class CompositeScorer:
                 perfect execution quality score — appropriate for
                 paper trading where execution infrastructure is
                 simulated.
-            baseline_pnl: Reference P&L for the realized_pnl metric
-                (default 0.0 = absolute profitability).
 
         Returns:
             ScoreVector containing raw metric values, normalized values
-            (all in [0, 1]), and the weighted composite score.
+            (all in [0, 1]), and the weighted composite score. The
+            ``win_rate`` entries are diagnostics: present in both dicts
+            but excluded from the composite.
         """
         exec_metrics = execution_metrics or ExecutionMetrics()
 
         raw = {
-            "realized_pnl": realized_pnl_score(realized_pnl, baseline_pnl),
+            "annualized_return": annualized_return_score(cumulative_return, epoch_days),
             "omega": omega_ratio(returns),
             "max_drawdown": max_dd,
             "win_rate": win_rate(trades),
@@ -960,10 +997,9 @@ class CompositeScorer:
 
         w = self.weights
         composite = (
-            w.trading_realized_pnl * normalized["realized_pnl"]
+            w.trading_annualized_return * normalized["annualized_return"]
             + w.trading_omega * normalized["omega"]
             + w.trading_max_drawdown * normalized["max_drawdown"]
-            + w.trading_win_rate * normalized["win_rate"]
             + w.trading_consistency * normalized["consistency"]
             + w.trading_execution_quality * normalized["execution_quality"]
             + w.trading_annualized_volatility * normalized["annualized_volatility"]
@@ -1026,10 +1062,12 @@ class CompositeScorer:
         Map raw trading metrics to [0, 1] where 1 is best.
 
         Normalization transforms per metric:
-          - realized_pnl: Already in [0, 1]. Clamped.
+          - annualized_return: Already in [0, 1] from the scoring function.
+            Clamped.
           - omega: Divided by 3.0 (Omega >= 3 → 1.0).
           - max_drawdown: Inverted (1 - dd).
-          - win_rate: Already in [0, 1]. Clamped.
+          - win_rate: Already in [0, 1]. Clamped. DIAGNOSTIC ONLY — present
+            in the output dict but excluded from the composite.
           - consistency: Already in [0, 1]. Clamped.
           - execution_quality: Already in [0, 1]. Clamped.
           - annualized_volatility: Inverted and scaled — lower vol =
@@ -1052,7 +1090,7 @@ class CompositeScorer:
         sortino_norm = 1.0 / (1.0 + math.exp(-0.8 * (raw_sortino - 1.5)))
 
         return {
-            "realized_pnl": min(1.0, max(0.0, raw["realized_pnl"])),
+            "annualized_return": min(1.0, max(0.0, raw["annualized_return"])),
             "omega": omega_norm,
             "max_drawdown": max(0.0, 1.0 - raw["max_drawdown"]),
             "win_rate": min(1.0, max(0.0, raw["win_rate"])),

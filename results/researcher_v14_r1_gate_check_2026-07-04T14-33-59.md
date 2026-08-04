@@ -16,7 +16,7 @@
 | Passed (harness-mode) | 4 |
 | Failed (harness-mode) | 0 |
 | Pending (online-mode, require live chain) | 6 |
-| **Promotable to production reference** | **NO — requires online verification** |
+| **Promotable to production reference** | **NO, requires online verification** |
 
 ## Per-gate results
 
@@ -33,33 +33,33 @@
 | 9 | `convergence_contract` | online | unanimously_met | pending | ⏳ PENDING | §7/§9 |
 | 10 | `sentinel_posture` | online | SECURE_AND_IMPROVING | TARGET_ACHIEVED | ⏳ PENDING | §9 |
 
-## Pending online-mode gates — require live chain verification per §9
+## Pending online-mode gates, require live chain verification per §9
 
-Per §9: "A configuration is promotable to the production-reference approval gate **only when all** hold, in `online` mode, across ≥ 2 reruns with different seeds." The offline harness cannot verify these gates — they require live chain data.
+Per §9: "A configuration is promotable to the production-reference approval gate **only when all** hold, in `online` mode, across ≥ 2 reruns with different seeds." The offline harness cannot verify these gates, they require live chain data.
 
 ### `honest_mean_score` (synthetic value 0.900739, threshold 0.97)
 - **Description:** Honest mean score >= 0.97 (online mode)
-- **Note:** Online-mode gate per §9 — requires live chain data, not offline harness.
+- **Note:** Online-mode gate per §9, requires live chain data, not offline harness.
 
 ### `score_variance` (synthetic value 0.001309, threshold 0.002)
 - **Description:** Honest score variance <= 0.002 (online mode)
-- **Note:** Online-mode gate per §9 — requires live chain data, not offline harness.
+- **Note:** Online-mode gate per §9, requires live chain data, not offline harness.
 
 ### `commit_reveal_effectiveness` (synthetic value 0.76, threshold 0.667)
 - **Description:** Commit-reveal effectiveness >= 0.667 floor (>= 0.76 target) (online mode)
-- **Note:** Online-mode gate per §9 — requires live chain data, not offline harness.
+- **Note:** Online-mode gate per §9, requires live chain data, not offline harness.
 
 ### `consecutive_clean_validations` (synthetic value 6.0, threshold 6)
 - **Description:** Consecutive clean validations >= 6 (online mode)
-- **Note:** Online-mode gate per §9 — requires live chain data, not offline harness.
+- **Note:** Online-mode gate per §9, requires live chain data, not offline harness.
 
 ### `convergence_contract` (synthetic value pending, threshold unanimously_met)
 - **Description:** Convergence contract (§7) unanimously met + grace period (online mode)
-- **Note:** Online-mode gate per §9 — requires live chain data, not offline harness.
+- **Note:** Online-mode gate per §9, requires live chain data, not offline harness.
 
 ### `sentinel_posture` (synthetic value TARGET_ACHIEVED, threshold SECURE_AND_IMPROVING)
 - **Description:** Sentinel posture SECURE_AND_IMPROVING or stronger (online mode)
-- **Note:** Online-mode gate per §9 — requires live chain data, not offline harness.
+- **Note:** Online-mode gate per §9, requires live chain data, not offline harness.
 
 ## Verdict
 

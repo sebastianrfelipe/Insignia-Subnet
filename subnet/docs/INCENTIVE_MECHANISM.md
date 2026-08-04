@@ -1,4 +1,4 @@
-# Insignia Subnet — Incentive Mechanism Design
+# Insignia Subnet, Incentive Mechanism Design
 
 > **Migration note:** The two independent Yuma cycles described below have been
 > unified into a **single paired genetic mechanism**. Researcher and trader
@@ -6,7 +6,7 @@
 > `(researcher, trader)` pair that is jointly evaluated and ranked with NSGA-II,
 > then credited via a variance-penalized marginal contribution. The 7 model
 > metrics and 9 trading metrics, their weights, and the commit-reveal and
-> consensus-integrity defenses documented here are all preserved — the sections
+> consensus-integrity defenses documented here are all preserved, the sections
 > below describe the **model** (researcher) and **trading** (trader) scoring
 > components that the paired mechanism evaluates jointly. The standalone
 > per-layer emission and the cross-layer feedback loop are legacy. See
@@ -29,10 +29,10 @@ Two miner roles share one subnet: **researcher miners** (who submit ML models) a
 | Penalized F1 | 22% | Directional prediction quality with cross-regime consistency penalty (mean − λ·std across windows) |
 | Penalized Sharpe Ratio | 18% | Risk-adjusted returns with variance penalty across rolling sub-windows |
 | Max Drawdown | 14% | Penalizes fragile models with large peak-to-trough losses |
-| Variance Score | 16% | Cross-regime consistency — measures coefficient of variation across market regimes |
+| Variance Score | 16% | Cross-regime consistency, measures coefficient of variation across market regimes |
 | Overfitting Penalty | 14% | Gap between in-sample and out-of-sample performance (proprietary metric) |
 | Feature Efficiency | 6% | Penalizes models requiring exotic or excessive features |
-| Latency Score | 10% | Inference speed — critical for short-horizon deployment |
+| Latency Score | 10% | Inference speed, critical for short-horizon deployment |
 
 All metrics use a **variance-penalized formulation** (`mean − λ·std`) across rolling windows, rewarding both peak performance and consistency.
 
@@ -46,27 +46,32 @@ All metrics use a **variance-penalized formulation** (`mean − λ·std`) across
 
 ### How Model Scores Are Used
 
-A researcher's model composite is one half of every `(researcher, trader)` pair it appears in. Pairs are ranked with NSGA-II and each miner's single Yuma emission weight is the variance-penalized marginal contribution of its model across the partners it was paired with. There is no separate promotion pool — pairing is chain-seeded by the genetic algorithm.
+A researcher's model composite is one half of every `(researcher, trader)` pair it appears in. Pairs are ranked with NSGA-II and each miner's single Yuma emission weight is the variance-penalized marginal contribution of its model across the partners it was paired with. There is no separate promotion pool, pairing is chain-seeded by the genetic algorithm.
 
 ---
 
 ## Trading Scoring (Trader Miners)
 
-### Scoring Vector (9 Dimensions)
+### Scoring Vector (8 Headline Dimensions + Diagnostics)
 
 | Metric | Weight | Purpose |
 |--------|--------|---------|
-| Realized P&L | 20% | Absolute returns from actual trading outcomes |
-| Omega Ratio | 13% | Full-distribution risk measure (captures tail behavior) |
-| Max Drawdown | 14% | Hard ceiling — breach eliminates the strategy entirely |
-| Win Rate | 6% | Signal precision — penalizes low-conviction noise trading |
-| Consistency | 20% | Rolling 7-day sub-window analysis — penalizes spike-then-collapse |
-| Execution Quality | 10% | Latency, reliability, and slippage — infrastructure health |
-| Annualized Volatility | 5% | Cumulative realized volatility — lower = better score |
-| Sharpe Ratio | 6% | Risk-adjusted return per unit of total volatility |
-| Sortino Ratio | 6% | Risk-adjusted return per unit of downside volatility |
+| Annualized Return | 21.28% | Scale-invariant profitability (return on capital, 365-day basis) |
+| Omega Ratio | 13.83% | Full-distribution risk measure (captures tail behavior) |
+| Max Drawdown | 14.89% | Hard ceiling, breach eliminates the strategy entirely |
+| Consistency | 21.28% | Rolling 7-day sub-window analysis, penalizes spike-then-collapse |
+| Execution Quality | 10.64% | Latency, reliability, and slippage, infrastructure health |
+| Annualized Volatility | 5.32% | Cumulative realized volatility, lower = better score |
+| Sharpe Ratio | 6.38% | Risk-adjusted return per unit of total volatility |
+| Sortino Ratio | 6.38% | Risk-adjusted return per unit of downside volatility |
 
-> **Removed — Model Attribution.** Earlier versions of this layer included a
+**Diagnostics tier** (computed and reported in every score vector, but **not** weighted in the composite):
+
+| Diagnostic | Purpose |
+|------------|---------|
+| Win Rate | Signal precision; diagnoses churn vs. directional edge. Demoted from the headline suite — a high win rate alone does not imply profitability, and weighting it risks rewarding low-conviction noise trading. |
+
+> **Removed, Model Attribution.** Earlier versions of this layer included a
 > "Model Attribution" metric that credited a trader for the deployment track
 > record of the model(s) it used. Under the single paired genetic mechanism
 > the model is *assigned* to the trader by the chain-seeded genetic algorithm
@@ -74,27 +79,29 @@ A researcher's model composite is one half of every `(researcher, trader)` pair 
 > miner has no control over which model it is paired with. Crediting that
 > assignment would reward luck of the draw rather than skill, so the metric was
 > removed and its weight redistributed across the remaining performance
-> metrics. Cross-partner quality is now expressed structurally — through
+> metrics. Cross-partner quality is now expressed structurally, through
 > NSGA-II selection over pairs and the variance-penalized marginal-contribution
-> credit — rather than as a per-miner scoring dimension.
+> credit, rather than as a per-miner scoring dimension.
 
 ### Metric Definitions
 
-#### 1. Realized P&L (20%)
+#### 1. Annualized Return (21.28%)
 
-Measures the strategy's raw profitability relative to a baseline (typically buy-and-hold or zero). This is the most direct measure of whether a strategy generates economic value.
+Measures the strategy's profitability as return on allocated capital, annualized to a 365-day crypto basis. This replaces the old absolute Realized P&L metric: raw P&L is denominated in quote currency, which made scores capital-dependent (a strategy running 10x the bankroll of another would dominate on size alone rather than skill). Return-on-capital is comparable across miners regardless of bankroll, and annualization makes scores comparable across epochs of different lengths.
 
 ```
-score = clamp((pnl - baseline) / max(|baseline|, 1.0), 0, 1)
+ann_ret = (1 + cumulative_return) ** (365 / epoch_days) - 1
+score   = clamp(ann_ret / 0.50, 0, 1)
 ```
 
-- Strategies at or below the baseline receive a score of zero.
-- The denominator scales by the absolute baseline value so that the metric is meaningful across different capital levels and market conditions.
-- Carries the highest single trading weight (20%, tied with consistency) because realized returns are the ultimate objective of the subnet.
+- Non-positive annualized returns receive a score of zero (the old metric's "at or below baseline = 0" behavior).
+- The linear map reaches a perfect score at 50% annualized return, exceptional for a sustained trading strategy.
+- The 365-day basis matches annualized volatility (crypto markets trade 24/7).
+- Carries the highest single trading weight (21.28%, tied with consistency) because realized returns are the ultimate objective of the subnet.
 
 **Normalization**: Already in [0, 1] from the scoring function itself.
 
-#### 2. Omega Ratio (13%)
+#### 2. Omega Ratio (13.83%)
 
 A full-distribution risk measure that captures the complete shape of the return distribution, including skewness and fat tails. Unlike Sharpe ratio (which only considers mean and variance), Omega reflects the probability-weighted balance between gains and losses at a given threshold.
 
@@ -105,10 +112,11 @@ Omega = sum(max(r_i - threshold, 0)) / sum(max(threshold - r_i, 0))
 - An Omega > 1 means the strategy's gain mass exceeds its loss mass at the threshold.
 - Raw values are capped at 10.0 to prevent degenerate cases (e.g., a single winning trade with no losses) from dominating.
 - This metric is critical for crypto markets, where returns are rarely normally distributed and tail risk is the primary destroyer of capital.
+- **Why Omega is retained alongside Sortino**: the production execution stack assumes Student-t (fat-tailed) return innovations. Under fat tails, Sortino's downside-deviation-only view understates tail mass, while Omega integrates the full return CDF on both sides of the threshold — pricing exactly the tail behavior the Student-t assumption says will show up in production.
 
 **Normalization**: Divided by 3.0, so Omega >= 3.0 maps to a perfect normalized score of 1.0. This threshold reflects that an Omega of 3+ is exceptional for crypto trading strategies.
 
-#### 3. Max Drawdown (14%)
+#### 3. Max Drawdown (14.89%)
 
 The peak-to-trough loss of the strategy's equity curve. This metric has a unique dual role:
 
@@ -122,20 +130,7 @@ normalized = 1.0 - drawdown
 
 **Normalization**: Inverted so that lower drawdown = higher score. A 0% drawdown yields 1.0; a 100% drawdown yields 0.0.
 
-#### 4. Win Rate (6%)
-
-The fraction of trades that were profitable. A straightforward measure of signal precision.
-
-```
-win_rate = count(trade_pnl > 0) / total_trades
-```
-
-- Carries one of the lowest weights (6%) by design, because profitable strategies can legitimately have moderate win rates (e.g., trend-following with ~40% wins but large risk/reward ratios).
-- Its primary role is to filter out noise trading: strategies that generate excessive churn without directional edge.
-
-**Normalization**: Already in [0, 1] from the scoring function.
-
-#### 5. Consistency (20%)
+#### 4. Consistency (21.28%)
 
 Rolling sub-window analysis that penalizes "spike-then-collapse" strategies. This is the strongest predictor of a strategy's viability in live deployment.
 
@@ -152,9 +147,9 @@ The product structure means both properties must be present: a strategy that is 
 
 **Normalization**: Already in [0, 1] from the scoring function.
 
-#### 6. Execution Quality (10%)
+#### 5. Execution Quality (10.64%)
 
-Evaluates the strategy's infrastructure health — how cleanly and efficiently it interacts with the exchange. A strategy with strong theoretical returns but poor execution (high latency, frequent rejects, excessive slippage) will degrade under real market conditions, so execution quality gates deployment readiness.
+Evaluates the strategy's infrastructure health, how cleanly and efficiently it interacts with the exchange. A strategy with strong theoretical returns but poor execution (high latency, frequent rejects, excessive slippage) will degrade under real market conditions, so execution quality gates deployment readiness.
 
 The metric combines three orthogonal sub-scores:
 
@@ -168,11 +163,11 @@ else:             latency = exp(-(e2e - 200) / 200)
 ```
 
 Latency telemetry fields tracked:
-- `ws_message_lag_ms` — WebSocket message lag
-- `decision_to_submit_ms` — Time from decision to order submission
-- `submit_to_ack_ms` — Time to exchange acknowledgement
-- `ack_to_fill_ms` — Time from ack to fill
-- `end_to_end_intent_ms` — Total intent execution time
+- `ws_message_lag_ms`, WebSocket message lag
+- `decision_to_submit_ms`, Time from decision to order submission
+- `submit_to_ack_ms`, Time to exchange acknowledgement
+- `ack_to_fill_ms`, Time from ack to fill
+- `end_to_end_intent_ms`, Total intent execution time
 
 **Reliability sub-score (30% of execution quality)**
 
@@ -213,7 +208,7 @@ execution_quality = 0.40 * latency + 0.30 * reliability + 0.30 * slippage
 
 **Normalization**: Already in [0, 1] from the composite sub-score formula. Clamped as a safety guard.
 
-#### 7. Annualized Volatility (5%)
+#### 6. Annualized Volatility (5.32%)
 
 Cumulative realized volatility of the strategy's daily returns, annualized. This is the most direct measure of how much a strategy's returns fluctuate. Strategies with high volatility carry more risk of catastrophic drawdowns and are less suitable for deployment with real capital.
 
@@ -227,9 +222,9 @@ ann_vol = std(daily_returns) * sqrt(365)
 
 **Normalization**: Linear interpolation: `score = clamp(1 - (vol - 0.3) / 1.2, 0, 1)`.
 
-#### 8. Sharpe Ratio (6%)
+#### 7. Sharpe Ratio (6.38%)
 
-The most widely used risk-adjusted performance measure in institutional finance. It measures excess return per unit of total volatility — answering "how much return does the strategy generate per unit of risk taken?"
+The most widely used risk-adjusted performance measure in institutional finance. It measures excess return per unit of total volatility, answering "how much return does the strategy generate per unit of risk taken?"
 
 ```
 sharpe = (mean(daily_excess_returns) / std(daily_returns)) * sqrt(365)
@@ -241,9 +236,9 @@ sharpe = (mean(daily_excess_returns) / std(daily_returns)) * sqrt(365)
 
 **Normalization**: Sigmoid transform centered at 1.0: `score = 1 / (1 + exp(-1.0 * (sharpe - 1.0)))`.
 
-#### 9. Sortino Ratio (6%)
+#### 8. Sortino Ratio (6.38%)
 
-A refinement of the Sharpe ratio that only penalizes **downside** volatility. Upside volatility (large gains) is not penalized — only the risk of losses matters. This is more appropriate for trading strategies where upside variance is desirable.
+A refinement of the Sharpe ratio that only penalizes **downside** volatility. Upside volatility (large gains) is not penalized, only the risk of losses matters. This is more appropriate for trading strategies where upside variance is desirable.
 
 ```
 downside_returns = min(daily_excess_returns, 0)
@@ -257,35 +252,50 @@ sortino = (mean(daily_excess_returns) / downside_dev) * sqrt(365)
 
 **Normalization**: Sigmoid transform centered at 1.5: `score = 1 / (1 + exp(-0.8 * (sortino - 1.5)))`.
 
+### Diagnostics (Reported, Unweighted)
+
+These metrics are computed for every epoch and surfaced in the score vector's raw/normalized breakdowns, but carry **no weight** in the composite.
+
+#### Win Rate
+
+The fraction of trades that were profitable. A straightforward measure of signal precision.
+
+```
+win_rate = count(trade_pnl > 0) / total_trades
+```
+
+- Demoted from the headline suite: profitable strategies can legitimately have moderate win rates (e.g., trend-following with ~40% wins but large risk/reward ratios), and weighting it risks rewarding low-conviction noise trading.
+- Its diagnostic role is filtering and forensics: strategies that generate excessive churn without directional edge are visible in the breakdown even though the composite ignores the metric.
+
 ### Composite Score Formula
 
-The trading composite score is a weighted sum of all nine normalized metrics:
+The trading composite score is a weighted sum of the eight normalized headline metrics:
 
 ```
-composite = 0.20 * realized_pnl
-          + 0.13 * omega
-          + 0.14 * max_drawdown
-          + 0.06 * win_rate
-          + 0.20 * consistency
-          + 0.10 * execution_quality
-          + 0.05 * annualized_volatility
-          + 0.06 * sharpe_ratio
-          + 0.06 * sortino_ratio
+composite = 0.2128 * annualized_return
+          + 0.1383 * omega
+          + 0.1489 * max_drawdown
+          + 0.2128 * consistency
+          + 0.1064 * execution_quality
+          + 0.0532 * annualized_volatility
+          + 0.0638 * sharpe_ratio
+          + 0.0638 * sortino_ratio
 ```
 
-Weights are published and configurable via `WeightConfig`. They are balanced so that no single metric dominates (max weight 20%), preventing single-dimension gaming.
+Weights are published and configurable via `WeightConfig`. They are balanced so that no single metric dominates (max weight 21.28%), preventing single-dimension gaming. The 2026-08-03 renormalization scaled the eight surviving weights pro-rata (x 1/0.94) after win rate moved to the diagnostics tier, preserving their relative proportions.
 
 ### Why This Drives Good Behavior
 
 - **Real outcomes only**: trading scores are based on actual (paper/live) trading results, not simulations.
+- **Scale-invariant profitability**: annualized return rewards skill per unit of capital, not bankroll size, and stays comparable across epoch lengths.
 - **Drawdown elimination**: Strategies that breach the drawdown limit (default 20%) are immediately eliminated, mirroring institutional prop trading standards.
 - **Consistency requirements** prevent strategies that take one lucky trade and coast.
-- **Omega ratio** captures tail risk that Sharpe ratio misses, preventing strategies that look good on average but carry hidden blow-up risk.
+- **Omega ratio** captures tail risk that Sharpe ratio misses, preventing strategies that look good on average but carry hidden blow-up risk. It is retained alongside Sortino specifically because the production stack assumes Student-t tails: Omega prices the full return distribution, Sortino only its downside deviation.
 - **Annualized volatility** directly penalizes cumulative return fluctuation, closing a gap where strategies could achieve moderate P&L through extreme vol swings that happen to net out.
 - **Sharpe and Sortino ratios** together provide a complete risk-adjusted view: Sharpe penalizes total volatility, Sortino penalizes only harmful (downside) volatility. A strategy with high upside variance but low downside deviation earns a Sortino premium over its Sharpe, correctly rewarding favorable skew.
 - **No reward for the assigned partner.** A trader is not credited or penalized for the deployment track record of the model it was paired with, because that pairing is assigned by the chain-seeded genetic algorithm and is outside the miner's control. Cross-partner model quality surfaces structurally through NSGA-II pair selection and the variance-penalized marginal-contribution credit, not as a per-miner scoring dimension.
 - **Execution quality** ensures strategies are deployment-ready by penalizing high latency, infrastructure instability, and excessive slippage. A strategy with perfect returns but fragile execution will score poorly, incentivizing miners to invest in robust infrastructure.
-- **Weight balance** ensures miners must optimize across all dimensions — high P&L with poor execution quality, excessive drawdown, or high volatility still scores poorly.
+- **Weight balance** ensures miners must optimize across all dimensions, high return with poor execution quality, excessive drawdown, or high volatility still scores poorly.
 
 ---
 
@@ -313,7 +323,7 @@ Weights are published and configurable via `WeightConfig`. They are balanced so 
 |---|---|
 | **Attack** | Miner copies another miner's model artifact or reverse-engineers their approach. |
 | **Defense** | SHA-256 fingerprinting detects exact duplicates. Prediction correlation analysis detects behavioral clones. Correlated models share rewards. |
-| **Why it fails** | No incentive to copy — you only get a fraction of the reward. Original work pays more. |
+| **Why it fails** | No incentive to copy, you only get a fraction of the reward. Original work pays more. |
 
 ### 4. Copy-Trading (Trader)
 
@@ -321,7 +331,7 @@ Weights are published and configurable via `WeightConfig`. They are balanced so 
 |---|---|
 | **Attack** | Trader miner mirrors another miner's positions instead of building their own strategy. |
 | **Defense** | Position correlation analysis with time/size tolerance. Correlated strategies share rewards. |
-| **Why it fails** | Same as model plagiarism — copying dilutes your reward. |
+| **Why it fails** | Same as model plagiarism, copying dilutes your reward. |
 
 ### 5. Single-Metric Gaming
 
@@ -345,7 +355,7 @@ Weights are published and configurable via `WeightConfig`. They are balanced so 
 |---|---|
 | **Attack** | Trader miner fabricates paper trading results or cherry-picks favorable reporting windows. |
 | **Defense** | Validators track positions via continuous streaming. All positions are timestamped. Reporting gaps are penalized. |
-| **Why it fails** | Validators independently verify position state — fabricated results are immediately detected. |
+| **Why it fails** | Validators independently verify position state, fabricated results are immediately detected. |
 
 ### 8. Sybil Attack
 
@@ -391,7 +401,7 @@ Weights are published and configurable via `WeightConfig`. They are balanced so 
 
 | | |
 |---|---|
-| **Attack** | (Legacy two-layer attack.) Adversarial miners exploit the emission split between the model and trading layers to capture disproportionate rewards by concentrating effort in the more rewarding layer. The single paired mechanism has no emission split — both roles share one weight vector — so this surface no longer exists. |
+| **Attack** | (Legacy two-layer attack.) Adversarial miners exploit the emission split between the model and trading layers to capture disproportionate rewards by concentrating effort in the more rewarding layer. The single paired mechanism has no emission split, both roles share one weight vector, so this surface no longer exists. |
 | **Defense** | `cross_layer_penalty_strength` penalizes deviations from the configured `l1_l2_emission_split`. Cross-layer feedback ensures both layers must perform well. |
 | **Why it fails** | The penalty is proportional to the deviation, making exploitation unprofitable. |
 
@@ -495,7 +505,7 @@ Better Models → Higher Firm P&L → Token Buybacks → Higher Token Value
 - **Frequency**: Weekly buyback cycles
 - **Transparency**: Buyback amounts and timing are published on-chain
 
-This creates a direct link between the subnet's economic output and miner token value — an alignment mechanism that existing trading subnets lack.
+This creates a direct link between the subnet's economic output and miner token value, an alignment mechanism that existing trading subnets lack.
 
 ---
 

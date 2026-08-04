@@ -1,4 +1,4 @@
-# Adversary Penalty Coverage Analysis — EXP-ADVERSARY-COVERAGE-002
+# Adversary Penalty Coverage Analysis, EXP-ADVERSARY-COVERAGE-002
 
 ## Executive Summary
 
@@ -6,7 +6,7 @@ The V13-R3 divergence (§6.6) revealed incomplete anti-gaming penalty coverage. 
 
 **Verdict: EXP-COPYCAT-FIX-J is INSUFFICIENT.** It addresses 2 of 6 adversary types. The remaining 4 require dedicated penalty paths.
 
-## 1. SybilMiner — Missing Penalty Path
+## 1. SybilMiner, Missing Penalty Path
 
 ### Current State
 - Base: 0.45, Final: 0.3927. Penalties: identity_bond(5%), stake(3%), anti_gaming(5.07%)
@@ -29,11 +29,11 @@ if (signal_diversity < ensemble_signal_diversity_min(3)):
 
 **Expected Post-Penalty Score:** 0.002–0.020
 
-## 2. OverfittingMiner — Missing Penalty Path
+## 2. OverfittingMiner, Missing Penalty Path
 
 ### Current State
 - Base: 0.72, Final: 0.5972. Penalties: bayesian(7.5%), stake(3%), anti_gaming(5.07%), overfit_gap(1.6%)
-- **Gap:** IS/OOS gap detection uses `gap_threshold × decay^epoch × 0.1` — formula-based, no actual IS/OOS validation. Coefficient 0.1 is trivial.
+- **Gap:** IS/OOS gap detection uses `gap_threshold × decay^epoch × 0.1`, formula-based, no actual IS/OOS validation. Coefficient 0.1 is trivial.
 
 ### Required Penalty
 **Formula:**
@@ -57,7 +57,7 @@ score -= gap_threshold × decay^epoch × 0.15  // was 0.1, now 0.15
 
 **Expected Post-Penalty Score:** 0.000–0.016
 
-## 3. SingleMetricGamer — Missing Penalty Path
+## 3. SingleMetricGamer, Missing Penalty Path
 
 ### Current State
 - Base: 0.65, Final: 0.5975. Penalties: stake(3%), anti_gaming(5.07%)
@@ -85,7 +85,7 @@ if (cross_metric_corr(0.90) > cross_metric_correlation_threshold(0.35)):
 
 **Expected Post-Penalty Score:** 0.007–0.031
 
-## 4. PartnerGamer — Missing Penalty Path and Agent Type
+## 4. PartnerGamer, Missing Penalty Path and Agent Type
 
 ### Current State
 - **PartnerGamer NOT in AGENTS list.** No collusion penalty path. No partner detection.
@@ -111,7 +111,7 @@ score *= (1 - shared_reward_fraction(0.30) × 0.5)  // 15% penalty
 
 ## 5. EXP-COPYCAT-FIX-J Adequacy Assessment
 
-**NO — FIX-J only addresses 2 of 6 adversary types:**
+**NO, FIX-J only addresses 2 of 6 adversary types:**
 
 | Adversary | FIX-J | Additional Fix |
 |-----------|-------|---------------|

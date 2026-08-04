@@ -51,11 +51,12 @@ PARAMETER_DEFINITIONS: List[ParameterBounds] = [
     ParameterBounds("model_feature_efficiency",   0.01, 0.15, "model_weights", "Weight for feature efficiency"),
     ParameterBounds("model_latency",              0.01, 0.20, "model_weights", "Weight for latency score"),
 
-    # Trading Scoring Weights (9 params, must sum to 1.0)
-    ParameterBounds("trading_realized_pnl",            0.05, 0.40, "trading_weights", "Weight for realized P&L"),
+    # Trading Scoring Weights (8 params, must sum to 1.0)
+    # 2026-08-03: realized_pnl replaced by scale-invariant annualized_return;
+    # win_rate demoted to a reported-only diagnostic (no tunable weight).
+    ParameterBounds("trading_annualized_return",         0.05, 0.40, "trading_weights", "Weight for annualized return (scale-invariant profitability)"),
     ParameterBounds("trading_omega",                   0.05, 0.30, "trading_weights", "Weight for Omega ratio"),
     ParameterBounds("trading_max_drawdown",            0.05, 0.30, "trading_weights", "Weight for max drawdown"),
-    ParameterBounds("trading_win_rate",                0.02, 0.25, "trading_weights", "Weight for win rate"),
     ParameterBounds("trading_consistency",             0.05, 0.30, "trading_weights", "Weight for consistency"),
     ParameterBounds("trading_execution_quality",       0.05, 0.30, "trading_weights", "Weight for execution quality (latency, reliability, slippage)"),
     ParameterBounds("trading_annualized_volatility",   0.02, 0.15, "trading_weights", "Weight for annualized volatility (inverted — lower vol = higher score)"),
@@ -206,10 +207,9 @@ def decode(x: np.ndarray) -> Dict[str, Any]:
         model_overfitting_penalty=p["model_overfitting_penalty"],
         model_feature_efficiency=p["model_feature_efficiency"],
         model_latency=p["model_latency"],
-        trading_realized_pnl=p["trading_realized_pnl"],
+        trading_annualized_return=p["trading_annualized_return"],
         trading_omega=p["trading_omega"],
         trading_max_drawdown=p["trading_max_drawdown"],
-        trading_win_rate=p["trading_win_rate"],
         trading_consistency=p["trading_consistency"],
         trading_execution_quality=p["trading_execution_quality"],
         trading_annualized_volatility=p["trading_annualized_volatility"],
@@ -372,10 +372,10 @@ def encode_defaults() -> np.ndarray:
         "model_penalized_f1": 0.22, "model_penalized_sharpe": 0.18, "model_max_drawdown": 0.14,
         "model_variance_score": 0.16, "model_overfitting_penalty": 0.14, "model_feature_efficiency": 0.06,
         "model_latency": 0.10,
-        "trading_realized_pnl": 0.20, "trading_omega": 0.13, "trading_max_drawdown": 0.14,
-        "trading_win_rate": 0.06, "trading_consistency": 0.20,
-        "trading_execution_quality": 0.10,
-        "trading_annualized_volatility": 0.05, "trading_sharpe_ratio": 0.06, "trading_sortino_ratio": 0.06,
+        "trading_annualized_return": 0.2128, "trading_omega": 0.1383, "trading_max_drawdown": 0.1489,
+        "trading_consistency": 0.2128,
+        "trading_execution_quality": 0.1064,
+        "trading_annualized_volatility": 0.0532, "trading_sharpe_ratio": 0.0638, "trading_sortino_ratio": 0.0638,
         "overfit_gap_threshold": 0.15, "overfit_decay_rate": 5.0,
         "promotion_top_n": 8, "promotion_min_consecutive_epochs": 3,
         "promotion_max_overfitting_score": 0.35, "promotion_max_score_decay_pct": 0.15,
@@ -443,8 +443,8 @@ def summarize_config(config: Dict[str, Any]) -> str:
         lines.append(f"  {k}: {p[k]:.4f}")
 
     lines.append("=== Trading Scoring Weights ===")
-    for k in ["trading_realized_pnl", "trading_omega", "trading_max_drawdown",
-              "trading_win_rate", "trading_consistency",
+    for k in ["trading_annualized_return", "trading_omega", "trading_max_drawdown",
+              "trading_consistency",
               "trading_execution_quality", "trading_annualized_volatility",
               "trading_sharpe_ratio", "trading_sortino_ratio"]:
         lines.append(f"  {k}: {p[k]:.4f}")
@@ -522,8 +522,8 @@ if __name__ == "__main__":
     ))
     print("Trading weights sum:", sum(
         config["raw_params"][k] for k in
-        ["trading_realized_pnl", "trading_omega", "trading_max_drawdown",
-         "trading_win_rate", "trading_consistency",
+        ["trading_annualized_return", "trading_omega", "trading_max_drawdown",
+         "trading_consistency",
          "trading_execution_quality", "trading_annualized_volatility",
          "trading_sharpe_ratio", "trading_sortino_ratio"]
     ))

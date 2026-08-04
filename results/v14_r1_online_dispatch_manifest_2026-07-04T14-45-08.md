@@ -1,4 +1,4 @@
-# V14-R1 Online-Mode Gate Verification — Orchestrator Dispatch Manifest
+# V14-R1 Online-Mode Gate Verification, Orchestrator Dispatch Manifest
 
 **Generated:** 2026-07-04T14:45:08.292474+00:00
 **Config ID:** V14-R1-CORRECTED-KP
@@ -16,7 +16,7 @@ Verify the 6 online-mode §9 gates against the live V14-R1-CORRECTED-KP config o
 - **Step 4 (tuner seed):** `results/tuner_v14_r1_warmstart_seed_2026-07-04T02-39-07.json`
 - **Step 5 (gate check):** `results/researcher_v14_r1_gate_check_2026-07-04T14-33-59.json`
 
-**Offline summary:** All 4 harness-mode gates PASS (attack_breach_rate=0.0, separation=0.9004, validator_latency_severity=0.0351, prediction_timing_severity=0.025). 0 adversary leaks across the 19-vector sentinel surface. 2 non-penalty-path breaches remain (random_baseline_discrimination, collusion_temporal_pattern) — both synthetic harness artifacts, not adversary leaks.
+**Offline summary:** All 4 harness-mode gates PASS (attack_breach_rate=0.0, separation=0.9004, validator_latency_severity=0.0351, prediction_timing_severity=0.025). 0 adversary leaks across the 19-vector sentinel surface. 2 non-penalty-path breaches remain (random_baseline_discrimination, collusion_temporal_pattern), both synthetic harness artifacts, not adversary leaks.
 
 ## 6 Online-Mode Gates to Verify On-Chain
 
@@ -38,9 +38,9 @@ Verify the 6 online-mode §9 gates against the live V14-R1-CORRECTED-KP config o
 
 ## MCP Dispatch Commands
 
-**⚠️ Cannot be executed from this repo** — the insignia-local MCP server is not available in this environment. Execute these in the orchestrator's agent env (or trigger via the swarm gateway).
+**⚠️ Cannot be executed from this repo**, the insignia-local MCP server is not available in this environment. Execute these in the orchestrator's agent env (or trigger via the swarm gateway).
 
-_Execute these commands in the orchestrator's agent env via the insignia-local MCP. These cannot be executed from the offline repo — the insignia-local MCP server is not available in this environment._
+_Execute these commands in the orchestrator's agent env via the insignia-local MCP. These cannot be executed from the offline repo, the insignia-local MCP server is not available in this environment._
 
 ### step1_file_task
 

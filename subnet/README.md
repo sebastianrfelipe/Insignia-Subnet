@@ -12,9 +12,9 @@ Built on [Bittensor](https://bittensor.com) for the Sovereign Infrastructure Hac
 > emission split between layers are removed. See
 > [docs/PAIRING_MECHANISM.md](docs/PAIRING_MECHANISM.md) for the full spec.
 
-**Status:** Phase 5 — V13-R3 candidate failed empirical separation validation; root cause corrected 2026-07-01 (see below). Last non-contradicted checkpoint is the R2 knee.  
+**Status:** Phase 5, V13-R3 candidate failed empirical separation validation; root cause corrected 2026-07-01 (see below). Last non-contradicted checkpoint is the R2 knee.  
 **System posture:** `SECURE_AND_IMPROVING` (sentinel posture from harness runs; treat as provisional until on-chain re-validation)  
-**Best reported checkpoint:** V13-R2-KP-020-a7f2 (breach_rate `3.5e-6`, honest_score `0.9795`, separation `0.953`). ⚠️ **V13-R3-KP-020-a3c7 FAILED empirical validation** — its predicted separation `0.963` collapsed to `~0.23` against the real adversarial population (gate is `≥0.90`), so it is **not** promoted. ⚠️ **2026-07-01 correction:** earlier docs attributed this to a "GP surrogate" — a code audit found no surrogate exists in `subnet/tuning/optimizer.py`; the optimizer calls `SimulationHarness.run()` directly. The real root cause is incomplete anti-gaming penalty coverage in the harness (`simulation.py:870-873` penalizes only Copycat/CopyTrader; sybil, overfitter, single_metric_gamer, partner_gamer have no penalty path). See [reference_configs/knee_point_V13-R3.json](reference_configs/knee_point_V13-R3.json), [docs/EMULATOR_SPEC.md §6.6](docs/EMULATOR_SPEC.md), and `tests/test_simulation_separation.py`.
+**Best reported checkpoint:** V13-R2-KP-020-a7f2 (breach_rate `3.5e-6`, honest_score `0.9795`, separation `0.953`). ⚠️ **V13-R3-KP-020-a3c7 FAILED empirical validation**, its predicted separation `0.963` collapsed to `~0.23` against the real adversarial population (gate is `≥0.90`), so it is **not** promoted. ⚠️ **2026-07-01 correction:** earlier docs attributed this to a "GP surrogate", a code audit found no surrogate exists in `subnet/tuning/optimizer.py`; the optimizer calls `SimulationHarness.run()` directly. The real root cause is incomplete anti-gaming penalty coverage in the harness (`simulation.py:870-873` penalizes only Copycat/CopyTrader; sybil, overfitter, single_metric_gamer, partner_gamer have no penalty path). See [reference_configs/knee_point_V13-R3.json](reference_configs/knee_point_V13-R3.json), [docs/EMULATOR_SPEC.md §6.6](docs/EMULATOR_SPEC.md), and `tests/test_simulation_separation.py`.
 
 ---
 
@@ -40,8 +40,8 @@ Insignia is a competitive network for producing high-quality ML models and valid
 - No convergence detected and no reset triggers fired (`SOFT`, `HARD`, `FULL` all false)
 - 75-parameter orchestration headline, with the repository retaining a broader 9-metric trading implementation and expanded parameter space in code
 - 41-variable NSGA-II v13 R3 profile runs on top of the repository's broader 67-parameter surface
-- Current optimization spec: 20 generations, population 30, 4 objectives — **no surrogate** (a 2026-07-01 code audit found the "GaussianProcess Surrogate R²=0.96" described in earlier docs does not exist in `subnet/tuning/optimizer.py`; the optimizer evaluates each candidate via `SimulationHarness.run()` directly)
-- ⚠️ The V13-R3 knee predicted breach_rate `2.6e-6`, honest_score `0.9808`, separation `0.963`, variance `0.00081`, but **empirical validation invalidated it**: real separation is `~0.23` (best adversary scores `0.733`, capturing ~64.7% of chain weight). honest_score held (`~0.977`); separation did not. **V13-R3 is not promoted**. The root cause is **not** a surrogate (none exists) — it is incomplete anti-gaming penalty coverage in the harness: `simulation.py:870-873` penalizes only Copycat/CopyTrader, so sybil, overfitter, single_metric_gamer, and partner_gamer score ~0.90 (sybil scores *higher* than honest). See CHANGELOG 2026-07-01, `reference_configs/knee_point_V13-R3.json`, and `tests/test_simulation_separation.py`.
+- Current optimization spec: 20 generations, population 30, 4 objectives, **no surrogate** (a 2026-07-01 code audit found the "GaussianProcess Surrogate R²=0.96" described in earlier docs does not exist in `subnet/tuning/optimizer.py`; the optimizer evaluates each candidate via `SimulationHarness.run()` directly)
+- ⚠️ The V13-R3 knee predicted breach_rate `2.6e-6`, honest_score `0.9808`, separation `0.963`, variance `0.00081`, but **empirical validation invalidated it**: real separation is `~0.23` (best adversary scores `0.733`, capturing ~64.7% of chain weight). honest_score held (`~0.977`); separation did not. **V13-R3 is not promoted**. The root cause is **not** a surrogate (none exists), it is incomplete anti-gaming penalty coverage in the harness: `simulation.py:870-873` penalizes only Copycat/CopyTrader, so sybil, overfitter, single_metric_gamer, and partner_gamer score ~0.90 (sybil scores *higher* than honest). See CHANGELOG 2026-07-01, `reference_configs/knee_point_V13-R3.json`, and `tests/test_simulation_separation.py`.
 - Persistent warning: Sybil pressure driven by BTCUSDT:ETHUSDT imbalance
 - Historical hard-environment simulation headline remains useful context: breach_rate `0.124`, honest_score `0.847`
 
@@ -59,19 +59,20 @@ Insignia is a competitive network for producing high-quality ML models and valid
 
 ## Trading weights (trader) used in repository defaults
 
-The orchestration report summarizes a 6-metric headline split, but the codebase intentionally keeps a 9-metric trading scorer for additional risk controls. The `model_attribution` metric was removed when the subnet migrated to the single paired genetic mechanism (the model is now assigned to the trader by the genetic algorithm rather than self-selected, so a miner cannot influence it). Its weight was redistributed across the remaining performance metrics. The updated compatible defaults are:
+The orchestration report summarizes a 6-metric headline split, but the codebase intentionally keeps an 8-metric trading scorer for additional risk controls, plus win rate as an unweighted diagnostic. The `model_attribution` metric was removed when the subnet migrated to the single paired genetic mechanism (the model is now assigned to the trader by the genetic algorithm rather than self-selected, so a miner cannot influence it). Its weight was redistributed across the remaining performance metrics. On 2026-08-03 absolute `realized_pnl` was replaced by scale-invariant `annualized_return`, `win_rate` was demoted to the diagnostics tier, and the surviving weights were renormalized pro-rata (x 1/0.94). The updated compatible defaults are:
 
 | Metric | Weight |
 |---|---:|
-| realized_pnl | 0.20 |
-| omega_ratio | 0.13 |
-| max_drawdown | 0.14 |
-| win_rate | 0.06 |
-| consistency | 0.20 |
-| execution_quality | 0.10 |
-| annualized_volatility | 0.05 |
-| sharpe_ratio | 0.06 |
-| sortino_ratio | 0.06 |
+| annualized_return | 0.2128 |
+| omega_ratio | 0.1383 |
+| max_drawdown | 0.1489 |
+| consistency | 0.2128 |
+| execution_quality | 0.1064 |
+| annualized_volatility | 0.0532 |
+| sharpe_ratio | 0.0638 |
+| sortino_ratio | 0.0638 |
+
+Diagnostics tier (reported, unweighted): `win_rate`.
 
 ---
 

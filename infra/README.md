@@ -1,4 +1,4 @@
-# infra — keys, CI, deployment
+# infra, keys, CI, deployment
 
 Non-code scaffolding for the fund layer (SPEC §3). Nothing sensitive lives in
 the repo; this directory holds runbooks and configuration templates only.
@@ -8,7 +8,7 @@ the repo; this directory holds runbooks and configuration templates only.
 - Institutional-grade coldkey custody: multisig / proxy extrinsics, HSM or
   qualified custodian (SPEC §2 Phase 0).
 - Desk authority over LP locks is a **limited proxy** covering `lock_stake` /
-  `set_perpetual_lock` only — no transfer or unstake authority to fund
+  `set_perpetual_lock` only, no transfer or unstake authority to fund
   addresses. Verify on testnet which subtensor proxy type gates the lock
   extrinsics (SPEC §10.1); if none does, fall back to fund-custodied cohort
   coldkeys under multisig and document the change for counsel.
@@ -22,7 +22,7 @@ the repo; this directory holds runbooks and configuration templates only.
    `get_hotkey_conviction`).
 2. Param-change chaos test: sudo-change UnlockRate / ConvictionMaturityRate on
    a local chain; confirm monitor pages and schedules recompute.
-3. Confirm extrinsic/storage names against subtensor PRs #2658 / #2687 / #2696 —
+3. Confirm extrinsic/storage names against subtensor PRs #2658 / #2687 / #2696.
    chainio and lockmgr/locks.py carry the assumptions.
 
 ## CI

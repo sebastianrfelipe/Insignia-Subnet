@@ -492,10 +492,10 @@ The V14-R1 namespace is **writable**. Here's the summary:
 | **Read-back** | ✅ Document confirmed with all namespace fields intact |
 | **Cleanup** | ✅ No-op document deleted (1 doc removed) |
 | **Gate version** | v3 |
-| **Verdict** | **WRITABLE — verification may proceed** |
+| **Verdict** | **WRITABLE, verification may proceed** |
 
 ### Important note on namespace filtering
-The session's auto-injected filter is `procedure: "insignia_subnet_tuner"`, which does **not** match the V14-R1 procedure (`v14_r1_online_gate_check`). Queries on the V14-R1 namespace must use an **explicit** procedure filter to find documents. The write itself succeeds — it's only the default read filter that would miss these documents.
+The session's auto-injected filter is `procedure: "insignia_subnet_tuner"`, which does **not** match the V14-R1 procedure (`v14_r1_online_gate_check`). Queries on the V14-R1 namespace must use an **explicit** procedure filter to find documents. The write itself succeeds, it's only the default read filter that would miss these documents.
 
 The result has been stored in shared memory under key `v14_r1_preflight_write_test` for other agents to reference.
 

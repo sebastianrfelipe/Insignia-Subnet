@@ -1,4 +1,4 @@
-# Sentinel Coverage Matrix — 19 Post-CR Surveillance Vectors
+# Sentinel Coverage Matrix, 19 Post-CR Surveillance Vectors
 
 **Generated:** 2026-07-04T14:36:08.766434+00:00
 **Config source:** encode_defaults (Phase 5 proxy; V14-R1-CORRECTED-KP lives in orchestrator MongoDB)
@@ -35,9 +35,9 @@
 | 3 | `single_metric_gaming` | ✅ no | 0.0 | low | 🟡 STATIC-FLOOR | SingleMetricGamer | _SINGLE_METRIC_MULTIPLIER (static floor 0.0001) |
 | 4 | `sybil_attack` | ✅ no | 0.0 | low | ✅ CLOSED | SybilMiner | signal-driven: sybil_pressure × detection_sensitivity × correlation_penalty |
 | 5 | `copy_trading` | ✅ no | 0.0 | low | 🟡 STATIC-FLOOR | CopyTrader | _COPYTRADER_MULTIPLIER (static floor 0.0001) |
-| 6 | `random_baseline_discrimination` | ❌ YES | 0.9041 | high | 📊 AGGREGATE | RandomMiner (noise baseline, NOT adversarial per §5.1) | scoring discrimination (no penalty path — this vector checks the scorer separates signal from noise) |
+| 6 | `random_baseline_discrimination` | ❌ YES | 0.9041 | high | 📊 AGGREGATE | RandomMiner (noise baseline, NOT adversarial per §5.1) | scoring discrimination (no penalty path, this vector checks the scorer separates signal from noise) |
 | 7 | `adversarial_dominance` | ✅ no | 0.0 | low | 📊 AGGREGATE | any adversary | all penalty paths combined (no adversary scores above honest) |
-| 8 | `insufficient_separation` | ✅ no | 0.0 | low | ✅ CLOSED | all adversaries (aggregate) | §9 separation gate (>= 0.90) — all penalty paths combined |
+| 8 | `insufficient_separation` | ✅ no | 0.0 | low | ✅ CLOSED | all adversaries (aggregate) | §9 separation gate (>= 0.90), all penalty paths combined |
 | 9 | `score_concentration` | ✅ no | 0.0716 | low | ⚙️ CONFIG | aggregate (HHI of miner_scores) | emission reverse-sigmoid + pairing marginal-contribution credit |
 | 10 | `validator_latency_exploitation` | ✅ no | 0.0351 | low | ⚙️ CONFIG | validator timing exploit | validation_timing config (min_prediction_lead_time, validator_latency_penalty_weight) |
 | 11 | `prediction_timing_manipulation` | ✅ no | 0.025 | low | ⚙️ CONFIG | miner timing exploit | validation_timing config (min_prediction_lead_time, commitment_violation_weight) |
@@ -52,11 +52,11 @@
 
 ## Pending signal-driven work (STATIC-FLOOR vectors)
 
-- **`overfitting_exploitation`** — EXP-ADVERSARY-COVERAGE-002 §2 — replace with IS/OOS gap signal
-- **`model_plagiarism`** — fingerprint_correlation_threshold config exists; multiplier is backstop
-- **`single_metric_gaming`** — EXP-ADVERSARY-COVERAGE-002 §3 — replace with metric concentration + entropy
-- **`copy_trading`** — copy_trade_correlation_threshold config exists; multiplier is backstop
-- **`miner_validator_collusion`** — collusion_detection_lookback_epochs config; multiplier is backstop
+- **`overfitting_exploitation`**, EXP-ADVERSARY-COVERAGE-002 §2, replace with IS/OOS gap signal
+- **`model_plagiarism`**, fingerprint_correlation_threshold config exists; multiplier is backstop
+- **`single_metric_gaming`**, EXP-ADVERSARY-COVERAGE-002 §3, replace with metric concentration + entropy
+- **`copy_trading`**, copy_trade_correlation_threshold config exists; multiplier is backstop
+- **`miner_validator_collusion`**, collusion_detection_lookback_epochs config; multiplier is backstop
 
 ## Breach annotations (non-penalty-path breaches)
 
@@ -64,7 +64,7 @@
 
 **Detector description:** Random avg=0.8144 vs honest avg=0.9007 (ratio=0.90)
 
-**Annotation:** NOT an adversary leak. RandomMiner is the §5.1 noise baseline (not adversarial); the synthetic scorer gives it ~0.81 by design (vs honest ~0.92, ratio 0.89 > 0.60 threshold). This vector checks scoring discrimination, not adversary suppression. Closing it would require changing the synthetic score generation, not the penalty paths. Acceptable for the V14-R1 gate — RandomMiner is already excluded from the adversarial set in test_simulation_separation.py.
+**Annotation:** NOT an adversary leak. RandomMiner is the §5.1 noise baseline (not adversarial); the synthetic scorer gives it ~0.81 by design (vs honest ~0.92, ratio 0.89 > 0.60 threshold). This vector checks scoring discrimination, not adversary suppression. Closing it would require changing the synthetic score generation, not the penalty paths. Acceptable for the V14-R1 gate, RandomMiner is already excluded from the adversarial set in test_simulation_separation.py.
 
 ### `collusion_temporal_pattern` (severity 0.7429, high)
 
@@ -74,7 +74,7 @@
 
 ## Verdict
 
-✅ **All adversary-type vectors defended** — zero adversary leaks across the 19-vector surface.
+✅ **All adversary-type vectors defended**, zero adversary leaks across the 19-vector surface.
    - Adversary-type vectors (overfitting, plagiarism, single_metric, sybil, copy_trading,
      miner_validator_collusion, adversarial_dominance, insufficient_separation): all severity 0.0.
    - Non-penalty-path breaches (2): ['random_baseline_discrimination', 'collusion_temporal_pattern']
