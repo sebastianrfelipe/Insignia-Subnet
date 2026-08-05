@@ -1,0 +1,87 @@
+{
+  "procedure": "insignia_subnet_tuner",
+  "document_type": "corrected_knee_point",
+  "config_id": "V14-R1-CORRECTED-KP",
+  "parent_config": "V13-R3-KP-020-a3c7",
+  "correction_rationale": "Fix 4x separation overestimation by strengthening anti-gaming, overfitting, promotion, and identity parameters based on empirical validation findings",
+  "scoring_schema": "annualized_return_v2",
+  "l1_weights": [0.24, 0.19, 0.14, 0.15, 0.12, 0.09, 0.07],
+  "l2_weights": [0.22, 0.18, 0.14, 0.15, 0.13, 0.11, 0.07],
+  "overfitting": {
+    "gap_threshold": 0.1,
+    "decay_rate": 0.88
+  },
+  "promotion": {
+    "top_n": 7,
+    "min_consecutive_epochs": 5,
+    "max_overfitting_score": 0.25,
+    "max_score_decay_pct": 0.12,
+    "expiry_epochs": 20
+  },
+  "feedback": {
+    "learning_rate": 0.012,
+    "momentum": 0.58,
+    "decay": 0.993,
+    "clip": 1.15
+  },
+  "anti_gaming": {
+    "gaming_detection_sensitivity": 0.92,
+    "penalty_escalation_rate": 0.85,
+    "whitelist_decay_rate": 0.985,
+    "cross_metric_correlation_threshold": 0.45
+  },
+  "trading": {
+    "min_trade_interval": 5,
+    "max_position_concentration": 0.1,
+    "slippage_tolerance": 0.01,
+    "execution_timeout": 1100,
+    "fill_rate_minimum": 0.9
+  },
+  "trading_weights": {
+    "trading_annualized_return": 0.125,
+    "trading_sharpe_ratio": 0.125,
+    "trading_sortino_ratio": 0.125,
+    "trading_max_drawdown": 0.125,
+    "trading_calmar_ratio": 0.125,
+    "trading_profit_factor": 0.125,
+    "trading_fill_quality": 0.125,
+    "trading_execution_cost": 0.125
+  },
+  "emissions": {
+    "base_emission_rate": 1.7,
+    "performance_multiplier": 1.5,
+    "longevity_bonus_rate": 0.14,
+    "diversity_incentive_weight": 0.2,
+    "decay_rate": 0.995,
+    "min_emission_floor": 0.07,
+    "max_emission_cap": 2.4
+  },
+  "r3_features": {
+    "decentralized_identity_verification": true,
+    "bayesian_model_averaging": true,
+    "stake_based_consensus": true,
+    "identity_bond": 0.15,
+    "prior_strength": 0.7,
+    "min_stake_weight": 0.2
+  },
+  "expected_impact": {
+    "copycat_score_reduction": "0.7333 → target <0.10",
+    "copytrader_score_reduction": "0.131 weight → target <0.05",
+    "separation_improvement": "0.244 → target ≥0.90",
+    "honest_score_preservation": "0.977+ maintained"
+  },
+  "rebase_metadata": {
+    "amendment_ref": "AMEND-2026-08-03-trading-metric-revamp",
+    "rebase_date": "2026-08-03",
+    "dropped_keys": ["trading_realized_pnl", "trading_win_rate"],
+    "added_key": "trading_annualized_return",
+    "renormalization_factor": "1/0.94",
+    "weight_vector_source": "equal_weights_0.125",
+    "weight_vector_source_rationale": "No authoritative pre-revamp 9-weight vector found in agent_memory (tuner_state, sentinel_state, simulator_state) or MongoDB experiment_configs (procedure=insignia_subnet_tuner, config_id regex V14-R1|V13-R3). Used equal weights 0.125 x 8 = 1.0 as fallback per task instructions.",
+    "weight_count": 8,
+    "sum_check": 1.0,
+    "sum_check_tolerance": "within 1e-9",
+    "criterion_met": false,
+    "promotion_status": "not_promoted"
+  }
+}
