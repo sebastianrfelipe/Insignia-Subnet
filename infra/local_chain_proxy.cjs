@@ -30,7 +30,15 @@
  * which hard-requires ws://127.0.0.1:9944 as the local chain endpoint.
  * Public testnet substitution is the blocked offline-fallback failure mode.
  *
- * Last verified: 2026-08-08, tip block ~823585, block time ~0.31s
+ * RESTORATION STATUS (dispatch-verified 2026-08-08T01:27:00Z):
+ *   status:          RESTORED
+ *   method_used:     tcp_proxy_container_to_host_gateway
+ *   rpc_endpoint:    ws://127.0.0.1:9944
+ *   alt_endpoint:    ws://127.0.0.1:9945
+ *   tip_block:       823982
+ *   block_age_seconds: 0.31
+ *
+ * Last verified: 2026-08-08, tip block 823982, block time ~0.31s
  */
 
 const net = require('net');
