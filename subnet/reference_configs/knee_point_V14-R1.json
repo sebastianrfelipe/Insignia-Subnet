@@ -39,13 +39,13 @@
   },
   "trading_weights": {
     "trading_annualized_return": 0.125,
-    "trading_sharpe_ratio": 0.125,
-    "trading_sortino_ratio": 0.125,
+    "trading_omega": 0.125,
     "trading_max_drawdown": 0.125,
-    "trading_calmar_ratio": 0.125,
-    "trading_profit_factor": 0.125,
-    "trading_fill_quality": 0.125,
-    "trading_execution_cost": 0.125
+    "trading_consistency": 0.125,
+    "trading_execution_quality": 0.125,
+    "trading_annualized_volatility": 0.125,
+    "trading_sharpe_ratio": 0.125,
+    "trading_sortino_ratio": 0.125
   },
   "emissions": {
     "base_emission_rate": 1.7,
@@ -83,5 +83,41 @@
     "sum_check_tolerance": "within 1e-9",
     "criterion_met": false,
     "promotion_status": "not_promoted"
+  },
+  "online_verification": {
+    "manifest_version": "v3 (amended 2026-08-03)",
+    "status": "BLOCKED_EXECUTOR_STALL_NO_V14_R1_EVIDENCE",
+    "config_matches_current_parameter_space": "PASS",
+    "preflight_status": "ALL_4_PASS",
+    "gates_evaluated": 0,
+    "gates_to_verify": [
+      "honest_mean_score",
+      "score_variance",
+      "commit_reveal_effectiveness",
+      "consecutive_clean_validations",
+      "convergence_contract",
+      "sentinel_posture"
+    ],
+    "evidence_state": {
+      "simulation_epochs_v3": 0,
+      "sentinel_state_v3": 0,
+      "convergence_metrics_v3": 0
+    },
+    "hard_blocks_active": [
+      "no_projection_verdicts",
+      "no_criterion_met_writes_without_evidence",
+      "no_namespace_leak",
+      "no_offline_fallback_for_online_gates",
+      "reviewer_veto_honored",
+      "no_promotion_without_git_push",
+      "no_stale_parameter_space_promotion"
+    ],
+    "infrastructure_blocker": "Subtask executor not claiming delegated specialist tasks. Dispatched rerun1, rerun2, sentinel eval all remained status=pending (never claimed).",
+    "next_steps": [
+      "Restore subtask executor task-claiming for simulator/sentinel",
+      "Once executor is live: run the 3 dispatched tasks (rerun1 seed 14071, rerun2 seed 90210, sentinel eval) under procedure=v14_r1_online_gate_check with scoring_schema=annualized_return_v2",
+      "Then dispatch reviewer audit of the V14-R1 evidence trail; orchestrator summary MUST match reviewer verdicts (reviewer_veto_honored)",
+      "Only if all 6 gates clear against V14-R1 evidence: dispatch HITL promotion (git push parameter_space.py + btcli apply + audit_log promotion record). PENDING_GITHUB_PUSH is not a promotion."
+    ]
   }
 }
