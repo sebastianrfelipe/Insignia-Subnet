@@ -1,8 +1,8 @@
 # Insignia Subnet, Fund-Backed Alpha Flywheel: Build Specification
 
-**Status:** v0.2 · adopted into this repository 2026-07-26
+**Status:** v0.3 · adopted 2026-07-26 · Root Reborn (runtime v441) implications incorporated 2026-08-05
 **Audience:** engineering agents building this repository
-**Chain context:** Bittensor mainnet, dTAO + TAO Flow V2 + Conviction v2 (subtensor PRs #2658, #2687, #2696; verify current state before implementing, conviction v2 was on devnet/testnet as of late May 2026)
+**Chain context:** Bittensor mainnet, dTAO + TAO Flow V2 + Conviction v2 + Root Reborn (subtensor PRs #2658, #2687, #2696, #2968; verify current state before implementing, conviction v2 was on devnet/testnet as of late May 2026, Root Reborn shipped mainnet 2026-08-03)
 
 **References:**
 - Bittensor docs, https://www.bittensor.com/docs (emissions, dTAO, conviction; pull formulas from here, never from memory)
@@ -40,7 +40,7 @@ The design in this repo MUST be built against the **actual** Conviction v2 mecha
     ```
     root_proportion = root_tao × tao_weight / (root_tao × tao_weight + alpha_issuance)
     ```
-    with `tao_weight` = 0.18 (governance-set). Because a young subnet's alpha issuance is small, the slice is large. **Note: LP acceptance occurs 12 months after the subnet is deployed on mainnet, so this year-1 haircut falls on the fund's own locked alpha before any external LP is exposed to it, the desk absorbs the worst of the root-proportion ramp, and incoming LPs enter as the curve flattens.** (Paid only while Σ of all subnet EMA prices > 1.0; otherwise that alpha is recycled.) Within a validator's dividends the split is `α / (α + τ·w)` to alpha stakers, `τ·w / (α + τ·w)` to TAO stakers, after the validator's take.
+    with `tao_weight` = 0.18 (governance-set). Because a young subnet's alpha issuance is small, the slice is large. **Note: LP acceptance occurs 12 months after the subnet is deployed on mainnet, so this year-1 haircut falls on the fund's own locked alpha before any external LP is exposed to it, the desk absorbs the worst of the root-proportion ramp, and incoming LPs enter as the curve flattens.** (Paid only while Σ of all subnet EMA prices > 1.0; otherwise that alpha is recycled.) Within a validator's dividends the split is `α / (α + τ·w)` to alpha stakers, `τ·w / (α + τ·w)` to TAO stakers, after the validator's take. **Root Reborn does not change this split — it changes what happens to the root slice afterward: it accrues in beta-basket escrows as staked alpha instead of auto-selling (§0.16). The haircut is unchanged; its market impact is deferred to claim flow.**
 
 11. **Never route miner incentive to owner hotkeys.** `b_i` taxes emission share **one-for-one**
 
@@ -55,6 +55,12 @@ The design in this repo MUST be built against the **actual** Conviction v2 mecha
 
 15. **All parameters are mutable by root** (UnlockRate, ConvictionMaturityRate, auto-lock defaults, flow accounting). Every module must read parameters from chain at runtime and tolerate change. In this repo the shared read layer is [chainio/params.py](../chainio/params.py); pure-math modules take parameters as arguments and never embed chain constants.
 
+16. **Root Reborn (runtime v441, mainnet 2026-08-03, PR #2968) replaced the per-block auto-sell of root dividends.** Each root validator (64 seats, burn-based entry, 18% default take) now runs a single on-chain fund ("beta basket"): its root dividends are held as **real staked alpha under a keyless escrow coldkey**, fund shares mint at **realizable NAV** (priced at what holdings would fetch at current pool depth, not spot), and claims are arg-less fund-level pro-rata redemptions that sell fraction `f` of *every* holding. Weight curation launched **disabled**; the default is accumulate-in-place at emission weights, executing zero trades. Consequences for this design:
+    - **The root slice is deferred leakage, not retained value.** The escrowed alpha sits physically staked on the subnet (no immediate sell pressure, and it counts in the staked-alpha denominators), but it is **economically owned by root stakers through fund shares**. It exits the wrapper when they claim. Never count it as retained in NAV or retention accounting; model it as leakage whose *realization timing* is claim flow rather than per-block auto-sell.
+    - **Per-subnet net flow becomes a competitive allocation game once curation enables:** `−(own root dividend sold at origin) + Σ(validator weight to Insignia × total root dividends, ~983 τ/day network-wide)`. Basket flows land at **epoch boundaries**.
+    - **Escrow-held basket alpha is stake, not lock:** it earns emissions (dilutes per-unit staker APY), accrues under root validators' hotkeys (watch stake-weight in the subnet's own consensus), and carries **no conviction** (no direct subnet-king vector) — but verify on-chain whether escrowed alpha enters the SubnetAlphaOut denominator of the ≥10% king-activation threshold.
+    - **New RPC surface to wire into [chainio/params.py](../chainio/params.py):** `betaBasket_getValidatorWeights`, per-validator NAV + basket composition, network-wide NAV, staker pending TAO.
+
 ---
 
 ## 0.5 Governing design principle, alpha is the fund wrapper, not a growth asset
@@ -68,9 +74,11 @@ This reframe resolves the year-1 headwinds in §0.8 and §0.10. The EMA ramp (20
 Treat the structure as a **closed-end fund**. Define:
 
 ```
-NAV_per_alpha = (trading AUM + treasury holdings) / circulating alpha supply
+NAV_per_alpha = (trading AUM + realizable treasury holdings) / circulating alpha supply
 premium_discount = spot_alpha_price / NAV_per_alpha - 1
 ```
+
+**NAV is realizable, not marked (hard requirement, see §0.14).** Alpha-denominated treasury holdings are valued via `quote-unstake` against live reserves — what they would actually fetch at current pool depth — never at spot. This is the same standard the protocol itself now applies to root beta-basket funds (§0.16: deposits and claims price at realizable NAV at pool depth), so it is both the honest number and the protocol-native idiom. **Realizable NAV is what gates the DCA:** the band below compares spot against it, so thin pool depth automatically lowers NAV, widens the measured premium, and throttles buy-flow before the treasury overpays into its own illiquidity.
 
 Treasury policy is a band, not a target price:
 
@@ -90,6 +98,7 @@ Moving price costs `Δy = y·((p′/p)^w1 − 1)`, the same formula the chain us
 2. **Spread execution.** Continuous small TWAP buys, since cost is convex in step size.
 3. **Hold levels, don't chase them.** EMA responds to time-at-price, not to peak price. A level held for 8 weeks beats a spike.
 4. **Spend only the discount.** If spot ≥ NAV, the correct buy-flow is zero, bank the revenue as reserve instead.
+5. **Net out basket flows (post-Root-Reborn, once curation enables).** Root-basket origin sells and redeploy buys land at **epoch boundaries** and obey the same fill formula, so the Δy required of the treasury to hold a level is `Δy_treasury = Δy_target − Δy_basket_net`. Rebalance the DCA schedule per epoch against observed basket net flow toward/away from Insignia (queryable via `betaBasket_getValidatorWeights` + escrow stake deltas): spend less when baskets are net buyers (their flow raises the EMA for free), expect a larger required Δy when rotation or claim clusters are net sellers. Keep TWAP timing randomized *away from* epoch boundaries so the buy program neither clusters with basket flow nor becomes predictable against it.
 
 ### Dilution, staking, and why miner alignment matters
 
@@ -97,6 +106,7 @@ Issuance is 7,200 alpha/day regardless of subnet size, so holding NAV per alpha 
 
 - **Staking is a dilution defence, not a yield perk.** Stakers *receive* the issuance; the hurdle binds on non-staking holders. LP alpha must never sit unstaked, this belongs in the LP agreement, not just in ops.
 - **Miner selling is NAV leakage.** Retention inside the wrapper = owner cut (18%, back to the fund) + alpha-staker share (41% × (1 − root_proportion), to LPs) + unsold miner alpha. At a 1-year-old subnet: **93.6% retained at 0% miner sell-through, 81.3% at 30%, 69.0% at 60%, 52.6% at 100%.** The miner-holding incentive is therefore a first-order NAV lever, which is a far stronger justification for it than price support. Design miner rewards (and any staking bonus for miners) around retention, and report retention monthly. The existing pairing mechanism's deployment pipeline (top `(model, strategy)` pairs deployed by the desk) and token-gated API access are the retention levers already in place, see [subnet/docs/INCENTIVE_MECHANISM.md](../subnet/docs/INCENTIVE_MECHANISM.md).
+- **The root-proportion slice is deferred leakage (post-Root-Reborn).** The root slice (`41% × root_proportion` of the staker tranche) no longer auto-sells per block; it accrues as staked alpha in validator beta-basket escrows, economically owned by root stakers (§0.16). Count it as **leaked** in retention accounting — the change is realization *timing*, not ownership. Model its exit as claim flow (no deadline, pro-rata across fund holdings, likely clustering in TAO drawdowns) instead of a constant drain. Two second-order effects: escrowed alpha inflates the staked-alpha denominator (report LP staker APY against the full staked base including escrow), and until curation enables, the deferral means near-zero mechanical sell pressure from root on the pool.
 - Grow supply deliberately: the hurdle falls as supply grows, so a larger, well-distributed alpha base makes the structure *easier* to sustain, not harder.
 
 ---
@@ -156,6 +166,7 @@ Wrapper loop (NOT a pump): trading revenue → TAO buy-flow into the Insignia po
 - Revenue routing policy (governable): e.g., X% buy-flow, Y% OTC inventory, Z% reserve buffer, W% ops.
 - Continuous reporting: emission share, net flow, conviction table, reserve coverage.
 - **CEX listing readiness.** Track centralized-exchange listing requirements for subnet tokens (Kraken, a US venue with hard compliance standards, began listing subnet tokens in 2026). A CEX balance-sheet price is the institutional entry requirement; DEX-only price discovery is a non-starter for the LP base. Target post-Phase-2 conversion, sequenced with counsel.
+- **Root-validator IR channel (post-Root-Reborn).** Once basket curation enables, 64 root validators allocating ~983 τ/day of dividends — publicly scored on realized TAO returns — are a named institutional audience for exactly the diligence surface this fund already publishes (realizable NAV, premium/discount band, reserve coverage, retention). Treat basket curators as a distribution channel in IR materials; their inflow raises the EMA without treasury spend. Differentiation to state explicitly: Insignia returns originate in off-chain trading P&L, not passive alpha beta — relevant once root fund shares tokenize (the stated endgame of PR #2968).
 
 ---
 
@@ -226,6 +237,7 @@ Invariants to enforce/test:
 - Never allow a coldkey swap into a coldkey with active locks (chain will reject; pre-validate).
 - Read `UnlockRate` / `ConvictionMaturityRate` from chain each epoch; recompute schedules if changed; alert on change.
 - Track aggregate `OwnerLock + DecayingOwnerLock` vs any third-party `HotkeyLock` aggregates → subnet-king early-warning (even while disabled).
+- Track beta-basket escrow stake on the Insignia netuid per root-validator hotkey (§0.16): it is stake without conviction (no king vector), but it shifts stake-weight in subnet consensus and is the claim-flow overhang. Verify empirically whether escrowed alpha counts in the SubnetAlphaOut denominator of the ≥10% king-activation threshold, and adjust the early-warning ratio accordingly.
 
 Reference formulas (implemented in [lockmgr/schedules.py](../lockmgr/schedules.py), parameterized by on-chain τ):
 
@@ -250,7 +262,7 @@ roll-forward (general, from chain code):
 - **Inputs:** attested revenue deposits (stables/USD), routing policy, market data.
 - **Buy-flow execution:** TWAP TAO purchases; on-chain `add_stake` into the Insignia pool sized to avoid > configurable slippage bps; randomized timing (MEV Shield aware).
 - **Routing policy (initial defaults, all governable):** buy-flow is CONDITIONAL on premium/discount per the NAV band in §0.5, zero when spot >= NAV. Nominal split when at a discount: 50% buy-flow / 20% OTC inventory / 25% reserve buffer / 5% ops; when at a premium the buy-flow tranche accrues to reserve. Reserve buffer target: ≥ 6 months of trailing median buy-flow (reflexivity brake).
-- **Circuit breakers:** halt buy-flow if (a) alpha price > x·30d MA (don't chase), (b) reserve < 3 months, (c) emission share falls > y% WoW despite flow (parameter regime change → investigate).
+- **Circuit breakers:** halt buy-flow if (a) alpha price > x·30d MA (don't chase), (b) reserve < 3 months, (c) emission share falls > y% WoW despite flow (parameter regime change → investigate). For (c), first check basket weights (`betaBasket_getValidatorWeights`) — root-basket rotation away from Insignia is a benign-mechanics explanation that must be ruled out before declaring a regime change; the responses differ (rotation → IR problem, regime change → model problem).
 - **Accounting:** every conversion lot recorded; daily NAV; monthly proof-of-reserves publication.
 
 ## 6. OTC desk
@@ -265,7 +277,9 @@ roll-forward (general, from chain code):
 - revenue drawdown paths (−50%, −100% for 3/6/12 months),
 - correlated TAO price drawdowns,
 - competing-subnet flow growth (share erosion),
-- mass decay-mode toggles by LPs (redemption run) into thin pool liquidity.
+- mass decay-mode toggles by LPs (redemption run) into thin pool liquidity,
+- **basket rotation** (root validators re-weight away from Insignia after underperformance; basket flow is momentum-amplifying in both directions — today only new-flow direction changes, holdings don't rebalance, but validator-directed rebalancing is stated future work in PR #2968),
+- **root-claim clustering** (in a TAO drawdown, root stakers claiming en masse sell fraction `f` of every fund holding including Insignia — correlated sell flow proportional to accumulated escrow holdings, correlated with exactly the states where LP redemption demand also peaks). Baseline note: the constant root-drain assumption is retired; root sell pressure is now episodic claim flow, not a per-block constant.
 
 Output: probability of "spiral" states (emission share < threshold AND redeemable supply > pool depth). Publish quarterly to LPs. Alert rules in [risk/alerts.py](../risk/alerts.py) tied to live chain data (taostats API + direct RPC: `get_coldkey_lock`, `get_hotkey_conviction`, `get_most_convicted_hotkey_on_subnet`).
 
@@ -280,7 +294,8 @@ Read-only API + monthly factsheet:
 - subnet net TAO flow vs network, emission share trend,
 - conviction table (owner aggregate vs top external hotkeys),
 - lock cohort schedule (redeemable supply curve, next 24 months),
-- reserve coverage ratio, buy-flow executed vs revenue attested.
+- reserve coverage ratio, buy-flow executed vs revenue attested,
+- **root-basket exposure** (post-Root-Reborn): aggregate escrow-held Insignia alpha, per-validator basket weight toward Insignia, epoch basket net flow, and trailing claim-flow trend — the overhang that realizes as sell pressure when root stakers claim.
 
 Charts in [docs/investor/](investor/) regenerated by [dashboards/charts.py](../dashboards/charts.py) (conviction maturity, decaying default, LP vesting lifecycle, staged-exit slippage control, leakage drag).
 
