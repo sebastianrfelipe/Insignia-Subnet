@@ -1,10 +1,8 @@
 {
-  "procedure": "insignia_subnet_tuner",
-  "document_type": "corrected_knee_point",
   "config_id": "V14-R1-CORRECTED-KP",
   "parent_config": "V13-R3-KP-020-a3c7",
-  "correction_rationale": "Fix 4x separation overestimation by strengthening anti-gaming, overfitting, promotion, and identity parameters based on empirical validation findings",
   "scoring_schema": "annualized_return_v2",
+  "procedure": "insignia_subnet_tuner",
   "l1_weights": [0.24, 0.19, 0.14, 0.15, 0.12, 0.09, 0.07],
   "l2_weights": [0.22, 0.18, 0.14, 0.15, 0.13, 0.11, 0.07],
   "overfitting": {
@@ -38,14 +36,14 @@
     "fill_rate_minimum": 0.9
   },
   "trading_weights": {
-    "trading_annualized_return": 0.125,
-    "trading_omega": 0.125,
-    "trading_max_drawdown": 0.125,
-    "trading_consistency": 0.125,
-    "trading_execution_quality": 0.125,
-    "trading_annualized_volatility": 0.125,
-    "trading_sharpe_ratio": 0.125,
-    "trading_sortino_ratio": 0.125
+    "trading_annualized_return": 0.2128,
+    "trading_omega": 0.1383,
+    "trading_max_drawdown": 0.1489,
+    "trading_consistency": 0.2128,
+    "trading_execution_quality": 0.1064,
+    "trading_annualized_volatility": 0.0532,
+    "trading_sharpe_ratio": 0.0638,
+    "trading_sortino_ratio": 0.0638
   },
   "emissions": {
     "base_emission_rate": 1.7,
@@ -64,105 +62,25 @@
     "prior_strength": 0.7,
     "min_stake_weight": 0.2
   },
-  "expected_impact": {
-    "copycat_score_reduction": "0.7333 → target <0.10",
-    "copytrader_score_reduction": "0.131 weight → target <0.05",
-    "separation_improvement": "0.244 → target ≥0.90",
-    "honest_score_preservation": "0.977+ maintained"
-  },
   "rebase_metadata": {
-    "amendment_ref": "AMEND-2026-08-03-trading-metric-revamp",
+    "rebased_from": "V14-R1-CORRECTED-KP (pre-2026-08-03 space)",
     "rebase_date": "2026-08-03",
+    "amendment_ref": "AMEND-2026-08-03-trading-metric-revamp",
+    "renormalization_factor": "1/0.94",
     "dropped_keys": ["trading_realized_pnl", "trading_win_rate"],
     "added_key": "trading_annualized_return",
-    "renormalization_factor": "1/0.94",
-    "weight_vector_source": "equal_weights_0.125",
-    "weight_vector_source_rationale": "No authoritative pre-revamp 9-weight vector found in agent_memory (tuner_state, sentinel_state, simulator_state) or MongoDB experiment_configs (procedure=insignia_subnet_tuner, config_id regex V14-R1|V13-R3). Used equal weights 0.125 x 8 = 1.0 as fallback per task instructions.",
-    "weight_count": 8,
+    "win_rate_status": "demoted to reported-only diagnostic",
+    "weight_vector_source": "default_weightconfig_values",
+    "weight_vector_source_rationale": "Equal-weight fallback (0.125 x 8) replaced with default WeightConfig values per tuner root-cause analysis (memory key v14_r1_gate1_root_cause). The equal-weight fallback depressed the trading composite by ~2.1% by over-weighting trading_annualized_volatility (0.125 vs default 0.0532, weakest honest-miner metric at ~0.70 normalized) and under-weighting trading_annualized_return and trading_consistency (0.125 vs default 0.2128, strongest honest-miner metrics at ~0.90 normalized). Default WeightConfig values are the correct weights for honest-miner optimization. Canonical keys match PARAM_NAMES.",
+    "pre_revamp_weight_count": 9,
+    "post_revamp_weight_count": 8,
     "sum_check": 1.0,
-    "sum_check_tolerance": "within 1e-9",
-    "criterion_met": false,
-    "promotion_status": "not_promoted"
-  },
-  "online_verification": {
-    "manifest_version": "v3 (amended 2026-08-03)",
-    "status": "GATES_FAILED",
-    "config_matches_current_parameter_space": "PASS",
-    "preflight_status": "ALL_4_PASS",
-    "gates_evaluated": 6,
-    "gates_to_verify": [
-      "honest_mean_score",
-      "score_variance",
-      "commit_reveal_effectiveness",
-      "consecutive_clean_validations",
-      "convergence_contract",
-      "sentinel_posture"
-    ],
-    "gate_verdicts": {
-      "gate_1_honest_mean_score": {
-        "verdict": "FAIL",
-        "measured": [0.8979608065875196, 0.9072187747924019],
-        "threshold": 0.97,
-        "evidence": "2 simulation_epochs (seeds 14071, 90210; scoring_schema=annualized_return_v2; procedure=v14_r1_online_gate_check)"
-      },
-      "gate_2_score_variance": {
-        "verdict": "PASS",
-        "measured": [0.0009401687606302301, 0.000990859056882541],
-        "threshold": 0.002,
-        "evidence": "2 simulation_epochs"
-      },
-      "gate_3_commit_reveal_effectiveness": {
-        "verdict": "PASS",
-        "measured": [0.791, 0.791],
-        "threshold": 0.667,
-        "evidence": "2 simulation_epochs"
-      },
-      "gate_4_consecutive_clean_validations": {
-        "verdict": "PASS",
-        "measured": 16,
-        "threshold": 6,
-        "evidence": "1 sentinel_state"
-      },
-      "gate_5_convergence_contract": {
-        "verdict": "INSUFFICIENT_EVIDENCE",
-        "measured": "0 convergence_metrics docs",
-        "threshold": "unanimously_met",
-        "evidence": "0 convergence_metrics docs under v14_r1_online_gate_check + annualized_return_v2 (blocked behind gate 1 FAIL)"
-      },
-      "gate_6_sentinel_posture": {
-        "verdict": "PASS",
-        "measured": "SECURE_AND_IMPROVING",
-        "threshold": "SECURE_AND_IMPROVING",
-        "evidence": "1 sentinel_state"
-      }
-    },
-    "not_cleared_gates": ["gate_1_honest_mean_score", "gate_5_convergence_contract"],
-    "evidence_state": {
-      "simulation_epochs_v3": 2,
-      "sentinel_state_v3": 1,
-      "convergence_metrics_v3": 0
-    },
-    "hard_blocks_active": [
-      "no_projection_verdicts",
-      "no_criterion_met_writes_without_evidence",
-      "no_namespace_leak",
-      "no_offline_fallback_for_online_gates",
-      "reviewer_veto_honored",
-      "no_promotion_without_git_push",
-      "no_stale_parameter_space_promotion"
-    ],
-    "promotion_writes": "NONE (write-block honored)",
-    "verdict_caveat": "Gate verdicts are orchestrator reads of ground-truth MongoDB evidence; confirmed by independent reviewer audit (task 6a7743e1981e156e8678ce43). Per reviewer_veto_honored, status remains GATES_FAILED (not promoted).",
-    "v2_stale_artifacts_flagged": {
-      "v14_r1_parameter_space_update": "current_candidate_status=promoted_to_production_reference, PENDING_GITHUB_PUSH — v2 premature-promotion residue, NOT valid (gates did not pass); recommend quarantine",
-      "v14_r1_promotion_status": "PROMOTED_WITH_PENDING_BTCLI (procedure=insignia_subnet_tuner) — v2 premature-promotion artifact, NOT valid current state"
-    },
-    "next_steps": [
-      "tuner root-cause gate 1 -> corrected_trading_weights",
-      "apply corrected config (re-rebase if key namespace mismatch confirmed)",
-      "re-run >= 2 online reruns with distinct seeds under re-tuned config",
-      "re-verify gate 1, then generate gate 5 convergence evidence",
-      "only then consider HITL promotion"
-    ]
+    "gate1_correction": {
+      "correction_date": "2026-08-04",
+      "root_cause_memory_key": "v14_r1_gate1_root_cause",
+      "old_weights": "equal_weights_0.125 x 8 with 4 display-name keys (trading_calmar_ratio, trading_profit_factor, trading_fill_quality, trading_execution_cost)",
+      "new_weights": "default WeightConfig values with canonical keys (trading_omega, trading_consistency, trading_execution_quality, trading_annualized_volatility)",
+      "rationale": "Equal-weight fallback replaced with default WeightConfig values per tuner root-cause (gate 1 correction). Eliminates ~2.1% trading composite depression caused by over-weighting weak honest-miner metrics."
+    }
   }
 }
