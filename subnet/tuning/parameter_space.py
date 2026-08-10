@@ -150,6 +150,17 @@ PARAMETER_DEFINITIONS: List[ParameterBounds] = [
     ParameterBounds("symbol_diversity_penalty_max",        0.20, 0.80, "market_data", "Maximum PC-VH-006 penalty"),
     ParameterBounds("symbol_diversity_grace_generations",  0,    5,    "market_data", "Grace generations before PC-VH-006 penalties fully activate"),
 
+    # Miner roster (per-archetype counts — lets the NSGA-II tuner explore
+    # population mix as part of the parameter vector. Defaults match the
+    # V14-R1-CORRECTED-KP baseline: 5/1/1/1/1 researchers + 3/1 traders.)
+    ParameterBounds("n_honest_researchers",  3, 10, "roster", "Number of honest L1 researcher miners"),
+    ParameterBounds("n_overfitters",        0,  3,  "roster", "Number of overfitter L1 researcher miners"),
+    ParameterBounds("n_copycats",           0,  3,  "roster", "Number of copycat L1 researcher miners"),
+    ParameterBounds("n_gamers",             0,  3,  "roster", "Number of single-metric gamer L1 researcher miners"),
+    ParameterBounds("n_sybils",             0,  4,  "roster", "Number of sybil L1 researcher miners"),
+    ParameterBounds("n_honest_traders",     2,  5,  "roster", "Number of honest L2 trader miners"),
+    ParameterBounds("n_copy_traders",       0,  3,  "roster", "Number of copy L2 trader miners"),
+
 ]
 
 N_PARAMS = len(PARAMETER_DEFINITIONS)
@@ -363,6 +374,15 @@ def decode(x: np.ndarray) -> Dict[str, Any]:
             "best_knee_point_source": "surrogate_predicted_not_empirically_confirmed",
             "phase5_completed_experiment": "EXP-142",
         },
+        "roster": {
+            "honest": int(round(p["n_honest_researchers"])),
+            "overfitter": int(round(p["n_overfitters"])),
+            "copycat": int(round(p["n_copycats"])),
+            "gamer": int(round(p["n_gamers"])),
+            "sybil": int(round(p["n_sybils"])),
+            "honest_trader": int(round(p["n_honest_traders"])),
+            "copy_trader": int(round(p["n_copy_traders"])),
+        },
     }
 
 
@@ -428,6 +448,16 @@ def encode_defaults() -> np.ndarray:
         "symbol_diversity_penalty_escalation": 1.5,
         "symbol_diversity_penalty_max": 0.50,
         "symbol_diversity_grace_generations": 2,
+        # Miner roster — V14-R1-CORRECTED-KP baseline (5/1/1/1/1 + 3/1).
+        # These match the create_default_agents() defaults in simulation.py
+        # so the tuner starts from the empirically-validated population mix.
+        "n_honest_researchers": 5,
+        "n_overfitters": 1,
+        "n_copycats": 1,
+        "n_gamers": 1,
+        "n_sybils": 1,
+        "n_honest_traders": 3,
+        "n_copy_traders": 1,
     }
     return np.array([defaults[name] for name in PARAM_NAMES])
 

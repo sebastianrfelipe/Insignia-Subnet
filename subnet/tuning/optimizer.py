@@ -174,18 +174,35 @@ if PYMOO_AVAILABLE:
 
             for i, x in enumerate(X):
                 x_repaired = repair_weights(x)
-                l1_agents, l2_agents = create_default_agents(
-                    n_honest=self.n_honest,
-                    n_overfitters=self.n_adversarial_each,
-                    n_copycats=self.n_adversarial_each,
-                    n_gamers=self.n_adversarial_each,
-                    n_sybils=min(2, self.n_adversarial_each * 2),
-                    n_random=1,
-                    n_honest_traders=max(2, self.n_honest // 3),
-                    n_copy_traders=self.n_adversarial_each,
-                    n_colluding_rings=self.n_adversarial_each,
-                    n_partner_gamers=self.n_adversarial_each,
-                )
+                config = decode(x_repaired)
+                roster = config.get("roster")
+
+                if roster is not None:
+                    l1_agents, l2_agents = create_default_agents(
+                        n_honest=roster["honest"],
+                        n_overfitters=roster["overfitter"],
+                        n_copycats=roster["copycat"],
+                        n_gamers=roster["gamer"],
+                        n_sybils=roster["sybil"],
+                        n_random=1,
+                        n_honest_traders=roster["honest_trader"],
+                        n_copy_traders=roster["copy_trader"],
+                        n_colluding_rings=self.n_adversarial_each,
+                        n_partner_gamers=self.n_adversarial_each,
+                    )
+                else:
+                    l1_agents, l2_agents = create_default_agents(
+                        n_honest=self.n_honest,
+                        n_overfitters=self.n_adversarial_each,
+                        n_copycats=self.n_adversarial_each,
+                        n_gamers=self.n_adversarial_each,
+                        n_sybils=min(2, self.n_adversarial_each * 2),
+                        n_random=1,
+                        n_honest_traders=max(2, self.n_honest // 3),
+                        n_copy_traders=self.n_adversarial_each,
+                        n_colluding_rings=self.n_adversarial_each,
+                        n_partner_gamers=self.n_adversarial_each,
+                    )
 
                 harness = SimulationHarness(
                     researcher_agents=l1_agents,
@@ -316,6 +333,64 @@ class RandomSearchOptimizer:
 
 
 # ---------------------------------------------------------------------------
+# Warm-start loading (extracted for testability)
+# ---------------------------------------------------------------------------
+
+def load_warm_start(path: str) -> Tuple[Optional[np.ndarray], Dict[str, Any]]:
+    """
+    Load and validate a warm-start seed JSON.
+
+    Returns (warm_start_x, warm_start_meta). warm_start_x is None when the
+    file is missing, has no params, or has the wrong number of params (a
+    warning is logged in those cases). Raises ValueError when the file has
+    exactly 75 params — the stale pre-roster-dims format that must be
+    re-generated or migrated before use.
+    """
+    ws_path = Path(path)
+    if not ws_path.exists():
+        logger.warning("Warm-start seed not found at %s — ignoring", path)
+        return None, {}
+
+    with open(ws_path, "r", encoding="utf-8") as f:
+        ws_data = json.load(f)
+
+    ws_params = ws_data.get("params")
+    if ws_params is None:
+        logger.warning("Warm-start seed has no params — ignoring")
+        return None, {}
+
+    if len(ws_params) != N_PARAMS:
+        if len(ws_params) == 75:
+            raise ValueError(
+                f"Warm-start seed has 75 params but the parameter space is now "
+                f"{N_PARAMS}-dimensional (7 roster dims added: n_honest_researchers, "
+                f"n_overfitters, n_copycats, n_gamers, n_sybils, n_honest_traders, "
+                f"n_copy_traders). Re-generate the warm-start seed with "
+                f"scripts/tuner_v14_r1_warmstart_seed.py (which now calls "
+                f"encode_defaults() on the 82-dim space) or extend the 75-dim "
+                f"vector manually with the default roster values "
+                f"(5,1,1,1,1,3,1) before retrying."
+            )
+        logger.warning(
+            "Warm-start seed has %d params (expected %d) — ignoring",
+            len(ws_params), N_PARAMS,
+        )
+        return None, {}
+
+    warm_start_x = repair_weights(np.array(ws_params, dtype=float))
+    warm_start_meta = {
+        "config_id": ws_data.get("config_id"),
+        "seed_fitness": ws_data.get("fitness", {}).get("decoded"),
+        "source_reports": ws_data.get("source_reports"),
+    }
+    logger.info(
+        "Warm-starting from %s (config_id=%s)",
+        ws_path.name, ws_data.get("config_id"),
+    )
+    return warm_start_x, warm_start_meta
+
+
+# ---------------------------------------------------------------------------
 # NSGA-II Runner
 # ---------------------------------------------------------------------------
 
@@ -364,29 +439,7 @@ def run_nsga2(
     warm_start_x: Optional[np.ndarray] = None
     warm_start_meta: Dict[str, Any] = {}
     if warm_start is not None:
-        ws_path = Path(warm_start)
-        if not ws_path.exists():
-            logger.warning("Warm-start seed not found at %s — ignoring", warm_start)
-        else:
-            with open(ws_path, "r", encoding="utf-8") as f:
-                ws_data = json.load(f)
-            ws_params = ws_data.get("params")
-            if ws_params is None or len(ws_params) != N_PARAMS:
-                logger.warning(
-                    "Warm-start seed has %s params (expected %d) — ignoring",
-                    "no" if ws_params is None else len(ws_params), N_PARAMS,
-                )
-            else:
-                warm_start_x = repair_weights(np.array(ws_params, dtype=float))
-                warm_start_meta = {
-                    "config_id": ws_data.get("config_id"),
-                    "seed_fitness": ws_data.get("fitness", {}).get("decoded"),
-                    "source_reports": ws_data.get("source_reports"),
-                }
-                logger.info(
-                    "Warm-starting from %s (config_id=%s)",
-                    ws_path.name, ws_data.get("config_id"),
-                )
+        warm_start_x, warm_start_meta = load_warm_start(warm_start)
 
     if warm_start_x is not None:
         from pymoo.operators.sampling.lhs import LatinHypercubeSampling
