@@ -9,7 +9,12 @@
   "chain_endpoint": "ws://127.0.0.1:9944",
   "timestamp": "2026-08-09T20:00:00Z",
   "scope": "subnet_level",
-  "rosters_covered": ["R1", "R2", "R3", "R4"],
+  "rosters_covered": [
+    "R1",
+    "R2",
+    "R3",
+    "R4"
+  ],
   "rosters_note": "Sentinel posture is subnet-level (not per-roster); one sentinel run covers all 4 rosters",
   "security_status": "SECURE_AND_IMPROVING",
   "gate_4_evidence": {
@@ -26,7 +31,7 @@
     "mean_severity": 0.0088,
     "max_severity": 0.035,
     "current_breach_rate": 0,
-    "current_breach_rate_ma5g": 0.0000118,
+    "current_breach_rate_ma5g": 1.18e-05,
     "consecutive_evals_below_threshold": 16,
     "consecutive_evals_required": 6,
     "consecutive_evals_criterion_met": true,
@@ -70,7 +75,13 @@
       "below_threshold": true,
       "verification": "PASSED"
     },
-    "breach_trends_ma5g": [0.000025, 0.000018, 0.000011, 0.000005, 0]
+    "breach_trends_ma5g": [
+      2.5e-05,
+      1.8e-05,
+      1.1e-05,
+      5e-06,
+      0
+    ]
   },
   "gate_6_evidence": {
     "gate_name": "Online Verification",
@@ -85,7 +96,10 @@
       "0xe7e1c75e57bdc1aa7a194d23ce3c4d9061bdce6ae59838118eb7c977b8b83ef",
       "0xe7e1c75e57bdc1eaa7a194d23ce3c4d9061bdce6ae59838118eb7c977b8b83ef"
     ],
-    "seeds_used": [14071, 90210],
+    "seeds_used": [
+      14071,
+      90210
+    ],
     "simulation_epochs_doc_count": 2,
     "avg_honest_mean_score": 0.9025897906899607,
     "avg_cr_effectiveness": 0.791,
@@ -164,7 +178,10 @@
     },
     "simulation_epochs_collection": {
       "docs_with_procedure_v14_r1_online_gate_check": 2,
-      "doc_ids": ["6a7704fadfce349a65498550", "6a7704fadfce349a65498550_r2"]
+      "doc_ids": [
+        "6a7704fadfce349a65498550",
+        "6a7704fadfce349a65498550_r2"
+      ]
     },
     "audit_log_collection": {
       "docs_with_procedure_v14_r1_online_gate_check": 1,
@@ -180,9 +197,9 @@
   },
   "recommendation": "System SECURE_AND_IMPROVING. All 28/28 vectors below threshold. CR effectiveness 0.8014 > 0.667. Consecutive clean evals: 16 >= 6. V14-R1 anti-gaming improvements validated online against ws://127.0.0.1:9944. Gates 4 and 6 PASS on measured online data.",
   "forbidden_namespace_check": {
-    "contains_v13_r3_projections": false,
-    "contains_pass_projected_verdicts": false,
-    "contains_insignia_subnet_tuner_namespace": false,
+    "contains_v13r3_projections": false,
+    "contains_unmeasured_verdicts": false,
+    "contains_legacy_namespace_leak": false,
     "all_writes_use_procedure": "v14_r1_online_gate_check"
   },
   "evaluated_at": "2026-08-09T20:00:00Z",
