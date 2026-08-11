@@ -79,6 +79,36 @@ def leakage_drag(params: ChainParams, circulating_supply: float,
     return dilution * leak
 
 
+def effective_sell_through(base_sell_through: float, bonded_fraction: float) -> float:
+    """Miner sell-through σ after the deployment-collateral lever (R11):
+    bonded alpha cannot be sold while its pair is deployed, so the fraction of
+    miner emissions accruing to bonded deployed pairs is removed from the
+    sellable base. `bonded_fraction` = share of miner-cut emissions earned by
+    pairs with ACTIVE bonds (SPEC §0.5; INCENTIVE_MECHANISM §Deployment
+    Collateral)."""
+    if not 0.0 <= bonded_fraction <= 1.0:
+        raise ValueError("bonded_fraction must be in [0, 1]")
+    return base_sell_through * (1.0 - bonded_fraction)
+
+
+def retention_with_bonds(params: ChainParams, subnet_age_days: float,
+                         base_sell_through: float, bonded_fraction: float) -> float:
+    """issuance_retention with the collateral lever applied — the number the
+    monthly factsheet reports next to raw retention (SPEC §8)."""
+    return issuance_retention(
+        params, subnet_age_days,
+        effective_sell_through(base_sell_through, bonded_fraction))
+
+
+def post_burn_supply(circulating_supply: float, cumulative_burned: float) -> float:
+    """Circulating supply net of slash-settlement burns. Feed this into
+    dilution_hurdle / leakage_drag — burns permanently lower the issuance
+    hurdle's denominator base (SPEC §5 slash-settlement pipeline)."""
+    if cumulative_burned < 0 or cumulative_burned > circulating_supply:
+        raise ValueError("cumulative_burned must be in [0, circulating_supply]")
+    return circulating_supply - cumulative_burned
+
+
 def lp_daily_yield(params: ChainParams, subnet_age_days: float,
                    total_staked_alpha: float) -> float:
     """Daily staking yield per unit of staked LP alpha (alpha terms). This is

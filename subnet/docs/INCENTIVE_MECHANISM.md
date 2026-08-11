@@ -529,7 +529,7 @@ The chain has no native "slash a miner" primitive — the slash is enforced at t
 Operational constraints (verify on-chain before implementing, per SPEC §0 discipline):
 
 - **Rate-limited: one `add_stake_burn` per tempo per subnet** (`AddStakeBurnRateLimitExceeded` on violation; default tempo 360 blocks ≈ 72 min at 12 s blocks). Slash settlement is therefore **batched per tempo** — which also matches the epoch cadence of scoring and keeps burns predictable and auditable.
-- **Slippage applies.** The burn walks the AMM curve; large burns or thin liquidity move price materially. Set an explicit limit price / slippage tolerance on both legs, and split oversized settlements across tempos.
+- **Slippage applies — but to the legs, not the round trip.** Because the burn leg re-buys on the pool the slash leg just displaced, the two legs' slippage cancels: net supply cost is ≈ 2× the pool fee at any batch size (verified in `tests/test_burn_settlement.py`). What does scale with size is the *transient* price displacement between the legs, which is front-runnable — so set an explicit limit price on both legs and split batches to bound the slash leg's price impact (implemented in `treasury/execution/burn.py::plan_settlement`).
 - The owner may equivalently fund the burn leg from treasury TAO and retain the slashed alpha in inventory — identical supply effect, different treasury composition; treat as a routing-policy choice (SPEC §5).
 
 ### Why this is also a retention lever
