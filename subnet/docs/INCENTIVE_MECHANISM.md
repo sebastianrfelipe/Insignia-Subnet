@@ -509,6 +509,37 @@ This creates a direct link between the subnet's economic output and miner token 
 
 ---
 
+## Deployment Collateral & Loss-Linked Slashing (End State)
+
+**Design commitment: burn, don't just withhold.** Every defense above operates by *withholding* — a gamed submission scores zero and forfeits emissions it never had. The signal-driven adversary penalties (this branch) sharpen that, but penalty scoring alone leaves an asymmetry: a deployed pair that loses the desk real money has, at worst, lost future upside. The end state closes that asymmetry with real economic downside: **deployed pairs post staked alpha as collateral against their live P&L, and realized losses slash the collateral.** Scoring penalties remain the interim and screening layer; slashing is the explicit end state for the deployment tier.
+
+### Mechanism
+
+1. **Staked-to-participate.** Acceptance into the deployment pipeline (the top-pair tier the desk actually trades) requires the pair's miners to post an alpha bond, escrowed via `transfer_stake` to a fund-controlled collateral coldkey. Bond size scales with allocated deployment capital. Undeployed pairs are unaffected — this gates the tier where miner output touches real money.
+2. **Loss-linked slashing.** Realized losses attributable to a deployed pair (net, over the settlement window, per the same attribution used for the buyback P&L split) slash the bond pro-rata up to a per-window cap. Realized *gains* accrue the pair's standard deployment rewards; the bond is returned (plus accrued staking emissions) on clean undeployment.
+3. **Slashed alpha is burned, not redistributed.** Redistribution creates a bounty for inducing other pairs' losses and is recyclable by sybil clusters; a burn is the only sink no adversary can route back to themselves. Burns are what separate signal from noise: a miner who won't stake against their own live P&L is telling you their signal isn't one.
+
+### Settlement pipeline (chain mechanics)
+
+The chain has no native "slash a miner" primitive — the slash is enforced at the escrow layer (the bond sits on a fund coldkey under the deployment agreement), and the *burn* leg uses the subnet-owner burn extrinsic:
+
+- **Slash leg:** unstake the slashed alpha from escrow (sells into the pool → TAO proceeds).
+- **Burn leg:** the subnet owner calls `add_stake_burn` with those TAO proceeds. TAO is withdrawn from the owner coldkey into the pool's TAO reserve; the AMM prices the equivalent alpha, which is removed from the alpha reserve and burned in the same transaction. Net effect of both legs: circulating alpha falls by ≈ the slashed amount (less fees/slippage), pool TAO roughly round-trips, and alpha price adjusts upward from the supply reduction.
+
+Operational constraints (verify on-chain before implementing, per SPEC §0 discipline):
+
+- **Rate-limited: one `add_stake_burn` per tempo per subnet** (`AddStakeBurnRateLimitExceeded` on violation; default tempo 360 blocks ≈ 72 min at 12 s blocks). Slash settlement is therefore **batched per tempo** — which also matches the epoch cadence of scoring and keeps burns predictable and auditable.
+- **Slippage applies.** The burn walks the AMM curve; large burns or thin liquidity move price materially. Set an explicit limit price / slippage tolerance on both legs, and split oversized settlements across tempos.
+- The owner may equivalently fund the burn leg from treasury TAO and retain the slashed alpha in inventory — identical supply effect, different treasury composition; treat as a routing-policy choice (SPEC §5).
+
+### Why this is also a retention lever
+
+Bonded alpha is alpha that cannot be sold while the pair is deployed — the deployment tier, which earns the most, is exactly the cohort whose sell-through matters most. This directly attacks the miner sell-through σ in RISK_REGISTER R11 and compounds the existing retention levers (deployment pipeline access, token-gated API). Report bonded collateral and cumulative burned alpha in the monthly retention metrics (SPEC §8).
+
+**Legal note:** collateral posting and slashing terms for miners are contractual; route the deployment-agreement terms through Phase-0 counsel alongside the LP documents (they are miner-facing, not investor-facing, so they do not sit behind the `LEGAL_SIGNOFF` gate — but they are enforceable agreements and need the same review).
+
+---
+
 ## Economic Sustainability
 
 | Revenue Stream | Description |
