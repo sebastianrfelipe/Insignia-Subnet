@@ -1,0 +1,230 @@
+[
+  {
+    "procedure": "v14_r1_online_gate_check",
+    "scoring_schema": "annualized_return_v2",
+    "config_id": "V14-R1-CORRECTED-KP",
+    "seed": 54321,
+    "mode": "ONLINE",
+    "chain_endpoint": "ws://127.0.0.1:9944",
+    "timestamp": "2026-08-09T18:21:43.356162Z",
+    "duration_seconds": 7.54,
+    "honest_mean_score": 0.908502,
+    "honest_score_variance": 9.6e-05,
+    "honest_score_std": 0.0098,
+    "honest_researcher_scores": [
+      0.918524,
+      0.922035,
+      0.897231,
+      0.908574,
+      0.909006,
+      0.895641
+    ],
+    "honest_trader_scores": [
+      0.32349,
+      0.324028,
+      0.323823
+    ],
+    "adversarial_researcher_scores": [
+      8.6e-05,
+      9.1e-05,
+      9.1e-05,
+      0.000995
+    ],
+    "adversarial_trader_scores": [
+      3.3e-05
+    ],
+    "adversarial_mean_score": 0.000316,
+    "cr_effectiveness": 0.908186,
+    "score_separation": 0.713335,
+    "adversary_breach_rate": 0.0,
+    "trading_weights": {
+      "trading_annualized_return": 0.2128,
+      "trading_omega": 0.1383,
+      "trading_max_drawdown": 0.1489,
+      "trading_consistency": 0.2128,
+      "trading_execution_quality": 0.1064,
+      "trading_annualized_volatility": 0.0532,
+      "trading_sharpe_ratio": 0.0638,
+      "trading_sortino_ratio": 0.0638
+    },
+    "trading_weights_sum": 1.0,
+    "n_trading_weights": 8,
+    "n_researchers": 10,
+    "n_traders": 4,
+    "miner_types": {
+      "honest_0": "honest",
+      "honest_1": "honest",
+      "honest_2": "honest",
+      "honest_3": "honest",
+      "honest_4": "honest",
+      "honest_5": "honest",
+      "overfitter_0": "overfitter",
+      "copycat_0": "copycat",
+      "gamer_0": "single_metric_gamer",
+      "sybil_0": "sybil"
+    },
+    "trader_types": {
+      "trader_0": "honest_trader",
+      "trader_1": "honest_trader",
+      "trader_2": "honest_trader",
+      "copy_trader_0": "copy_trader"
+    },
+    "miner_scores": {
+      "honest_0": 0.918524,
+      "honest_1": 0.922035,
+      "honest_2": 0.897231,
+      "honest_3": 0.908574,
+      "honest_4": 0.909006,
+      "honest_5": 0.895641,
+      "overfitter_0": 8.6e-05,
+      "copycat_0": 9.1e-05,
+      "gamer_0": 9.1e-05,
+      "sybil_0": 0.000995
+    },
+    "trader_scores": {
+      "trader_0": 0.32349,
+      "trader_1": 0.324028,
+      "trader_2": 0.323823,
+      "copy_trader_0": 3.3e-05
+    },
+    "n_pairs": 31,
+    "commit_reveal_effectiveness": 0.76,
+    "no_reveal_miners": [
+      "overfitter_0",
+      "copycat_0",
+      "gamer_0",
+      "sybil_0"
+    ],
+    "miner_commit_rates": {
+      "honest_0": 1.0,
+      "honest_1": 1.0,
+      "honest_2": 1.0,
+      "honest_3": 1.0,
+      "honest_4": 1.0,
+      "honest_5": 1.0,
+      "overfitter_0": 0.6666666666666666,
+      "copycat_0": 0.6666666666666666,
+      "gamer_0": 0.6666666666666666,
+      "sybil_0": 0.6666666666666666
+    },
+    "git_commit": "d22b507",
+    "branch": "v14-r1-gate1-corrected-weights-kp",
+    "simulation_type": "PYTHON_SimulationHarness",
+    "_id": "6a78c537fecb6bad9b58c680",
+    "_persist_id": "6a78c537fecb6bad9b58c680"
+  },
+  {
+    "procedure": "v14_r1_online_gate_check",
+    "scoring_schema": "annualized_return_v2",
+    "config_id": "V14-R1-CORRECTED-KP",
+    "seed": 67890,
+    "mode": "ONLINE",
+    "chain_endpoint": "ws://127.0.0.1:9944",
+    "timestamp": "2026-08-09T18:23:33.536326Z",
+    "duration_seconds": 110.08,
+    "honest_mean_score": 0.91254,
+    "honest_score_variance": 0.000177,
+    "honest_score_std": 0.013322,
+    "honest_researcher_scores": [
+      0.926583,
+      0.924503,
+      0.901737,
+      0.918161,
+      0.915531,
+      0.888722
+    ],
+    "honest_trader_scores": [
+      0.324115,
+      0.326523,
+      0.329148
+    ],
+    "adversarial_researcher_scores": [
+      8.8e-05,
+      8.6e-05,
+      9.2e-05,
+      0.000962
+    ],
+    "adversarial_trader_scores": [
+      3.3e-05
+    ],
+    "adversarial_mean_score": 0.000307,
+    "cr_effectiveness": 0.912233,
+    "score_separation": 0.716973,
+    "adversary_breach_rate": 0.0,
+    "trading_weights": {
+      "trading_annualized_return": 0.2128,
+      "trading_omega": 0.1383,
+      "trading_max_drawdown": 0.1489,
+      "trading_consistency": 0.2128,
+      "trading_execution_quality": 0.1064,
+      "trading_annualized_volatility": 0.0532,
+      "trading_sharpe_ratio": 0.0638,
+      "trading_sortino_ratio": 0.0638
+    },
+    "trading_weights_sum": 1.0,
+    "n_trading_weights": 8,
+    "n_researchers": 10,
+    "n_traders": 4,
+    "miner_types": {
+      "honest_0": "honest",
+      "honest_1": "honest",
+      "honest_2": "honest",
+      "honest_3": "honest",
+      "honest_4": "honest",
+      "honest_5": "honest",
+      "overfitter_0": "overfitter",
+      "copycat_0": "copycat",
+      "gamer_0": "single_metric_gamer",
+      "sybil_0": "sybil"
+    },
+    "trader_types": {
+      "trader_0": "honest_trader",
+      "trader_1": "honest_trader",
+      "trader_2": "honest_trader",
+      "copy_trader_0": "copy_trader"
+    },
+    "miner_scores": {
+      "honest_0": 0.926583,
+      "honest_1": 0.924503,
+      "honest_2": 0.901737,
+      "honest_3": 0.918161,
+      "honest_4": 0.915531,
+      "honest_5": 0.888722,
+      "overfitter_0": 8.8e-05,
+      "copycat_0": 8.6e-05,
+      "gamer_0": 9.2e-05,
+      "sybil_0": 0.000962
+    },
+    "trader_scores": {
+      "trader_0": 0.324115,
+      "trader_1": 0.326523,
+      "trader_2": 0.329148,
+      "copy_trader_0": 3.3e-05
+    },
+    "n_pairs": 31,
+    "commit_reveal_effectiveness": 0.76,
+    "no_reveal_miners": [
+      "overfitter_0",
+      "copycat_0",
+      "gamer_0",
+      "sybil_0"
+    ],
+    "miner_commit_rates": {
+      "honest_0": 1.0,
+      "honest_1": 1.0,
+      "honest_2": 1.0,
+      "honest_3": 1.0,
+      "honest_4": 1.0,
+      "honest_5": 1.0,
+      "overfitter_0": 0.6666666666666666,
+      "copycat_0": 0.6666666666666666,
+      "gamer_0": 0.6666666666666666,
+      "sybil_0": 0.6666666666666666
+    },
+    "git_commit": "d22b507",
+    "branch": "v14-r1-gate1-corrected-weights-kp",
+    "simulation_type": "PYTHON_SimulationHarness",
+    "_id": "6a78c5a5fecb6bad9b58c682",
+    "_persist_id": "6a78c5a5fecb6bad9b58c682"
+  }
+]

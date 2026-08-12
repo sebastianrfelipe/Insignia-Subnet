@@ -1047,7 +1047,7 @@ class CompositeScorer:
         sharpe_norm = 1.0 / (1.0 + math.exp(-0.5 * (sharpe_raw - 1.0)))
 
         return {
-            "penalized_f1": min(1.0, max(0.0, raw["penalized_f1"])),
+            "penalized_f1": min(1.0, max(0.0, raw["penalized_f1"] ** 0.2)),
             "penalized_sharpe": sharpe_norm,
             "max_drawdown": max(0.0, 1.0 - raw["max_drawdown"]),
             "variance_score": min(1.0, max(0.0, raw["variance_score"])),

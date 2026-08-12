@@ -1,0 +1,46 @@
+{
+  "procedure": "v14_r1_online_gate_check",
+  "playbook": "insignia_subnet_online_verification",
+  "domain": "v14_r1",
+  "scoring_schema": "annualized_return_v2",
+  "config_id": "V14-R1-CORRECTED-KP",
+  "harness": "python_simulation_harness",
+  "branch": "v14-r1-gate1-corrected-weights-kp",
+  "commit": "d22b507bb52c9df8d4700ee0636fe0141a16548a",
+  "chain_endpoint": "ws://127.0.0.1:9944",
+  "block_height_at_run": 1302373,
+  "timestamp": "2026-08-09T18:23:50Z",
+  "runs": [
+    {
+      "seed": 42001,
+      "honest_mean_score": 0.7225231561442027,
+      "honest_score_variance": 0.07424801098122014,
+      "cr_effectiveness": 0.8147858890162483,
+      "honest_researcher_scores": [0.914697, 0.928457, 0.91748, 0.919533, 0.899427, 0.911189],
+      "honest_trader_scores": [0.339078, 0.338189, 0.334658],
+      "adversarial_researcher_scores": [0.00009, 0.000089, 0.00009, 0.000995, 0.000039],
+      "adversarial_trader_scores": [0.000034, 0.113671, 0.000034],
+      "mongo_doc_id": "6a78c5ec39787371fb60ed41"
+    },
+    {
+      "seed": 77013,
+      "honest_mean_score": 0.7223903393964245,
+      "honest_score_variance": 0.07435403897638602,
+      "cr_effectiveness": 0.8005622650284993,
+      "honest_researcher_scores": [0.914697, 0.928457, 0.91748, 0.919533, 0.899427, 0.911189],
+      "honest_trader_scores": [0.332322, 0.336719, 0.34169],
+      "adversarial_researcher_scores": [0.00009, 0.000089, 0.00009, 0.000995, 0.000042],
+      "adversarial_trader_scores": [0.000034, 0.127895, 0.000034],
+      "mongo_doc_id": "6a78c5ec39787371fb60ed42"
+    }
+  ],
+  "summary": {
+    "honest_researcher_mean_both_runs": 0.9151,
+    "honest_trader_mean_both_runs": 0.3371,
+    "combined_honest_mean_both_runs": 0.7225,
+    "cr_effectiveness_mean": 0.8077,
+    "gate_threshold": 0.97,
+    "gate_status": "FAIL",
+    "key_insight": "Python SimulationHarness with real CompositeScorer produces honest trader scores ~0.33-0.34, far below the Node.js approximation scripts' hardcoded range of 0.82-0.88. The combined honest_mean_score ~0.72 is well below the 0.97 gate. The Node.js scripts grossly overestimated trader performance."
+  }
+}

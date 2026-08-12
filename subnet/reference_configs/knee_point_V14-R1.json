@@ -1,0 +1,86 @@
+{
+  "config_id": "V14-R1-CORRECTED-KP",
+  "parent_config": "V13-R3-KP-020-a3c7",
+  "scoring_schema": "annualized_return_v2",
+  "procedure": "insignia_subnet_tuner",
+  "l1_weights": [0.24, 0.19, 0.14, 0.15, 0.12, 0.09, 0.07],
+  "l2_weights": [0.22, 0.18, 0.14, 0.15, 0.13, 0.11, 0.07],
+  "overfitting": {
+    "gap_threshold": 0.1,
+    "decay_rate": 0.88
+  },
+  "promotion": {
+    "top_n": 7,
+    "min_consecutive_epochs": 5,
+    "max_overfitting_score": 0.25,
+    "max_score_decay_pct": 0.12,
+    "expiry_epochs": 20
+  },
+  "feedback": {
+    "learning_rate": 0.012,
+    "momentum": 0.58,
+    "decay": 0.993,
+    "clip": 1.15
+  },
+  "anti_gaming": {
+    "gaming_detection_sensitivity": 0.92,
+    "penalty_escalation_rate": 0.85,
+    "whitelist_decay_rate": 0.985,
+    "cross_metric_correlation_threshold": 0.45
+  },
+  "trading": {
+    "min_trade_interval": 5,
+    "max_position_concentration": 0.1,
+    "slippage_tolerance": 0.01,
+    "execution_timeout": 1100,
+    "fill_rate_minimum": 0.9
+  },
+  "trading_weights": {
+    "trading_annualized_return": 0.2128,
+    "trading_omega": 0.1383,
+    "trading_max_drawdown": 0.1489,
+    "trading_consistency": 0.2128,
+    "trading_execution_quality": 0.1064,
+    "trading_annualized_volatility": 0.0532,
+    "trading_sharpe_ratio": 0.0638,
+    "trading_sortino_ratio": 0.0638
+  },
+  "emissions": {
+    "base_emission_rate": 1.7,
+    "performance_multiplier": 1.5,
+    "longevity_bonus_rate": 0.14,
+    "diversity_incentive_weight": 0.2,
+    "decay_rate": 0.995,
+    "min_emission_floor": 0.07,
+    "max_emission_cap": 2.4
+  },
+  "r3_features": {
+    "decentralized_identity_verification": true,
+    "bayesian_model_averaging": true,
+    "stake_based_consensus": true,
+    "identity_bond": 0.15,
+    "prior_strength": 0.7,
+    "min_stake_weight": 0.2
+  },
+  "rebase_metadata": {
+    "rebased_from": "V14-R1-CORRECTED-KP (pre-2026-08-03 space)",
+    "rebase_date": "2026-08-03",
+    "amendment_ref": "AMEND-2026-08-03-trading-metric-revamp",
+    "renormalization_factor": "1/0.94",
+    "dropped_keys": ["trading_realized_pnl", "trading_win_rate"],
+    "added_key": "trading_annualized_return",
+    "win_rate_status": "demoted to reported-only diagnostic",
+    "weight_vector_source": "default_weightconfig_values",
+    "weight_vector_source_rationale": "Equal-weight fallback (0.125 x 8) replaced with default WeightConfig values per tuner root-cause analysis (memory key v14_r1_gate1_root_cause). The equal-weight fallback depressed the trading composite by ~2.1% by over-weighting trading_annualized_volatility (0.125 vs default 0.0532, weakest honest-miner metric at ~0.70 normalized) and under-weighting trading_annualized_return and trading_consistency (0.125 vs default 0.2128, strongest honest-miner metrics at ~0.90 normalized). Default WeightConfig values are the correct weights for honest-miner optimization. Canonical keys match PARAM_NAMES.",
+    "pre_revamp_weight_count": 9,
+    "post_revamp_weight_count": 8,
+    "sum_check": 1.0,
+    "gate1_correction": {
+      "correction_date": "2026-08-04",
+      "root_cause_memory_key": "v14_r1_gate1_root_cause",
+      "old_weights": "equal_weights_0.125 x 8 with 4 display-name keys (trading_calmar_ratio, trading_profit_factor, trading_fill_quality, trading_execution_cost)",
+      "new_weights": "default WeightConfig values with canonical keys (trading_omega, trading_consistency, trading_execution_quality, trading_annualized_volatility)",
+      "rationale": "Equal-weight fallback replaced with default WeightConfig values per tuner root-cause (gate 1 correction). Eliminates ~2.1% trading composite depression caused by over-weighting weak honest-miner metrics."
+    }
+  }
+}
