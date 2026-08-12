@@ -38,6 +38,10 @@ class ChainParams:
 
     root_tao: float = 5_374_582.0                  # TAO staked on root (live value; refresh)
 
+    # Root Reborn (runtime v441, SPEC §0.16 / ROOTFUND spec §2)
+    root_dividend_per_day: float = 983.0           # τ/day root dividend, network-wide
+    root_validator_take: float = 0.18              # default take on root staker yields
+
     @property
     def blocks_per_day(self) -> float:
         return 86_400.0 / self.block_time_s
@@ -77,6 +81,43 @@ def reference_pool() -> PoolSnapshot:
     return PoolSnapshot(tao_reserve=131_662.0, alpha_reserve=2_431_632.87)
 
 
+@dataclass(frozen=True)
+class ValidatorBasket:
+    """One root validator's beta-basket state as seen from our subnet
+    (Root Reborn, runtime v441; SPEC §0.16, ROOTFUND spec §2–§5).
+
+    `weights` is the normalized `Weights[ROOT]` vector keyed by netuid (uid 0 =
+    the held-TAO stability slot). `escrow_alpha` is the alpha this validator's
+    fund holds on OUR netuid via the keyless pallet escrow — real stake, counted
+    in SubnetAlphaOut, conviction-inert.
+    """
+
+    hotkey: str
+    root_stake_tao: float                  # K_v — delegated root stake
+    weights: dict[int, float]              # netuid → normalized basket weight
+    escrow_alpha: float = 0.0              # basket alpha held on our netuid
+    nav_tao: float | None = None           # realizable fund NAV, if queryable
+
+    def weight_to(self, netuid: int) -> float:
+        return self.weights.get(netuid, 0.0)
+
+
+def stake_weighted_insignia_weight(baskets: list[ValidatorBasket], netuid: int) -> float:
+    """w̄_ins — stake-weighted mean basket weight toward our subnet, the
+    multiplier on the network dividend that becomes structural bid
+    (ROOTFUND spec §2: F_ins = w̄ · 983 τ/day scaled by stake share)."""
+    total = sum(b.root_stake_tao for b in baskets)
+    if total <= 0:
+        return 0.0
+    return sum(b.weight_to(netuid) * b.root_stake_tao for b in baskets) / total
+
+
+def total_escrow_alpha(baskets: list[ValidatorBasket]) -> float:
+    """Aggregate beta-basket escrow alpha on our netuid — the claim-flow
+    overhang (R16) and the conviction-inert share of SubnetAlphaOut."""
+    return sum(b.escrow_alpha for b in baskets)
+
+
 class ParamsProvider(Protocol):
     """Live read layer. Implementations must re-read every epoch and never cache
     across a tempo boundary — parameter changes must surface within one epoch
@@ -86,13 +127,17 @@ class ParamsProvider(Protocol):
 
     def pool(self, netuid: int) -> PoolSnapshot: ...
 
+    def root_baskets(self, netuid: int) -> list[ValidatorBasket]: ...
+
 
 class StaticProvider:
     """Fixed values for tests and simulation."""
 
-    def __init__(self, params: ChainParams | None = None, pool: PoolSnapshot | None = None):
+    def __init__(self, params: ChainParams | None = None, pool: PoolSnapshot | None = None,
+                 baskets: list[ValidatorBasket] | None = None):
         self._params = params or ChainParams()
         self._pool = pool or reference_pool()
+        self._baskets = baskets or []
 
     def chain_params(self) -> ChainParams:
         return self._params
@@ -100,8 +145,11 @@ class StaticProvider:
     def pool(self, netuid: int = 0) -> PoolSnapshot:
         return self._pool
 
+    def root_baskets(self, netuid: int = 0) -> list[ValidatorBasket]:
+        return self._baskets
+
     def with_params(self, **changes) -> "StaticProvider":
-        return StaticProvider(replace(self._params, **changes), self._pool)
+        return StaticProvider(replace(self._params, **changes), self._pool, self._baskets)
 
 
 class SubtensorProvider:
@@ -144,6 +192,48 @@ class SubtensorProvider:
             block=self._st.get_current_block(),
         )
 
+    def root_baskets(self, netuid: int) -> list[ValidatorBasket]:
+        """Beta-basket state per root validator (Root Reborn, v441).
+
+        Uses the betaBasket runtime API where exposed by the SDK; falls back to
+        raw runtime calls. Names must be verified on testnet against subtensor
+        PR #2968 before trusting this path — a missing API returns [], which
+        lockmgr.monitor treats as "no escrow visibility" (warn), never as
+        "no escrow".
+        """
+        substrate = self._st.substrate
+        baskets: list[ValidatorBasket] = []
+        try:
+            neurons = self._st.neurons_lite(netuid=0)
+        except Exception:
+            return baskets
+        for n in neurons:
+            hotkey = n.hotkey
+            try:
+                weights_raw = substrate.runtime_call(
+                    "BetaBasketApi", "get_validator_weights", [hotkey]).value
+                weights = {int(u): float(w) for u, w in (weights_raw or [])}
+                total = sum(weights.values())
+                if total > 0:
+                    weights = {u: w / total for u, w in weights.items()}
+                basket_raw = substrate.runtime_call(
+                    "BetaBasketApi", "get_validator_basket", [hotkey]).value or []
+                escrow = sum(float(a) for u, a in basket_raw if int(u) == netuid)
+                nav = substrate.runtime_call(
+                    "BetaBasketApi", "get_validator_nav", [hotkey]).value
+                baskets.append(ValidatorBasket(
+                    hotkey=hotkey,
+                    root_stake_tao=float(n.stake),
+                    weights=weights,
+                    escrow_alpha=escrow / 1e9,  # rao → alpha; verify scaling on testnet
+                    nav_tao=float(nav) / 1e9 if nav is not None else None,
+                ))
+            except Exception:
+                # API absent on this runtime — surface partial state; monitor
+                # flags missing visibility rather than assuming zero escrow.
+                continue
+        return baskets
+
 
 class TaostatsProvider:
     """Pool/price reads via the taostats API (https://taostats.io/).
@@ -164,6 +254,10 @@ class TaostatsProvider:
     def chain_params(self) -> ChainParams:
         # taostats does not expose conviction v2 params; use RPC for those.
         return ChainParams()
+
+    def root_baskets(self, netuid: int) -> list[ValidatorBasket]:
+        # taostats does not expose beta-basket state; use the RPC provider.
+        return []
 
     def pool(self, netuid: int) -> PoolSnapshot:
         resp = self._session.get(f"{self.BASE_URL}/dtao/pool/latest/v1", params={"netuid": netuid}, timeout=30)

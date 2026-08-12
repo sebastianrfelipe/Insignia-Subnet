@@ -2,24 +2,31 @@
 
 Run once per epoch (tempo). Emits `MonitorFinding`s consumed by risk/alerts.
 Covers: parameter drift (recompute schedules on UnlockRate/MaturityRate change),
-owner-hotkey change, unstaked LP alpha, and subnet-king early warning — tracked
-even while the king transfer is disabled (SPEC §0.6).
+owner-hotkey change, unstaked LP alpha, subnet-king early warning — tracked
+even while the king transfer is disabled (SPEC §0.6) — and, post-Root-Reborn,
+beta-basket escrow stake per root validator (SPEC §0.16; R15/R16).
 """
 
 from __future__ import annotations
 
 import dataclasses
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
-from chainio import ChainParams
+from chainio import ChainParams, ValidatorBasket, total_escrow_alpha
 from lockmgr.locks import LockClient, OnChainLock
 from lockmgr.schedules import LpLock, LockState
 
 # Defensive posture if subnet-king is enabled (SPEC §10.3): owner aggregate
 # ≥ KING_DEFENSE_RATIO × largest external hotkey AND external conviction below
-# KING_CONVICTION_THRESHOLD × SubnetAlphaOut.
+# KING_CONVICTION_THRESHOLD × SubnetAlphaOut. SubnetAlphaOut INCLUDES beta-basket
+# escrow (real stake, conviction-inert) — the denominator both sides fight over.
 KING_DEFENSE_RATIO = 2.0
 KING_CONVICTION_THRESHOLD = 0.10
+
+# Root Reborn escrow thresholds (ROOTFUND spec §5, §7; R15/R16)
+ESCROW_CONSENSUS_WARN_SHARE = 0.05   # one validator's escrow ≥5% of AlphaOut →
+                                     # material stake-weight in subnet consensus
+ROTATION_WARN_REL_DROP = 0.25        # w_ins down ≥25% epoch-over-epoch → R15
 
 
 @dataclass(frozen=True)
@@ -104,6 +111,74 @@ class KingWatch:
         return self.largest_external / self.subnet_alpha_out if self.subnet_alpha_out > 0 else 0.0
 
 
+@dataclass(frozen=True)
+class EscrowWatch:
+    """One epoch's view of beta-basket escrow on our netuid (SPEC §0.16).
+
+    `subnet_alpha_out` must be the chain value, which already includes escrow —
+    basket positions are real stake entries. `previous_weights` is last epoch's
+    per-validator weight toward our netuid, for rotation early-warning (R15).
+    """
+
+    netuid: int
+    baskets: list[ValidatorBasket]
+    subnet_alpha_out: float
+    previous_weights: dict[str, float] = field(default_factory=dict)
+    trailing_claim_alpha_30d: float = 0.0
+
+    @property
+    def total_escrow(self) -> float:
+        return total_escrow_alpha(self.baskets)
+
+    @property
+    def escrow_share_of_alpha_out(self) -> float:
+        if self.subnet_alpha_out <= 0:
+            return 0.0
+        return self.total_escrow / self.subnet_alpha_out
+
+
+def escrow_findings(watch: EscrowWatch) -> list[MonitorFinding]:
+    """Escrow stake, rotation, and overhang checks (R15/R16).
+
+    Escrow is conviction-inert (the keyless escrow can never sign lock_stake),
+    so it never appears in king numerators — but it inflates SubnetAlphaOut for
+    attacker and defender alike, and it is the claim-flow overhang.
+    """
+    findings: list[MonitorFinding] = []
+    if not watch.baskets:
+        findings.append(MonitorFinding("warn", "escrow_no_visibility",
+                        "no beta-basket state readable — treat as missing data, "
+                        "not as zero escrow (verify BetaBasketApi on this runtime)"))
+        return findings
+
+    for b in watch.baskets:
+        if watch.subnet_alpha_out > 0 and \
+                b.escrow_alpha / watch.subnet_alpha_out >= ESCROW_CONSENSUS_WARN_SHARE:
+            findings.append(MonitorFinding("warn", "escrow_consensus_weight",
+                            f"validator {b.hotkey} escrow holds "
+                            f"{b.escrow_alpha / watch.subnet_alpha_out:.1%} of SubnetAlphaOut — "
+                            "material stake-weight in subnet consensus"))
+        prev = watch.previous_weights.get(b.hotkey)
+        now = b.weight_to(watch.netuid)
+        if prev is not None and prev > 0 and (prev - now) / prev >= ROTATION_WARN_REL_DROP:
+            findings.append(MonitorFinding("warn", "basket_rotation",
+                            f"validator {b.hotkey} weight to netuid {watch.netuid} "
+                            f"fell {prev:.1%} → {now:.1%} — R15 rotation early-warning; "
+                            "expect the dividend bid to shrink next epoch"))
+
+    if watch.trailing_claim_alpha_30d > 0 and watch.total_escrow > 0:
+        annualized = watch.trailing_claim_alpha_30d * 12.0 / watch.total_escrow
+        if annualized > 2.0:
+            findings.append(MonitorFinding("page", "claim_cluster",
+                            f"escrow claims running {annualized:.1f}×/yr of the basket — "
+                            "R16 claim clustering; check reserve coverage vs overhang"))
+    findings.append(MonitorFinding("info", "escrow_level",
+                    f"beta-basket escrow {watch.total_escrow:,.0f} α "
+                    f"({watch.escrow_share_of_alpha_out:.1%} of SubnetAlphaOut) "
+                    f"across {len(watch.baskets)} validators"))
+    return findings
+
+
 def king_early_warning(watch: KingWatch) -> list[MonitorFinding]:
     findings = []
     if watch.defense_ratio < KING_DEFENSE_RATIO:
@@ -120,7 +195,8 @@ def king_early_warning(watch: KingWatch) -> list[MonitorFinding]:
 
 def poll(client: LockClient, locks: list[LpLock], owner_hotkey: str,
          previous_params: ChainParams, current_params: ChainParams, day: float,
-         staked_by_coldkey: dict[str, float], watch: KingWatch) -> list[MonitorFinding]:
+         staked_by_coldkey: dict[str, float], watch: KingWatch,
+         escrow: EscrowWatch | None = None) -> list[MonitorFinding]:
     """One epoch's full sweep; feed the result to risk.alerts.dispatch."""
     findings = param_drift(previous_params, current_params)
     for lock in locks:
@@ -128,4 +204,6 @@ def poll(client: LockClient, locks: list[LpLock], owner_hotkey: str,
             lock, client.get_coldkey_lock(lock.coldkey), owner_hotkey, current_params, day)
     findings += unstaked_lp_positions(staked_by_coldkey, locks)
     findings += king_early_warning(watch)
+    if escrow is not None:
+        findings += escrow_findings(escrow)
     return findings
