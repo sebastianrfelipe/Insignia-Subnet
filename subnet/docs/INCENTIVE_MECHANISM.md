@@ -516,8 +516,23 @@ This creates a direct link between the subnet's economic output and miner token 
 ### Mechanism
 
 1. **Staked-to-participate.** Acceptance into the deployment pipeline (the top-pair tier the desk actually trades) requires the pair's miners to post an alpha bond, escrowed via `transfer_stake` to a fund-controlled collateral coldkey. Bond size scales with allocated deployment capital. Undeployed pairs are unaffected — this gates the tier where miner output touches real money.
-2. **Loss-linked slashing.** Realized losses attributable to a deployed pair (net, over the settlement window, per the same attribution used for the buyback P&L split) slash the bond pro-rata up to a per-window cap. Realized *gains* accrue the pair's standard deployment rewards; the bond is returned (plus accrued staking emissions) on clean undeployment.
+2. **Loss-linked slashing.** Realized losses attributable to a deployed pair (net, over the settlement window) slash the bond up to a per-window cap. Realized *gains* accrue the pair's standard deployment rewards; the bond is returned (plus accrued staking emissions) on clean undeployment. **How the slash is split between the two miners is a first-order design question — see §Splitting a slash below; it is not pro-rata by bond size.**
 3. **Slashed alpha is burned, not redistributed.** Redistribution creates a bounty for inducing other pairs' losses and is recyclable by sybil clusters; a burn is the only sink no adversary can route back to themselves. Burns are what separate signal from noise: a miner who won't stake against their own live P&L is telling you their signal isn't one.
+
+### Splitting a slash between two unaffiliated miners
+
+A `(researcher, trader)` pair is two **separate** miners, and §2.3 of [PAIRING_MECHANISM.md](PAIRING_MECHANISM.md) assigns them to each other deterministically from chain block hash, hiding partner identity until evaluation. Neither miner can screen or monitor the other. A slash split by bond size alone would therefore punish a miner for a partner's error with no channel through which they could have prevented it — and would reintroduce precisely the partner noise the emission side is engineered to remove (the K-partner floor plus the variance-penalized `mean − λ·std` credit formula in `pairing.py::MarginalContributionCredit`).
+
+The evolutionary mechanism does **not** launder this away, for three reasons: the K-partner averaging that de-noises credit does not exist at the deployment tier (a pair is deployed as one specific pair, over a settlement window of weeks, a handful of times); emissions are a recoverable flow while the bond is a depleting stock with an absorbing floor, so variance can eliminate a miner before the mean arrives; and joint liability earns its keep through peer screening and monitoring, both of which assigned pairing forecloses.
+
+Slashes are therefore split by **attribution** (`treasury/collateral.py::blame_split`):
+
+| Portion of the loss | Determined by | Who pays |
+|---|---|---|
+| **Explained** — `min(1, d_researcher + d_trader)` | Per-role diagnostic degradation from validation to live: `overfitting_penalty` / `penalized_f1` / `variance` for the researcher, `execution_quality` / `consistency` / `penalized_sharpe` for the trader | The degraded role, in proportion to its own degradation |
+| **Unexplained** — the residual | Nothing in either role's diagnostics accounts for it | Shared pro-rata by bond, but only `ambiguous_exposure` (default 50%) of it is slashed at all |
+
+Two properties worth stating explicitly. First, joint liability is reduced, **not eliminated**: a sound model and a sound strategy can still be a bad pairing (a high-turnover strategy on a slow-decaying signal), and that joint-mismatch cost is real — driving attribution to 100% would remove any incentive to be robust across partners, which is exactly what the variance penalty in the credit formula rewards. Second, punishment scales with the strength of the justification, and the unslashed remainder is simply **forgiven**: the bond is an incentive device, not a loss-recovery claim against miners, so a loss nobody can explain is a weak basis for taking someone's stake. Missing diagnostics therefore reduce the slash rather than defaulting to blame.
 
 ### Settlement pipeline (chain mechanics)
 

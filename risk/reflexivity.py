@@ -31,6 +31,23 @@ class RevenueShock:
 
 
 @dataclass(frozen=True)
+class BasketRotationShock:
+    """R15 — root validators rotate away and sleeve delegators leave.
+
+    The public scoreboard makes basket flow momentum-amplifying: follower
+    weight (w_ext) ramps to its floor over the shock and STAYS there
+    (rotation is sticky — recovering rank takes quarters), while a fraction
+    of the sleeve's delegated stake exits each shock month at face value.
+    The fund's own validator weight (w_ins) does not rotate — it is
+    fund-controlled (ROOTFUND spec §3)."""
+
+    start_month: int
+    duration_months: int
+    w_ext_floor: float = 0.0
+    sleeve_outflow_monthly: float = 0.15
+
+
+@dataclass(frozen=True)
 class ScenarioConfig:
     months: int = 24
     n_paths: int = 2_000
@@ -60,6 +77,17 @@ class ScenarioConfig:
     hedge_relief_frac: float = 0.0            # share of stressed selling diverted to
                                               # short-side hedging (chain shorting), never
                                               # hitting the spot pool; 0 until it ships
+
+    # Root Reborn / v3 root-basket structure (ROOTFUND spec §2–§5; R15, R16).
+    # Neutral defaults (0 sleeve, 0 weights) reproduce the pre-v441 model
+    # exactly, so v1 scenario history stays comparable.
+    sleeve_tao: float = 0.0                   # K_v delegated to the fund's validator
+    w_ins: float = 0.0                        # own-validator basket weight to Insignia
+    w_ext: float = 0.0                        # stake-weighted follower weight (all others)
+    claim_rate_annual: float = 0.5            # baseline root-staker claim rate on escrow
+    claim_stress_mult: float = 4.0            # R16: claims cluster in drawdowns
+    escrow_alpha0: float = 0.0                # basket escrow on our netuid at t0
+    basket_rotation: BasketRotationShock | None = None
 
     # spiral definition
     spiral_share_threshold: float = 0.004     # emission share floor
@@ -91,6 +119,12 @@ class SpiralReport:
         )
         if self.config.hedge_relief_frac > 0:
             text += f"\n  hedge relief           {self.config.hedge_relief_frac:6.1%} of stressed selling diverted"
+        if self.config.sleeve_tao > 0 or self.config.w_ext > 0:
+            rot = self.config.basket_rotation
+            rot_txt = (f", rotation m{rot.start_month}–{rot.start_month + rot.duration_months}"
+                       if rot else "")
+            text += (f"\n  root basket            sleeve {self.config.sleeve_tao:,.0f} τ · "
+                     f"w_ins {self.config.w_ins:.0%} · w_ext {self.config.w_ext:.1%}{rot_txt}")
         return text
 
 
@@ -124,6 +158,9 @@ def run(config: ScenarioConfig = ScenarioConfig()) -> SpiralReport:
         competitor_index = 1.0
         ema_price = pool.spot_price
         age_days = config.subnet_age_days
+        sleeve = config.sleeve_tao
+        w_ext_now = config.w_ext
+        escrow = config.escrow_alpha0
 
         for m in range(config.months):
             age_days += 30.0
@@ -141,16 +178,38 @@ def run(config: ScenarioConfig = ScenarioConfig()) -> SpiralReport:
             nav = (aum + treasury_alpha_value) / config.circulating_alpha
             disc = pool.spot_price / nav - 1.0 if nav > 0 else 0.0
 
+            # R15: rotation shock — follower weight ramps to its floor (sticky),
+            # sleeve delegators exit at face value during the shock
+            rot = config.basket_rotation
+            if rot is not None and m >= rot.start_month:
+                progress = min((m - rot.start_month + 1) / rot.duration_months, 1.0)
+                w_ext_now = config.w_ext + (rot.w_ext_floor - config.w_ext) * progress
+                if m < rot.start_month + rot.duration_months:
+                    sleeve *= 1.0 - rot.sleeve_outflow_monthly
+
             # policy: buy the discount only
             action = config.policy_band.action(pool.spot_price, nav)
             buy_tao = config.routing.route(revenue, action)["buy_flow"]
-            if buy_tao > 0:
-                bought = pool_math.quote_add_stake(pool, buy_tao)
-                pool = replace(pool, tao_reserve=pool.tao_reserve + buy_tao,
-                               alpha_reserve=pool.alpha_reserve - bought)
 
-            # LP toggles: stressed when the discount is deep or yield collapsed
-            yield_ann = emissions.lp_daily_yield(p, age_days, config.locked_alpha) * 365.0
+            # dividend-funded basket bid (ROOTFUND spec §2): protocol-executed,
+            # price-insensitive, lands regardless of the NAV band
+            basket_tao = 30.0 * (emissions.dividend_bid(p, sleeve, config.w_ins)
+                                 + emissions.external_basket_bid(p, w_ext_now))
+            inflow = buy_tao + basket_tao
+            if inflow > 0:
+                bought = pool_math.quote_add_stake(pool, inflow)
+                pool = replace(pool, tao_reserve=pool.tao_reserve + inflow,
+                               alpha_reserve=pool.alpha_reserve - bought)
+                if inflow > 0 and basket_tao > 0:
+                    escrow += bought * (basket_tao / inflow)
+
+            # LP toggles: stressed when the discount is deep or yield collapsed.
+            # Escrow is real stake, so it joins the staked base (dilutes per-unit
+            # yield); a zero staked base (v3: no LP locks) cannot trigger the
+            # yield-collapse stress condition.
+            staked_base = config.locked_alpha + escrow
+            yield_ann = (emissions.lp_daily_yield(p, age_days, staked_base) * 365.0
+                         if staked_base > 0 else float("inf"))
             stressed = disc < config.stress_discount or yield_ann < emissions.dilution_hurdle(
                 p, config.circulating_alpha) * 0.25
             toggle_p = config.toggle_prob_stressed if stressed else config.toggle_prob_base
@@ -163,6 +222,15 @@ def run(config: ScenarioConfig = ScenarioConfig()) -> SpiralReport:
             sold = redeemable_overhang * config.redemption_sell_frac
             spot_sold = sold * (1.0 - config.hedge_relief_frac)
             redeemable_overhang -= sold
+
+            # R16: root-staker claims sell pro-rata from escrow, clustering
+            # exactly when everything else is stressed
+            claim_frac = (config.claim_rate_annual / 12.0
+                          * (config.claim_stress_mult if (stressed or shocked) else 1.0))
+            claimed = escrow * min(claim_frac, 1.0)
+            escrow -= claimed
+            spot_sold += claimed
+
             if spot_sold > 0:
                 tao_out = pool_math.quote_unstake(pool, spot_sold)
                 extra = 0.10 * config.tao_drawdown_corr if shocked else 0.0
@@ -176,8 +244,13 @@ def run(config: ScenarioConfig = ScenarioConfig()) -> SpiralReport:
             competitor_index *= 1.0 + config.competitor_growth_monthly
             share = emissions.emission_share(ema_price, 0.0, [(competitor_index, 0.0)])
 
+            # spiral: LP decay overhang plus one stressed month of escrow claims
+            # against what the pool can absorb inside the slippage tolerance
+            imminent_claims = escrow * min(
+                config.claim_rate_annual / 12.0 * config.claim_stress_mult, 1.0)
             depth = _absorbable_alpha(pool, config.absorbable_slippage)
-            if share < config.spiral_share_threshold and redeemable_overhang > depth:
+            if (share < config.spiral_share_threshold
+                    and redeemable_overhang + imminent_claims > depth):
                 if not spiraled[path]:
                     spiraled[path] = True
                 spiral_hits[m] += 1
@@ -214,5 +287,48 @@ def quarterly_report(base: ScenarioConfig = ScenarioConfig()) -> str:
     return "\n".join(lines)
 
 
+def v3_baseline(base: ScenarioConfig = ScenarioConfig()) -> ScenarioConfig:
+    """ROOTFUND spec baseline: no LP lock cohorts (R8/R9 retire), a 500k τ
+    sleeve at 90% home weight, emission-share-level follower flow, and the
+    escrow already near steady state."""
+    p = base.params
+    escrow0 = emissions.escrow_steady_state(
+        emissions.dividend_bid(p, 5.0e5, 0.90) + emissions.external_basket_bid(p, 0.01),
+        base.pool.spot_price, 0.5)
+    return replace(
+        base,
+        locked_alpha=0.0,
+        sleeve_tao=5.0e5,
+        w_ins=0.90,
+        w_ext=0.01,
+        claim_rate_annual=0.5,
+        escrow_alpha0=escrow0,
+        revenue_shock=None,
+    )
+
+
+V3_SCENARIOS: dict[str, dict] = {
+    "v3_baseline": {},
+    "v3_rev_-100_6m": {"revenue_shock": RevenueShock(6, 6, 1.0)},
+    "v3_rotation_6m": {"basket_rotation": BasketRotationShock(6, 6)},
+    "v3_claim_cluster": {"revenue_shock": RevenueShock(6, 6, 1.0),
+                         "claim_stress_mult": 8.0},
+    "v3_rotation+rev": {"revenue_shock": RevenueShock(6, 6, 1.0),
+                        "basket_rotation": BasketRotationShock(6, 6)},
+}
+
+
+def quarterly_report_v3(base: ScenarioConfig = ScenarioConfig()) -> str:
+    """The v3 scenario grid (R15 rotation, R16 claim clustering) published
+    alongside the v1 grid while both structures are under evaluation."""
+    v3 = v3_baseline(base)
+    lines = []
+    for name, overrides in V3_SCENARIOS.items():
+        report = run(replace(v3, **overrides))
+        lines.append(f"[{name}]\n{report.summary()}\n")
+    return "\n".join(lines)
+
+
 if __name__ == "__main__":
     print(quarterly_report())
+    print(quarterly_report_v3())
