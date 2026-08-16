@@ -26,7 +26,7 @@ from lockmgr.schedules import LpLock, LockState
 KING_DEFENSE_RATIO = 2.0
 KING_CONVICTION_THRESHOLD = 0.10
 
-# Root Reborn escrow thresholds (ROOTFUND spec §5, §7; R15/R16)
+# Root Reborn escrow thresholds (SPEC §0.16; R15/R16)
 ESCROW_CONSENSUS_WARN_SHARE = 0.05   # one validator's escrow ≥5% of AlphaOut →
                                      # material stake-weight in subnet consensus
 ROTATION_WARN_REL_DROP = 0.25        # w_ins down ≥25% epoch-over-epoch → R15

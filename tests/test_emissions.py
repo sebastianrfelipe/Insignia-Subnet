@@ -54,3 +54,11 @@ def test_lp_daily_yield_is_recapture_scale():
     # 3M staked on a 1-year subnet: daily yield ≈ 7,200 × 34.6% / 3M ≈ 0.083%/day
     daily = emissions.lp_daily_yield(PARAMS, 365, 3e6)
     assert daily == pytest.approx(7200 * 0.346 / 3e6, rel=0.02)
+
+
+def test_lp_return_is_full_principal_wrapper():
+    # SYSTEM_EQUATIONS §9: R_LP = (1+y_α)(1+g_p) − 1 on locked alpha, not a coupon
+    y = emissions.lp_annual_yield(PARAMS, 365, 12e6)
+    assert y == pytest.approx(0.076, abs=0.002)
+    assert emissions.lp_return(y, 0.0) == pytest.approx(y)
+    assert emissions.lp_return(y, 1.0) == pytest.approx((1 + y) * 2 - 1)

@@ -56,6 +56,7 @@ The design in this repo MUST be built against the **actual** Conviction v2 mecha
 15. **All parameters are mutable by root** (UnlockRate, ConvictionMaturityRate, auto-lock defaults, flow accounting). Every module must read parameters from chain at runtime and tolerate change. In this repo the shared read layer is [chainio/params.py](../chainio/params.py); pure-math modules take parameters as arguments and never embed chain constants.
 
 16. **Root Reborn (runtime v441, mainnet 2026-08-03, PR #2968) replaced the per-block auto-sell of root dividends.** Each root validator (64 seats, burn-based entry, 18% default take) now runs a single on-chain fund ("beta basket"): its root dividends are held as **real staked alpha under a keyless escrow coldkey**, fund shares mint at **realizable NAV** (priced at what holdings would fetch at current pool depth, not spot), and claims are arg-less fund-level pro-rata redemptions that sell fraction `f` of *every* holding. Weight curation launched **disabled**; the default is accumulate-in-place at emission weights, executing zero trades. Consequences for this design:
+    - **LPs are not root stakers.** LP principal is locked, staked alpha (§0.5). Root baskets are protocol flow on the pool — bid when dividends redeploy, sell when stakers claim. An optional Insignia root seat is IR and coupon-bid only, never the LP product.
     - **The root slice is deferred leakage, not retained value.** The escrowed alpha sits physically staked on the subnet (no immediate sell pressure, and it counts in the staked-alpha denominators), but it is **economically owned by root stakers through fund shares**. It exits the wrapper when they claim. Never count it as retained in NAV or retention accounting; model it as leakage whose *realization timing* is claim flow rather than per-block auto-sell.
     - **Per-subnet net flow becomes a competitive allocation game once curation enables:** `−(own root dividend sold at origin) + Σ(validator weight to Insignia × total root dividends, ~983 τ/day network-wide)`. Basket flows land at **epoch boundaries**.
     - **Escrow-held basket alpha is stake, not lock:** per the release docs, "basket positions are real stake entries under a pallet sub-account with no private key — they cannot be moved or signed away, and because they are real stake they keep earning every epoch." Real stake means it **counts in SubnetAlphaOut**, earns emissions (dilutes per-unit staker APY), and accrues under root validators' hotkeys (watch stake-weight in the subnet's own consensus). No private key means it can never sign `lock_stake` — **structurally zero conviction**, so escrow growth inflates the king-threshold denominator without ever contributing a challenger: hostile king activation gets *harder* as escrow grows, but so does the fund's own defensive ≥10%-of-SubnetAlphaOut conviction target.
@@ -181,6 +182,8 @@ The fund layer lives at the repo root alongside the existing `subnet/` package (
 ```
 Insignia-Subnet/
 ├── LEGAL_SIGNOFF.md              # ABSENT until Phase-0 counsel signs off; gates investor-facing features
+├── INSIGNIA_SYSTEM_EQUATIONS.md  # LP wrapper identities (yield, leakage, NAV band, conviction)
+├── INSIGNIA_ROOTFUND_DESIGN.md   # wrapper + Root Reborn overlay (baskets are not the LP)
 ├── docs/
 │   ├── SPEC.md                   # this file
 │   ├── RISK_REGISTER.md

@@ -44,7 +44,7 @@ class ChainParams:
 
     root_tao: float = 5_374_582.0                  # TAO staked on root (live value; refresh)
 
-    # Root Reborn (runtime v441, SPEC §0.16 / ROOTFUND spec §2)
+    # Root Reborn (runtime v441, SPEC §0.16)
     root_dividend_per_day: float = 983.0           # τ/day root dividend, network-wide
     root_validator_take: float = 0.18              # default take on root staker yields
 
@@ -90,12 +90,12 @@ def reference_pool() -> PoolSnapshot:
 @dataclass(frozen=True)
 class ValidatorBasket:
     """One root validator's beta-basket state as seen from our subnet
-    (Root Reborn, runtime v441; SPEC §0.16, ROOTFUND spec §2–§5).
+    (Root Reborn, runtime v441; SPEC §0.16).
 
     `weights` is the normalized `Weights[ROOT]` vector keyed by netuid (uid 0 =
     the held-TAO stability slot). `escrow_alpha` is the alpha this validator's
     fund holds on OUR netuid via the keyless pallet escrow — real stake, counted
-    in SubnetAlphaOut, conviction-inert.
+    in SubnetAlphaOut, conviction-inert. Root stakers are not Insignia LPs.
     """
 
     hotkey: str
@@ -109,9 +109,9 @@ class ValidatorBasket:
 
 
 def stake_weighted_insignia_weight(baskets: list[ValidatorBasket], netuid: int) -> float:
-    """w̄_ins — stake-weighted mean basket weight toward our subnet, the
-    multiplier on the network dividend that becomes structural bid
-    (ROOTFUND spec §2: F_ins = w̄ · 983 τ/day scaled by stake share)."""
+    """w_bar_ins — stake-weighted mean basket weight toward our subnet, the
+    multiplier on the network dividend that becomes external bid
+    (SPEC §0.16: F = w_bar · 983 τ/day scaled by stake share)."""
     total = sum(b.root_stake_tao for b in baskets)
     if total <= 0:
         return 0.0

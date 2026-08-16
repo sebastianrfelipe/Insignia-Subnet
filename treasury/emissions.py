@@ -69,8 +69,8 @@ def issuance_retention(params: ChainParams, subnet_age_days: float,
 
 def leakage_drag(params: ChainParams, circulating_supply: float,
                  miner_sell_through: float) -> float:
-    """Annual drag on LP return from issuance leaking OUT of the wrapper —
-    the v6 replacement for the retired revenue-yield model (fig 3):
+    """Annual drag on LP return from issuance leaking OUT of the wrapper
+    (SYSTEM_EQUATIONS §9, fig 3):
     drag = dilution × [validator_cut × root_proportion + miner_cut × sell_through].
     The owner cut accrues to NAV; staked LPs recapture their own share."""
     dilution = params.alpha_out_per_day * 365.0 / circulating_supply
@@ -128,7 +128,22 @@ def lp_daily_yield(params: ChainParams, subnet_age_days: float,
     return params.alpha_out_per_day * share / total_staked_alpha
 
 
-# --- Root Reborn / root-basket structure (ROOTFUND spec §2–§6, SPEC §0.16) ---
+def lp_annual_yield(params: ChainParams, subnet_age_days: float,
+                    total_staked_alpha: float) -> float:
+    """Annual y_alpha — the fixed term in SYSTEM_EQUATIONS §5 / §9."""
+    return lp_daily_yield(params, subnet_age_days, total_staked_alpha) * 365.0
+
+
+def lp_return(alpha_yield: float, price_return: float) -> float:
+    """LP dollar (TAO) return on the full principal: (1+y_α)(1+g_p) − 1.
+
+    Principal is locked, staked alpha. This is the wrapper identity
+    (SYSTEM_EQUATIONS §9) — not a coupon on root TAO.
+    """
+    return (1.0 + alpha_yield) * (1.0 + price_return) - 1.0
+
+
+# --- Root Reborn overlay (SPEC §0.16) — protocol flow, not the LP product ---
 
 
 def deferred_root_slice(params: ChainParams, subnet_age_days: float) -> float:
@@ -143,29 +158,21 @@ def deferred_root_slice(params: ChainParams, subnet_age_days: float) -> float:
 
 def root_base_yield(params: ChainParams) -> float:
     """Annual root staking yield before take: 983 τ/day × 365 / root_tao ≈ 6.7%.
-    'The starting point, not the story' — v441 release notes."""
+
+    This is the coupon on *root TAO*, not LP yield. LPs hold alpha.
+    """
     return params.root_dividend_per_day * 365.0 / params.root_tao
 
 
-def sleeve_yield(params: ChainParams, w_ins: float, alpha_price_return: float,
-                 take: float | None = None) -> float:
-    """Effective annual yield to a root-sleeve staker on the Insignia validator:
-    (1 − t) × y_root × (1 + w_ins × g_α). The transmission of desk performance
-    into LP yield — principal stays plain TAO (ROOTFUND spec §2)."""
-    t = params.root_validator_take if take is None else take
-    return (1.0 - t) * root_base_yield(params) * (1.0 + w_ins * alpha_price_return)
-
-
-def dividend_bid(params: ChainParams, sleeve_tao: float, w_ins: float) -> float:
-    """τ/day of structural Insignia buy-flow from the fund's own validator:
-    w_ins × 983 × K_v / τ_root. Dividends are pro-rata to delegated stake, so
-    the bid scales with product demand — the v3 answer to miner sell that the
-    v2 buyback could not give (ROOTFUND spec §2, §4)."""
-    return w_ins * params.root_dividend_per_day * sleeve_tao / params.root_tao
+def dividend_bid(params: ChainParams, root_stake_tao: float, w_ins: float) -> float:
+    """τ/day of Insignia buy-flow from one root validator's basket:
+    w_ins × 983 × K_v / τ_root. Scales with delegated *root* stake, not LP
+    notional — coupon redeployment, not principal conversion (SPEC §0.16)."""
+    return w_ins * params.root_dividend_per_day * root_stake_tao / params.root_tao
 
 
 def external_basket_bid(params: ChainParams, stake_weighted_w_ins: float) -> float:
-    """τ/day of follower flow from all OTHER validators' baskets, using the
+    """τ/day of basket flow from validators other than our own seat, using the
     stake-weighted mean weight toward Insignia (chainio.stake_weighted_insignia_weight).
     Default (curation disabled / unset) ≈ the subnet's emission share."""
     return stake_weighted_w_ins * params.root_dividend_per_day
@@ -181,17 +188,16 @@ def maintenance_flow(params: ChainParams, miner_sell_through: float,
 def breakeven_sell_through(params: ChainParams, total_bid_tao_day: float,
                            alpha_price: float) -> float:
     """σ* — the miner sell-through fully absorbed by a given τ/day of standing
-    bid: σ* = B / (7,200 × p). At a 500k τ sleeve, w=0.9, p=0.02: ≈ 0.57."""
+    bid: σ* = B / (7,200 × p)."""
     return total_bid_tao_day / (params.alpha_out_per_day * alpha_price)
 
 
 def escrow_steady_state(bid_tao_day: float, alpha_price: float,
                         annual_claim_rate: float) -> float:
     """Steady-state beta-basket escrow alpha on our subnet, from
-    dE/dt = F/p − (c/365)·E with F in τ/day and c annualized:
-    E* = F × 365 / (p × c) (ROOTFUND spec §5). At F=82.3 τ/day, p=0.02, c=0.5:
-    ≈ 3.0M α — the claim-flow overhang (R16) and the conviction-inert share of
-    SubnetAlphaOut."""
+    dE/dt = F/p − c·E with F in τ/day and c annualized:
+    E* = F × 365 / (p × c) (SPEC §0.16). Claim-flow overhang (R16) and the
+    conviction-inert share of SubnetAlphaOut."""
     if annual_claim_rate <= 0:
         raise ValueError("annual_claim_rate must be positive")
     if alpha_price <= 0:
@@ -200,27 +206,12 @@ def escrow_steady_state(bid_tao_day: float, alpha_price: float,
 
 
 def staker_yield_with_escrow(params: ChainParams, subnet_age_days: float,
-                             staked_alpha: float, lp_alpha_diverted: float,
-                             escrow_alpha: float) -> float:
-    """Annual per-unit staking yield with the v3 staked base: LP alpha out of
-    the denominator, basket escrow in (it is real stake earning every epoch).
-    The miner's mechanical gain from separation (ROOTFUND spec §4)."""
-    base = staked_alpha - lp_alpha_diverted + escrow_alpha
+                             staked_alpha: float, escrow_alpha: float) -> float:
+    """Annual per-unit staking yield on the wrapper staked base plus basket
+    escrow (real stake that earns every epoch, SPEC §0.16). LP alpha stays in
+    `staked_alpha` — it is not diverted out of the denominator."""
+    base = staked_alpha + escrow_alpha
     if base <= 0:
-        raise ValueError("staked base must be positive after diversion")
+        raise ValueError("staked base must be positive")
     share = alpha_staker_share(params, subnet_age_days)
     return params.alpha_out_per_day * share * 365.0 / base
-
-
-def staked_lp_drag(params: ChainParams, total_staked_alpha: float,
-                   subnet_age_days: float, miner_sell_through: float) -> float:
-    """Annual drag on a STAKED LP position in the v1 wrapper — the corrected
-    dilution number (ROOTFUND spec §0.5): the owner cut returns via treasury
-    NAV backing and the staker tranche is recaptured, so only the root slice
-    and miner sell-through leak:
-    drag = (7,200 × 365 / S) × validator_cut × (rp + σ).
-    1.4–10.4 pp/yr at S=12M vs the 21.9 pp unstaked hurdle — the rebuttal to
-    'LPs get diluted'."""
-    dilution = params.alpha_out_per_day * 365.0 / total_staked_alpha
-    rp = root_proportion(params, cumulative_issuance(params, subnet_age_days))
-    return dilution * params.validator_cut * (rp + miner_sell_through)

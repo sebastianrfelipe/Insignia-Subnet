@@ -2,6 +2,8 @@
 
 **The one-line thesis.** Emission share drives `tao_in` (pool depth, hence *price*), **not** `alpha_out` (the *quantity* paid to stakers). LP yield is protocol-fixed in alpha terms; trading performance acts on the price term. Both halves of that sentence must appear together in investor materials, or the model reads as either a free lunch or a pump.
 
+LP principal is **locked, staked alpha** — \(R_{\text{LP}}=(1+y_\alpha)(1+g_p)-1\). Root Reborn (SPEC §0.16) defers the root slice into basket escrow and changes claim timing; it does not move LP principal into TAO. See [INSIGNIA_ROOTFUND_DESIGN.md](INSIGNIA_ROOTFUND_DESIGN.md).
+
 Verified against `bittensor.com/docs/concepts/emissions` and `/staking-pools`. **Every parameter below is root-mutable, read from chain at runtime, never hardcode.**
 
 ---
