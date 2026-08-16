@@ -405,6 +405,14 @@ Weights are published and configurable via `WeightConfig`. They are balanced so 
 | **Defense** | `cross_layer_penalty_strength` penalizes deviations from the configured `l1_l2_emission_split`. Cross-layer feedback ensures both layers must perform well. |
 | **Why it fails** | The penalty is proportional to the deviation, making exploitation unprofitable. |
 
+### 14. Martingale / Short-Horizon Score Farming (Trader)
+
+| | |
+|---|---|
+| **Attack** | Trader takes highly leveraged or all-in one-direction bets. Short-window Sharpe / Sortino / PnL look exceptional; the book blows up later. The SN8 failure mode native collateral was built to stretch. |
+| **Defense** | Scoring withholds the blown-up epoch (max-drawdown hard ceiling at 20%, 7-day consistency, Omega for fat tails). `FreezeLedger` then zeros that trader's Yuma weights across subsequent epochs so remaining native registration collateral cannot drain (`insignia/native_collateral.py`). Unlock horizon is `locked / (drain_ratio × daily_emission)` — they have to keep mining, and keep not blowing up, to recover the bond. Deployed pairs additionally post a loss-linked desk bond that burns on realized P&L. |
+| **Why it fails** | A lucky window no longer pays and then unlocks. Zero weight freezes the entry bond until re-registration; the desk bond (if they were deployed) takes real, burned downside. |
+
 ---
 
 ## Commit-Reveal Mechanism
@@ -506,6 +514,25 @@ Better Models → Higher Firm P&L → Token Buybacks → Higher Token Value
 - **Transparency**: Buyback amounts and timing are published on-chain
 
 This creates a direct link between the subnet's economic output and miner token value, an alignment mechanism that existing trading subnets lack.
+
+---
+
+## Native Registration Collateral (subnet-wide time-bond)
+
+Native Subtensor collateral is a **registration-layer** primitive, stacked under scoring and under the deployment bond. Full mechanics: [docs/COLLATERAL.md](../../docs/COLLATERAL.md). Do not conflate it with conviction `lock_stake` or with §Deployment Collateral below.
+
+**The SN8 problem this closes.** Trading scores (Sharpe, Sortino, PnL) can be gamed with a martingale: lever up, go all-in one direction, look statistically brilliant until they blow up. Scoring already withholds that epoch's upside (max-drawdown hard ceiling, consistency, Omega). Native collateral adds *downside on the entry bond*: unlock is proportional to earned emission (`drain_ratio`), and a zero-weight / freeze stops the drain.
+
+**Insignia defaults** (engineering, not chain commitments — owner sets `CollateralLockShare` / `CollateralDrainRatio` on-chain; readers go through `ParamsProvider`):
+
+- `lock_share = 0.50` — half the registration price is a recoverable alpha bond, half still burns.
+- `drain_ratio = 1.0` — one locked alpha releases per one alpha of emission earned. Lower \(k\) stretches the horizon: `days = (locked − min_locked) / (k × daily_emission)`.
+- Validator floor `required_min_alpha = 0` unless published higher. Validators **cannot** write another miner's `min_locked`; they enforce by zeroing Yuma weights (`insignia.native_collateral.apply_collateral_gate`, applied in `PairedValidator.finalize_generation`).
+- `FreezeLedger` records a trader whose `max_drawdown` ≥ 20% (same ceiling as `TradingValidator`). Weights stay zero across subsequent epochs so they cannot immediately farm emission — and drain the lock — on the next lucky window. The record drops when the UID leaves the metagraph.
+
+**What it does not replace.** Drain is tied to Yuma emission, not desk P&L. Freeze is not a burn. There is no researcher/trader attribution. The deployment bond below remains the live-P&L instrument.
+
+**Interaction.** Native collateral has no `transfer_stake` exit. A deployed miner needs free alpha *on top of* the registration lock to post the desk bond. Monitor finding `native_collateral_starves_bond` fires when that headroom goes negative.
 
 ---
 

@@ -136,6 +136,18 @@ DEFENSE_REGISTRY: Dict[str, DefenseEntry] = {
             "the simulator models population-level adversaries, not submission spam."
         ),
     ),
+    "NATIVE-COLLATERAL-GATE": DefenseEntry(
+        control_id="NATIVE-COLLATERAL-GATE",
+        implementation="insignia.native_collateral:apply_collateral_gate",
+        sim_evidence=(),
+        live_path_only_rationale=(
+            "Native Subtensor registration collateral is an on-chain time-bond "
+            "(lock_share / drain_ratio) enforced by zeroing Yuma weights. The "
+            "simulator scores paper/live books, not registration locks or "
+            "emission-drain horizons; FreezeLedger + the paired validator gate "
+            "are the live path (docs/COLLATERAL.md)."
+        ),
+    ),
 }
 
 
