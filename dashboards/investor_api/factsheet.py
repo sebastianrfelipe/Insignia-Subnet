@@ -42,6 +42,10 @@ class Factsheet:
     buy_flow_executed_tao: float
     revenue_attested_tao: float
     toggle_delays_disclosed: list[str]   # §10.1(c): any desk delay + reason
+    native_collateral_locked: float = 0.0
+    native_lock_share: float = 0.0
+    deployment_bonded_alpha: float = 0.0
+    cumulative_burned_alpha: float = 0.0
 
 
 def build_factsheet(period: str, params: ChainParams, nav: NavReport,
@@ -52,7 +56,11 @@ def build_factsheet(period: str, params: ChainParams, nav: NavReport,
                     conviction_top_external: float, locks: list[LpLock],
                     reserve_coverage_months: float, buy_flow_executed_tao: float,
                     revenue_attested_tao: float,
-                    toggle_delays_disclosed: list[str] | None = None) -> Factsheet:
+                    toggle_delays_disclosed: list[str] | None = None,
+                    native_collateral_locked: float = 0.0,
+                    native_lock_share: float = 0.0,
+                    deployment_bonded_alpha: float = 0.0,
+                    cumulative_burned_alpha: float = 0.0) -> Factsheet:
     worst_window, _, _ = redemption_exposure(locks)
     return Factsheet(
         period=period,
@@ -74,6 +82,10 @@ def build_factsheet(period: str, params: ChainParams, nav: NavReport,
         buy_flow_executed_tao=buy_flow_executed_tao,
         revenue_attested_tao=revenue_attested_tao,
         toggle_delays_disclosed=toggle_delays_disclosed or [],
+        native_collateral_locked=native_collateral_locked,
+        native_lock_share=native_lock_share,
+        deployment_bonded_alpha=deployment_bonded_alpha,
+        cumulative_burned_alpha=cumulative_burned_alpha,
     )
 
 
@@ -101,6 +113,8 @@ def render_markdown(fs: Factsheet) -> str:
         f"| Worst 60-day redemption window | {fs.worst_redemption_window_share:.1%} | cap 25% |",
         f"| Reserve coverage | {fs.reserve_coverage_months:.1f} months | target ≥ {RESERVE_TARGET_MONTHS:.0f} |",
         f"| Buy-flow vs revenue | {fs.buy_flow_executed_tao:,.0f} / {fs.revenue_attested_tao:,.0f} τ | executed / attested |",
+        f"| Native registration collateral | {fs.native_collateral_locked:,.0f} α | lock_share {fs.native_lock_share:.0%} |",
+        f"| Deployment bonds / burned | {fs.deployment_bonded_alpha:,.0f} / {fs.cumulative_burned_alpha:,.0f} α | active escrow / slash-settlement burns |",
         "",
     ]
     if fs.toggle_delays_disclosed:

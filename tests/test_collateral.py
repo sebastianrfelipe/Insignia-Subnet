@@ -199,6 +199,8 @@ def test_effective_sell_through_is_the_r11_lever():
     assert with_bonds > without
     with pytest.raises(ValueError):
         emissions.effective_sell_through(0.5, 1.5)
+    # native registration locks stack with deployment bonds (disjoint stocks)
+    assert emissions.effective_sell_through(0.5, 0.4, 0.2) == pytest.approx(0.2)
 
 
 def test_post_burn_supply_lowers_dilution_hurdle():

@@ -8,7 +8,10 @@ bounty for inducing other pairs' losses and is recyclable by sybil clusters.
 
 This module is pure bookkeeping and slash math. The chain legs (escrow via
 transfer_stake, per-tempo unstake + add_stake_burn settlement) live in
-treasury.execution.burn.
+treasury.execution.burn. Native Subtensor registration collateral is a
+different primitive (time-bond recovered by earning emission) — see
+chainio.collateral and docs/COLLATERAL.md. The two stocks are disjoint:
+native locks cannot be transfer_stake'd into this escrow.
 
 Researcher and trader are SEPARATE miners who do not choose each other —
 PAIRING_MECHANISM.md §2.3 assigns pairs deterministically from chain block hash

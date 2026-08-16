@@ -79,25 +79,36 @@ def leakage_drag(params: ChainParams, circulating_supply: float,
     return dilution * leak
 
 
-def effective_sell_through(base_sell_through: float, bonded_fraction: float) -> float:
-    """Miner sell-through σ after the deployment-collateral lever (R11):
-    bonded alpha cannot be sold while its pair is deployed, so the fraction of
-    miner emissions accruing to bonded deployed pairs is removed from the
-    sellable base. `bonded_fraction` = share of miner-cut emissions earned by
-    pairs with ACTIVE bonds (SPEC §0.5; INCENTIVE_MECHANISM §Deployment
-    Collateral)."""
+def effective_sell_through(base_sell_through: float, bonded_fraction: float,
+                           native_locked_fraction: float = 0.0) -> float:
+    """Miner sell-through σ after both collateral levers (R11):
+
+    - `bonded_fraction` — share of miner-cut emissions earned by pairs with
+      ACTIVE deployment bonds (cannot sell while deployed).
+    - `native_locked_fraction` — share of miner-held alpha sitting in native
+      registration collateral (cannot unstake; recovered only by earning).
+      Disjoint from deployment escrow: native locks cannot be transfer_stake'd.
+
+    Combined unsellable share is additive and capped at 1. SPEC §0.5;
+    docs/COLLATERAL.md.
+    """
     if not 0.0 <= bonded_fraction <= 1.0:
         raise ValueError("bonded_fraction must be in [0, 1]")
-    return base_sell_through * (1.0 - bonded_fraction)
+    if not 0.0 <= native_locked_fraction <= 1.0:
+        raise ValueError("native_locked_fraction must be in [0, 1]")
+    unsellable = min(1.0, bonded_fraction + native_locked_fraction)
+    return base_sell_through * (1.0 - unsellable)
 
 
 def retention_with_bonds(params: ChainParams, subnet_age_days: float,
-                         base_sell_through: float, bonded_fraction: float) -> float:
-    """issuance_retention with the collateral lever applied — the number the
+                         base_sell_through: float, bonded_fraction: float,
+                         native_locked_fraction: float = 0.0) -> float:
+    """issuance_retention with both collateral levers applied — the number the
     monthly factsheet reports next to raw retention (SPEC §8)."""
     return issuance_retention(
         params, subnet_age_days,
-        effective_sell_through(base_sell_through, bonded_fraction))
+        effective_sell_through(base_sell_through, bonded_fraction,
+                               native_locked_fraction))
 
 
 def post_burn_supply(circulating_supply: float, cumulative_burned: float) -> float:

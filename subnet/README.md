@@ -25,6 +25,7 @@ Insignia is a competitive network for producing high-quality ML models and valid
 - **Researcher miners (model scoring):** train predictive models, scored across 7 weighted metrics. Each submission ships the **source code that produced/serves the model**; validators re-run it in an isolated sandbox and gate scoring on whether it reproduces the submitted artifact. See `insignia/code_submission.py` and `docs/SUBNET_SPEC.md` → "Reproducible Code Submission".
 - **Trader miners (trading scoring):** run a trading strategy on an *assigned* model (chain-seeded pairing), scored with the repository's 9-metric trading risk stack.
 - **Paired genetic selection:** each pair is jointly evaluated, ranked with NSGA-II, and credited via a variance-penalized marginal contribution into a single Yuma weight vector.
+- **Native registration collateral:** miners lock a share of the registration price as alpha recoverable only by earning emission. A max-drawdown blow-up freezes that lock by zeroing weights. Distinct from the desk-P&L deployment bond. See [docs/COLLATERAL.md](../docs/COLLATERAL.md) and `docs/INCENTIVE_MECHANISM.md`.
 - **Commit-Reveal Validation:** the timing defense path now holds at system-level effectiveness `0.76`, above the `0.667` acceptance floor, with simulator stability analysis reaching `0.801` across pre/post-CR epochs.
 
 ---

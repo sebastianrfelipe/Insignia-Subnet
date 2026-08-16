@@ -45,6 +45,12 @@ from insignia.pairing import (
     PairingConfig,
     PairingPopulation,
 )
+from insignia.native_collateral import (
+    CollateralPosition,
+    FreezeLedger,
+    apply_collateral_gate,
+    should_freeze_drawdown,
+)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [Validator] %(message)s")
 logger = logging.getLogger(__name__)
@@ -68,6 +74,8 @@ class PairedValidator:
         scorer: CompositeScorer | None = None,
         pairing_config: PairingConfig | None = None,
         weights: WeightConfig | None = None,
+        collateral_required_min: float = 0.0,
+        drawdown_freeze_limit: float = 0.20,
     ):
         self.scorer = scorer or CompositeScorer(weights=weights)
         self.population = PairingPopulation(pairing_config)
@@ -78,6 +86,13 @@ class PairedValidator:
         # Full ranked fitnesses + emission weights from the most recent generation.
         self.last_fitnesses: List[PairFitness] = []
         self.last_weights: Dict[str, float] = {}
+        # Native registration collateral (docs/COLLATERAL.md): published floor
+        # plus martingale freeze. Validators cannot write another miner's
+        # on-chain min_locked; they enforce by zeroing weights.
+        self.collateral_required_min = collateral_required_min
+        self.drawdown_freeze_limit = drawdown_freeze_limit
+        self.freeze_ledger = FreezeLedger()
+        self.last_gated: List[str] = []
 
     # ------------------------------------------------------------------
     # Pairing
@@ -134,29 +149,51 @@ class PairedValidator:
             },
         )
         self._fitnesses.append(fitness)
+        drawdown = float(trading_score.raw.get("max_drawdown", 0.0))
+        if should_freeze_drawdown(drawdown, self.drawdown_freeze_limit):
+            self.freeze_ledger.freeze(
+                genome.trader_uid,
+                reason=f"max_drawdown {drawdown:.2%} ≥ {self.drawdown_freeze_limit:.2%}",
+                generation=self.current_generation,
+            )
         return fitness
 
     # ------------------------------------------------------------------
     # Selection -> weights
     # ------------------------------------------------------------------
 
-    def finalize_generation(self) -> Dict[str, Any]:
+    def finalize_generation(
+        self,
+        collateral_positions: Dict[str, CollateralPosition] | None = None,
+    ) -> Dict[str, Any]:
         """
         Rank the staged pairs with NSGA-II, screen for collusion, and compute
-        the single per-miner emission weight vector.
+        the single per-miner emission weight vector, then apply the native
+        collateral gate (floor shortfall + martingale freeze).
         """
         result = self.population.select(self._fitnesses)
         weights: Dict[str, float] = result["weights"]
         report = result["collusion"]
+        present = set(weights)
+        self.freeze_ledger.sweep(present, result["generation"])
+        gated_weights, gated = apply_collateral_gate(
+            weights,
+            collateral_positions or {},
+            required_min=self.collateral_required_min,
+            freeze_uids=self.freeze_ledger.active_uids(present),
+        )
         self.last_fitnesses = result["fitnesses"]
-        self.last_weights = weights
+        self.last_weights = gated_weights
+        self.last_gated = gated
 
         summary = {
             "generation": result["generation"],
             "n_pairs": len(result["fitnesses"]),
             "n_collusion_flags": report.n_flagged,
             "collusion_flagged": [k for k, _ in report.flagged],
-            "weights": weights,
+            "weights": gated_weights,
+            "ungated_weights": weights,
+            "collateral_gated": gated,
             "pareto_front_size": sum(1 for f in result["fitnesses"] if f.rank == 0),
             "top_pairs": [
                 {
@@ -179,9 +216,10 @@ class PairedValidator:
         self._model_score_cache = {}
 
         logger.info(
-            "Generation %d finalized: %d pairs, %d collusion flags, %d miners weighted",
+            "Generation %d finalized: %d pairs, %d collusion flags, %d miners weighted, "
+            "%d collateral-gated",
             summary["generation"], summary["n_pairs"],
-            summary["n_collusion_flags"], len(weights),
+            summary["n_collusion_flags"], len(gated_weights), len(gated),
         )
         return summary
 

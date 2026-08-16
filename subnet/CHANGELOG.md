@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-08-16 - Native registration collateral stacked under scoring and the desk bond
+
+- **Native Subtensor collateral** is now a first-class Insignia lever: `lock_share` of the registration price is a recoverable alpha bond, unlocked only by earning emission at `drain_ratio`. Validators enforce a published floor and freeze martingale blow-ups by zeroing Yuma weights (`insignia/native_collateral.py`, wired into `PairedValidator.finalize_generation`). This is Const's SN8 Sharpe/Sortino primitive, not a replacement for loss-linked deployment bonds.
+- **Defense registry:** `NATIVE-COLLATERAL-GATE` is live-path only — the simulator does not model registration locks.
+- **Docs:** [docs/COLLATERAL.md](../docs/COLLATERAL.md), SPEC §0.17, RISK_REGISTER R17, this file §Native Registration Collateral and attack vector 14.
+
 ## 2026-08-03 - Trading metric revamp: annualized return replaces realized P&L; win rate demoted to diagnostics
 
 - **Annualized Return replaces Realized P&L** as the profitability headline metric (`insignia/scoring.py`). Absolute P&L is denominated in quote currency, which made composite scores capital-dependent: a strategy running 10x the bankroll of another dominated on size alone. The new metric scores return-on-capital, annualized on a 365-day crypto basis (consistent with `annualized_volatility`): `ann_ret = (1 + cumulative_return) ** (365 / epoch_days) - 1`, mapped linearly to [0, 1] with 50% annualized = perfect score and non-positive returns scoring zero (preserving the old "at/below baseline = 0" behavior). `realized_pnl_score` is removed; `score_trading` now takes `cumulative_return` + `epoch_days` instead of `realized_pnl` + `baseline_pnl`.
