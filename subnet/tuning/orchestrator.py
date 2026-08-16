@@ -284,8 +284,17 @@ Examples:
     parser.add_argument("--output", type=str, default="results")
     parser.add_argument("--generations", type=int, default=20)
     parser.add_argument("--population", type=int, default=30)
-    parser.add_argument("--n-honest", type=int, default=6)
-    parser.add_argument("--n-adversarial", type=int, default=1)
+    parser.add_argument("--n-honest", type=int, default=6,
+                        help="Initial/fallback honest miner count. Used only for non-roster "
+                             "agent types (n_colluding_rings, n_partner_gamers) and when the "
+                             "vector doesn't encode roster dims (75-dim warm-start vectors are "
+                             "now rejected). The 82-dim vector's n_honest_researchers dim "
+                             "overrides this for the honest L1 researcher count.")
+    parser.add_argument("--n-adversarial", type=int, default=1,
+                        help="Initial/fallback adversarial-each count. Used only for "
+                             "n_colluding_rings and n_partner_gamers. The 82-dim vector's "
+                             "n_overfitters/n_copycats/n_gamers/n_sybils dims override this "
+                             "for the per-archetype L1 researcher counts.")
     parser.add_argument("--n-epochs", type=int, default=100)
     parser.add_argument("--n-steps", type=int, default=150)
     parser.add_argument("--trials", type=int, default=5)

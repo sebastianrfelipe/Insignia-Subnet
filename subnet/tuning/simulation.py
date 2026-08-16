@@ -606,6 +606,14 @@ class SimulationResult:
     trader_scores: Dict[str, float] = field(default_factory=dict)
     trader_types: Dict[str, str] = field(default_factory=dict)
 
+    # Per-archetype counts that produced this run's scores. Recorded so the
+    # V14-R1 gate_7 roster-robustness gate can compare gate verdicts across
+    # different population mixes. Keys: honest, overfitter, copycat, gamer,
+    # sybil, honest_trader, copy_trader. The harness maps single_metric_gamer
+    # to "gamer"; types not in this schema (random, colluder, etc.) are
+    # omitted (treated as 0 by downstream consumers).
+    miner_roster: Dict[str, int] = field(default_factory=dict)
+
     honest_researcher_scores: List[float] = field(default_factory=list)
     adversarial_researcher_scores: List[float] = field(default_factory=list)
     honest_trader_scores: List[float] = field(default_factory=list)
@@ -646,6 +654,35 @@ class SimulationResult:
     n_pairs: int = 0
     generation_summaries: List[Dict[str, Any]] = field(default_factory=list)
     colluder_credit: Dict[str, float] = field(default_factory=dict)
+
+
+# Canonical roster keys recorded on SimulationResult.miner_roster. Maps the
+# agent_type strings used by the MinerAgent / TraderAgent subclasses to the
+# 7 keys consumed by the V14-R1 gate_7 roster-robustness gate.
+_ROSTER_KEY_MAP: Dict[str, str] = {
+    "honest": "honest",
+    "overfitter": "overfitter",
+    "copycat": "copycat",
+    "single_metric_gamer": "gamer",
+    "sybil": "sybil",
+    "honest_trader": "honest_trader",
+    "copy_trader": "copy_trader",
+}
+
+_ROSTER_KEYS = ("honest", "overfitter", "copycat", "gamer", "sybil", "honest_trader", "copy_trader")
+
+
+def build_miner_roster(
+    researcher_agents: List[MinerAgent],
+    trader_agents: List[TraderAgent],
+) -> Dict[str, int]:
+    """Count agents per canonical roster key. Types not in _ROSTER_KEY_MAP are omitted."""
+    counts = {key: 0 for key in _ROSTER_KEYS}
+    for agent in [*researcher_agents, *trader_agents]:
+        roster_key = _ROSTER_KEY_MAP.get(agent.agent_type)
+        if roster_key is not None:
+            counts[roster_key] += 1
+    return counts
 
 
 class SimulationHarness:
@@ -749,6 +786,10 @@ class SimulationHarness:
         for agent in self.trader_agents:
             result.trader_types[agent.uid] = agent.agent_type
             result.trader_route_assignments[agent.uid] = agent.route_manifest()
+
+        result.miner_roster = build_miner_roster(
+            self.researcher_agents, self.trader_agents
+        )
 
         # Pre-compute one shared price/feature path so every pair trades against
         # identical market conditions (deterministic, fair joint evaluation).

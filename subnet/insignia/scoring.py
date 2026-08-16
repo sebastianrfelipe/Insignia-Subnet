@@ -1052,7 +1052,7 @@ class CompositeScorer:
             "max_drawdown": max(0.0, 1.0 - raw["max_drawdown"]),
             "variance_score": min(1.0, max(0.0, raw["variance_score"])),
             "overfitting_penalty": max(0.0, 1.0 - raw["overfitting_penalty"]),
-            "feature_efficiency": min(1.0, max(0.0, raw["feature_efficiency"])),
+            "feature_efficiency": min(1.0, max(0.0, raw["feature_efficiency"] ** 0.4)),
             "latency": min(1.0, max(0.0, raw["latency"])),
         }
 
