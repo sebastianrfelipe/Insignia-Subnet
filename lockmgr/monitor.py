@@ -4,7 +4,9 @@ Run once per epoch (tempo). Emits `MonitorFinding`s consumed by risk/alerts.
 Covers: parameter drift (recompute schedules on UnlockRate/MaturityRate change),
 owner-hotkey change, unstaked LP alpha, subnet-king early warning — tracked
 even while the king transfer is disabled (SPEC §0.6) — and, post-Root-Reborn,
-beta-basket escrow stake per root validator (SPEC §0.16; R15/R16).
+beta-basket escrow stake per root validator (SPEC §0.16; R15/R16). Native
+registration collateral (SPEC §0.17, docs/COLLATERAL.md): policy drift, missing
+visibility, floor shortfall, and deployment-bond starvation.
 """
 
 from __future__ import annotations
@@ -13,6 +15,7 @@ import dataclasses
 from dataclasses import dataclass, field
 
 from chainio import ChainParams, ValidatorBasket, total_escrow_alpha
+from chainio.collateral import CollateralPolicy, MinerCollateralPosition, total_native_locked
 from lockmgr.locks import LockClient, OnChainLock
 from lockmgr.schedules import LpLock, LockState
 
@@ -23,7 +26,7 @@ from lockmgr.schedules import LpLock, LockState
 KING_DEFENSE_RATIO = 2.0
 KING_CONVICTION_THRESHOLD = 0.10
 
-# Root Reborn escrow thresholds (ROOTFUND spec §5, §7; R15/R16)
+# Root Reborn escrow thresholds (SPEC §0.16; R15/R16)
 ESCROW_CONSENSUS_WARN_SHARE = 0.05   # one validator's escrow ≥5% of AlphaOut →
                                      # material stake-weight in subnet consensus
 ROTATION_WARN_REL_DROP = 0.25        # w_ins down ≥25% epoch-over-epoch → R15
@@ -193,10 +196,82 @@ def king_early_warning(watch: KingWatch) -> list[MonitorFinding]:
     return findings
 
 
+# Native registration collateral (docs/COLLATERAL.md; R11 / R17)
+COLLATERAL_HEADROOM_WARN = 0.0          # free alpha below a posted deployment bond
+NATIVE_LOCK_SHARE_PAGE_DROP = 0.25      # lock_share cut ≥25% relative → policy shock
+
+
+@dataclass(frozen=True)
+class NativeCollateralWatch:
+    """One epoch's view of native miner-registration collateral.
+
+    Empty `positions` with an *enabled* policy is missing visibility (warn),
+    never 'no collateral'. `deployment_bond_by_hotkey` is the alpha each
+    miner still needs to `transfer_stake` for a desk bond — native locks
+    cannot fund that transfer.
+    """
+
+    netuid: int
+    policy: CollateralPolicy
+    positions: list[MinerCollateralPosition]
+    previous_policy: CollateralPolicy | None = None
+    deployment_bond_by_hotkey: dict[str, float] = field(default_factory=dict)
+
+
+def native_collateral_findings(watch: NativeCollateralWatch) -> list[MonitorFinding]:
+    """Policy drift, floor shortfalls, and deployment-bond starvation."""
+    findings: list[MonitorFinding] = []
+    if watch.previous_policy is not None:
+        prev, cur = watch.previous_policy, watch.policy
+        if prev.lock_share != cur.lock_share or prev.drain_ratio != cur.drain_ratio:
+            rel_drop = 0.0
+            if prev.lock_share > 0:
+                rel_drop = (prev.lock_share - cur.lock_share) / prev.lock_share
+            severity = "page" if rel_drop >= NATIVE_LOCK_SHARE_PAGE_DROP else "warn"
+            findings.append(MonitorFinding(
+                severity, "native_collateral_policy",
+                f"lock_share {prev.lock_share:.2%} → {cur.lock_share:.2%}, "
+                f"drain_ratio {prev.drain_ratio} → {cur.drain_ratio}; "
+                "existing miners keep their snapshotted drain until re-registration"))
+
+    if watch.policy.enabled and not watch.positions:
+        findings.append(MonitorFinding(
+            "warn", "native_collateral_no_visibility",
+            "native collateral policy is enabled but no per-UID rows are "
+            "readable — treat as missing data, not as zero locks"))
+        return findings
+
+    required = watch.policy.required_min_alpha
+    short = [p for p in watch.positions if not p.covers(required)]
+    if short:
+        findings.append(MonitorFinding(
+            "warn", "native_collateral_floor",
+            f"{len(short)} miner(s) below the published floor "
+            f"({required:,.0f} α) — validators must zero their weights"))
+
+    for p in watch.positions:
+        bond = watch.deployment_bond_by_hotkey.get(p.hotkey, 0.0)
+        if bond > 0 and p.free_alpha + 1e-12 < bond:
+            findings.append(MonitorFinding(
+                "warn", "native_collateral_starves_bond",
+                f"hotkey {p.hotkey}: free {p.free_alpha:,.0f} α < deployment "
+                f"bond {bond:,.0f} α — registration lock is blocking desk escrow"))
+
+    locked = total_native_locked(watch.positions)
+    findings.append(MonitorFinding(
+        "info", "native_collateral_level",
+        f"native registration collateral {locked:,.0f} α across "
+        f"{len(watch.positions)} positions "
+        f"(lock_share={watch.policy.lock_share:.0%}, "
+        f"drain_ratio={watch.policy.drain_ratio})"))
+    return findings
+
+
 def poll(client: LockClient, locks: list[LpLock], owner_hotkey: str,
          previous_params: ChainParams, current_params: ChainParams, day: float,
          staked_by_coldkey: dict[str, float], watch: KingWatch,
-         escrow: EscrowWatch | None = None) -> list[MonitorFinding]:
+         escrow: EscrowWatch | None = None,
+         native_collateral: NativeCollateralWatch | None = None) -> list[MonitorFinding]:
     """One epoch's full sweep; feed the result to risk.alerts.dispatch."""
     findings = param_drift(previous_params, current_params)
     for lock in locks:
@@ -206,4 +281,6 @@ def poll(client: LockClient, locks: list[LpLock], owner_hotkey: str,
     findings += king_early_warning(watch)
     if escrow is not None:
         findings += escrow_findings(escrow)
+    if native_collateral is not None:
+        findings += native_collateral_findings(native_collateral)
     return findings

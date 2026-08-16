@@ -11,6 +11,12 @@ import math
 from dataclasses import dataclass, replace
 from typing import Protocol
 
+from .collateral import (
+    CollateralPolicy,
+    MinerCollateralPosition,
+    lock_share_from_u16,
+)
+
 
 @dataclass(frozen=True)
 class ChainParams:
@@ -38,7 +44,7 @@ class ChainParams:
 
     root_tao: float = 5_374_582.0                  # TAO staked on root (live value; refresh)
 
-    # Root Reborn (runtime v441, SPEC §0.16 / ROOTFUND spec §2)
+    # Root Reborn (runtime v441, SPEC §0.16)
     root_dividend_per_day: float = 983.0           # τ/day root dividend, network-wide
     root_validator_take: float = 0.18              # default take on root staker yields
 
@@ -84,12 +90,12 @@ def reference_pool() -> PoolSnapshot:
 @dataclass(frozen=True)
 class ValidatorBasket:
     """One root validator's beta-basket state as seen from our subnet
-    (Root Reborn, runtime v441; SPEC §0.16, ROOTFUND spec §2–§5).
+    (Root Reborn, runtime v441; SPEC §0.16).
 
     `weights` is the normalized `Weights[ROOT]` vector keyed by netuid (uid 0 =
     the held-TAO stability slot). `escrow_alpha` is the alpha this validator's
     fund holds on OUR netuid via the keyless pallet escrow — real stake, counted
-    in SubnetAlphaOut, conviction-inert.
+    in SubnetAlphaOut, conviction-inert. Root stakers are not Insignia LPs.
     """
 
     hotkey: str
@@ -103,9 +109,9 @@ class ValidatorBasket:
 
 
 def stake_weighted_insignia_weight(baskets: list[ValidatorBasket], netuid: int) -> float:
-    """w̄_ins — stake-weighted mean basket weight toward our subnet, the
-    multiplier on the network dividend that becomes structural bid
-    (ROOTFUND spec §2: F_ins = w̄ · 983 τ/day scaled by stake share)."""
+    """w_bar_ins — stake-weighted mean basket weight toward our subnet, the
+    multiplier on the network dividend that becomes external bid
+    (SPEC §0.16: F = w_bar · 983 τ/day scaled by stake share)."""
     total = sum(b.root_stake_tao for b in baskets)
     if total <= 0:
         return 0.0
@@ -129,15 +135,23 @@ class ParamsProvider(Protocol):
 
     def root_baskets(self, netuid: int) -> list[ValidatorBasket]: ...
 
+    def collateral_policy(self, netuid: int) -> CollateralPolicy: ...
+
+    def miner_collateral(self, netuid: int) -> list[MinerCollateralPosition]: ...
+
 
 class StaticProvider:
     """Fixed values for tests and simulation."""
 
     def __init__(self, params: ChainParams | None = None, pool: PoolSnapshot | None = None,
-                 baskets: list[ValidatorBasket] | None = None):
+                 baskets: list[ValidatorBasket] | None = None,
+                 collateral_policy: CollateralPolicy | None = None,
+                 miner_collateral: list[MinerCollateralPosition] | None = None):
         self._params = params or ChainParams()
         self._pool = pool or reference_pool()
         self._baskets = baskets or []
+        self._collateral_policy = collateral_policy
+        self._miner_collateral = miner_collateral or []
 
     def chain_params(self) -> ChainParams:
         return self._params
@@ -148,8 +162,17 @@ class StaticProvider:
     def root_baskets(self, netuid: int = 0) -> list[ValidatorBasket]:
         return self._baskets
 
+    def collateral_policy(self, netuid: int = 0) -> CollateralPolicy:
+        return self._collateral_policy or CollateralPolicy(netuid=netuid)
+
+    def miner_collateral(self, netuid: int = 0) -> list[MinerCollateralPosition]:
+        return self._miner_collateral
+
     def with_params(self, **changes) -> "StaticProvider":
-        return StaticProvider(replace(self._params, **changes), self._pool, self._baskets)
+        return StaticProvider(
+            replace(self._params, **changes), self._pool, self._baskets,
+            self._collateral_policy, self._miner_collateral,
+        )
 
 
 class SubtensorProvider:
@@ -234,6 +257,100 @@ class SubtensorProvider:
                 continue
         return baskets
 
+    def collateral_policy(self, netuid: int) -> CollateralPolicy:
+        """Native miner-collateral policy (lock_share, drain_ratio).
+
+        Prefers the SDK namespace (`sub.collateral.collateral_policy`); falls
+        back to raw storage (`CollateralLockShare`, `CollateralDrainRatio`).
+        Names must be verified on testnet — a missing API returns the disabled
+        policy (lock_share = 0), never a fabricated floor.
+        """
+        try:
+            raw = self._st.collateral.collateral_policy(netuid=netuid)
+            return _policy_from_sdk(netuid, raw)
+        except Exception:
+            pass
+        substrate = self._st.substrate
+        lock_share = 0.0
+        drain_ratio = 1.0
+        try:
+            share_raw = substrate.query("SubtensorModule", "CollateralLockShare", [netuid])
+            if share_raw is not None:
+                lock_share = lock_share_from_u16(int(share_raw.value))
+        except Exception:
+            pass
+        try:
+            drain_raw = substrate.query("SubtensorModule", "CollateralDrainRatio", [netuid])
+            if drain_raw is not None:
+                drain_ratio = float(drain_raw.value)
+        except Exception:
+            pass
+        return CollateralPolicy(netuid=netuid, lock_share=lock_share,
+                                drain_ratio=drain_ratio)
+
+    def miner_collateral(self, netuid: int) -> list[MinerCollateralPosition]:
+        """Per-UID standing collateral rows. Empty means 'no visibility'
+        (monitor warns), never 'no collateral' — same posture as root_baskets.
+        """
+        positions: list[MinerCollateralPosition] = []
+        try:
+            neurons = self._st.neurons_lite(netuid=netuid)
+        except Exception:
+            return positions
+        for n in neurons:
+            locked, min_locked, earned = _neuron_collateral_fields(n)
+            if locked == 0.0 and min_locked == 0.0 and earned == 0.0:
+                continue
+            positions.append(MinerCollateralPosition(
+                hotkey=getattr(n, "hotkey", ""),
+                coldkey=getattr(n, "coldkey", "") or "",
+                uid=getattr(n, "uid", None),
+                locked=locked,
+                min_locked=min_locked,
+                earned=earned,
+                stake=float(getattr(n, "stake", 0.0) or 0.0),
+            ))
+        return positions
+
+
+def _policy_from_sdk(netuid: int, raw) -> CollateralPolicy:
+    """Accept dict-or-attr SDK results; unknown shapes → disabled policy."""
+    if raw is None:
+        return CollateralPolicy(netuid=netuid)
+    getter = raw.get if isinstance(raw, dict) else lambda k, d=None: getattr(raw, k, d)
+    share = getter("lock_share", 0)
+    drain = getter("drain_ratio", 1.0)
+    try:
+        share_f = float(share)
+        # SDK may return the u16 encoding or a [0, 1] fraction.
+        if share_f > 1.0:
+            share_f = lock_share_from_u16(int(share_f))
+    except (TypeError, ValueError):
+        share_f = 0.0
+    try:
+        drain_f = float(drain)
+    except (TypeError, ValueError):
+        drain_f = 1.0
+    return CollateralPolicy(netuid=netuid, lock_share=share_f, drain_ratio=drain_f)
+
+
+def _neuron_collateral_fields(neuron) -> tuple[float, float, float]:
+    """Pull (locked, min, earned) off a neurons_lite row; 0s if absent."""
+    def _f(*names: str) -> float:
+        for name in names:
+            val = getattr(neuron, name, None)
+            if val is not None:
+                try:
+                    return float(val)
+                except (TypeError, ValueError):
+                    continue
+        return 0.0
+    return (
+        _f("collateral_locked", "locked_collateral"),
+        _f("collateral_min", "min_collateral"),
+        _f("collateral_earned"),
+    )
+
 
 class TaostatsProvider:
     """Pool/price reads via the taostats API (https://taostats.io/).
@@ -257,6 +374,14 @@ class TaostatsProvider:
 
     def root_baskets(self, netuid: int) -> list[ValidatorBasket]:
         # taostats does not expose beta-basket state; use the RPC provider.
+        return []
+
+    def collateral_policy(self, netuid: int) -> CollateralPolicy:
+        # taostats does not expose native collateral policy; use the RPC provider.
+        return CollateralPolicy(netuid=netuid)
+
+    def miner_collateral(self, netuid: int) -> list[MinerCollateralPosition]:
+        # taostats does not expose per-UID collateral rows; use the RPC provider.
         return []
 
     def pool(self, netuid: int) -> PoolSnapshot:

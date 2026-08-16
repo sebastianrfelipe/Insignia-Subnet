@@ -86,6 +86,11 @@ def from_collateral(registry: BondRegistry, escrow_staked_alpha: float,
     return alerts
 
 
+def from_native_collateral(findings: Iterable[MonitorFinding]) -> list[Alert]:
+    """Native registration-collateral findings (docs/COLLATERAL.md)."""
+    return [Alert(f.severity, f"monitor.{f.kind}", f.detail) for f in findings]
+
+
 Sink = Callable[[Alert], None]
 
 
