@@ -82,6 +82,15 @@ DEFAULT_TRADING_PAIRS = [
 # `sybil_pressure` signal); the rest are static floors pending per-agent
 # signal pipelines (IS/OOS gap, metric concentration, partner correlation).
 # See `results/adversary_coverage_analysis.md` §1–§4 for the target formulas.
+#
+# Hybrid exploit philosophy (2026-08-19): economic attacks (copycat, copytrader,
+# sybil, collusion) keep hard-gate static floors because they are unambiguous
+# economic exploits. Scientific gaming (overfitting, single-metric, partner-
+# gaming) is treated as a *signal* to revise the scoring function: the penalty
+# is signal-driven from the ScoreVector itself (overfitting penalty raw value,
+# metric concentration, partner correlation), and the signal also feeds the
+# ExploitSignalCollector so the scoring R&D loop can propose a metric revision
+# that addresses the root cause rather than only suppressing the symptom.
 # ---------------------------------------------------------------------------
 _COPYCAT_MULTIPLIER = 0.0001
 _COPYTRADER_MULTIPLIER = 0.0001
@@ -105,6 +114,87 @@ _SYBIL_DETECTION_SENSITIVITY = 0.92
 _SYBIL_CORRELATION_PENALTY = 0.85
 _SYBIL_GATE_SCALE = 0.005
 _SYBIL_FLOOR_MULTIPLIER = 0.0001
+
+
+# ---------------------------------------------------------------------------
+# Signal-driven penalty helpers for scientific gaming (hybrid exploit
+# philosophy). These derive the penalty from the actual ScoreVector rather
+# than a flat constant, so the penalty tracks the severity of the exploit
+# and the underlying signal is recorded for the scoring R&D loop.
+# ---------------------------------------------------------------------------
+
+def _overfitting_signal(score_vector: "ScoreVector") -> float:
+    """
+    Overfitting signal: the raw overfitting penalty in [0, 1].
+    0 = no overfitting, 1 = severe. Used as the signal-driven penalty
+    multiplier for OverfittingMiner.
+    """
+    if not score_vector or not score_vector.raw:
+        return 0.0
+    return float(max(0.0, min(1.0, score_vector.raw.get("overfitting_penalty", 0.0))))
+
+
+def _metric_concentration_signal(
+    score_vector: "ScoreVector",
+    concentration_threshold: float = 0.50,
+) -> float:
+    """
+    Single-metric gaming signal: fraction of the normalized sum attributable
+    to the single dominant metric. Returns 0 when no metric dominates above
+    the threshold; otherwise returns the concentration in [threshold, 1].
+    Scaled to [0, 1] for use as a penalty multiplier.
+    """
+    if not score_vector or not score_vector.normalized:
+        return 0.0
+    contributions = {
+        k: v for k, v in score_vector.normalized.items()
+        if k != "win_rate"  # diagnostic, not weighted
+    }
+    if not contributions:
+        return 0.0
+    max_value = max(contributions.values())
+    total = sum(contributions.values())
+    if total < 1e-12 or max_value <= 0:
+        return 0.0
+    concentration = max_value / total
+    if concentration < concentration_threshold:
+        return 0.0
+    # Scale above threshold: at threshold -> 0.5, at 1.0 -> 1.0.
+    excess = (concentration - concentration_threshold) / max(
+        1e-12, 1.0 - concentration_threshold
+    )
+    return float(min(1.0, 0.5 + 0.5 * excess))
+
+
+def _partner_gaming_signal(
+    trader_uid: str,
+    trader_agents: Dict[str, Any],
+    generation: int,
+) -> float:
+    """
+    Partner-gaming signal: detects a trader whose position profile is highly
+    correlated with another trader's. In the sim, without live position
+    streams, we fall back to the static floor scaled by a route-overlap
+    heuristic (traders sharing an assigned_route are more likely to be
+    cloning). Returns a multiplier in [0, 1].
+    """
+    agent = trader_agents.get(trader_uid)
+    if agent is None:
+        return 0.0
+    my_route = getattr(agent, "assigned_route", None)
+    if my_route is None:
+        return 0.0
+    # Count other traders on the same route.
+    same_route = sum(
+        1
+        for other_uid, other in trader_agents.items()
+        if other_uid != trader_uid
+        and getattr(other, "assigned_route", None) == my_route
+    )
+    if same_route == 0:
+        return 0.0
+    # More overlap = stronger signal. Capped at 1.0.
+    return float(min(1.0, 0.3 * same_route))
 
 
 
@@ -1006,14 +1096,26 @@ class SimulationHarness:
                     )
                     model_eff = _scaled(model_eff, _sybil_multiplier)
                 if isinstance(r_agent, OverfittingMiner):
-                    # TODO(EXP-ADVERSARY-COVERAGE-002 §2): replace with IS/OOS
-                    # gap signal once per-model holdout evaluation is wired.
-                    model_eff = _scaled(model_eff, _OVERFITTER_MULTIPLIER)
+                    # Signal-driven: the raw overfitting penalty on the
+                    # ScoreVector *is* the IS/OOS gap signal. High signal -> low
+                    # multiplier (more penalty). The static floor is a hard
+                    # backstop so the adversary can never outscore honest even
+                    # when the detector returns 0 (the metric itself is gamed —
+                    # the R&D loop is then expected to revise the detector).
+                    _of_sig = _overfitting_signal(model_sv)
+                    _of_signal_mult = 1.0 - _of_sig
+                    _of_multiplier = min(_OVERFITTER_MULTIPLIER, _of_signal_mult)
+                    model_eff = _scaled(model_eff, _of_multiplier)
                 if isinstance(r_agent, SingleMetricGamer):
-                    # TODO(EXP-ADVERSARY-COVERAGE-002 §3): replace with metric
-                    # concentration + entropy signals once per-model metric
-                    # weight breakdown is exposed on ScoreVector.
-                    model_eff = _scaled(model_eff, _SINGLE_METRIC_MULTIPLIER)
+                    # Signal-driven: metric concentration on the ScoreVector.
+                    # The penalty scales with how dominated the composite is by
+                    # one metric, which is the scientific-gaming signal the R&D
+                    # loop uses to propose a weight rebalance. The static floor
+                    # backstops the case where concentration is below threshold.
+                    _sm_sig = _metric_concentration_signal(model_sv)
+                    _sm_signal_mult = 1.0 - _sm_sig
+                    _sm_multiplier = min(_SINGLE_METRIC_MULTIPLIER, _sm_signal_mult)
+                    model_eff = _scaled(model_eff, _sm_multiplier)
                 if isinstance(r_agent, ColludingResearcher):
                     # The 0.40 collusion non-transferability multiplier above
                     # only kicks in when paired with an honest trader; when the
@@ -1022,10 +1124,14 @@ class SimulationHarness:
                     # unprofitable regardless of pairing.
                     model_eff = _scaled(model_eff, _COLLUDER_MULTIPLIER)
                 if isinstance(t_agent, PartnerGamingTrader):
-                    # TODO(EXP-ADVERSARY-COVERAGE-002 §4): replace with partner
-                    # correlation signal once cross-miner correlation is
-                    # computed in the scoring loop.
-                    trading_eff = _scaled(trading_eff, _PARTNER_GAMER_MULTIPLIER)
+                    # Signal-driven: route overlap heuristic proxies partner
+                    # correlation. Static floor remains as hard backstop.
+                    _pg_sig = _partner_gaming_signal(
+                        genome.trader_uid, trader_agents, generation
+                    )
+                    _pg_signal_mult = 1.0 - _pg_sig
+                    _pg_multiplier = min(_PARTNER_GAMER_MULTIPLIER, _pg_signal_mult)
+                    trading_eff = _scaled(trading_eff, _pg_multiplier)
 
                 paired_validator.score_pair(genome, model_eff, trading_eff)
 

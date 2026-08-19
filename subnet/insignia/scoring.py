@@ -40,17 +40,32 @@ class ScoreVector:
     Each entry maps a metric name to its raw value and its normalized
     (0-1) value. The composite score is the weighted sum of normalized
     values.
+
+    ``novelty_bonus`` and ``duplicate_penalty`` are optional post-hoc
+    adjustments applied by :meth:`CompositeScorer.apply_novelty_adjustment`
+    after the weighted composite is computed. They are recorded on the
+    ScoreVector so telemetry can distinguish base quality from the
+    exploration incentive. The composite already reflects any applied
+    adjustment.
     """
 
     raw: Dict[str, float] = field(default_factory=dict)
     normalized: Dict[str, float] = field(default_factory=dict)
     composite: float = 0.0
+    # Post-hoc novelty adjustments (0 when not applied).
+    novelty_bonus: float = 0.0
+    duplicate_penalty: float = 0.0
+    # Base composite before novelty adjustment (for telemetry).
+    base_composite: float = 0.0
 
     def to_dict(self) -> Dict:
         return {
             "raw": self.raw,
             "normalized": self.normalized,
             "composite": round(self.composite, 6),
+            "novelty_bonus": round(self.novelty_bonus, 6),
+            "duplicate_penalty": round(self.duplicate_penalty, 6),
+            "base_composite": round(self.base_composite, 6),
         }
 
 
@@ -1100,3 +1115,43 @@ class CompositeScorer:
             "sharpe_ratio": sharpe_norm,
             "sortino_ratio": sortino_norm,
         }
+
+    # ------------------------------------------------------------------
+    # Novelty / diversity adjustments
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def apply_novelty_adjustment(
+        score: ScoreVector,
+        novelty_score: float,
+        duplicate_score: float,
+        novelty_bonus_weight: float = 0.10,
+        duplicate_penalty: float = 0.50,
+    ) -> ScoreVector:
+        """
+        Apply a post-hoc novelty bonus and duplicate penalty to a ScoreVector.
+
+        This is the exploration incentive: genuinely novel submissions get a
+        multiplicative boost, while near-duplicates get a multiplicative
+        reduction. The adjustment is applied in place on the score and the
+        base composite is preserved for telemetry.
+
+        Args:
+            score: The ScoreVector to adjust (modified in place).
+            novelty_score: [0, 1], 1 = fully novel.
+            duplicate_score: [0, 1], 1 = exact/near duplicate.
+            novelty_bonus_weight: max bonus fraction (default 10%).
+            duplicate_penalty: max penalty fraction (default 50%).
+
+        Returns:
+            The same ScoreVector with composite, novelty_bonus, and
+            duplicate_penalty fields updated.
+        """
+        score.base_composite = score.composite
+        bonus = novelty_bonus_weight * float(max(0.0, min(1.0, novelty_score)))
+        penalty = duplicate_penalty * float(max(0.0, min(1.0, duplicate_score)))
+        score.novelty_bonus = bonus
+        score.duplicate_penalty = penalty
+        score.composite = float(max(0.0, score.composite * (1.0 + bonus - penalty)))
+        return score
+

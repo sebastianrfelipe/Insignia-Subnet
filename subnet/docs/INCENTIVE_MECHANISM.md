@@ -415,6 +415,121 @@ Weights are published and configurable via `WeightConfig`. They are balanced so 
 
 ---
 
+## Scoring-Function R&D
+
+The scoring function is the highest-leverage mechanism for shaping miner
+behavior. Improving it compounds across every downstream evaluation, so it
+is treated as a first-class R&D target, not a fixed input.
+
+### Hybrid exploit philosophy
+
+Insignia distinguishes two classes of exploitation:
+
+- **Economic attacks** (sybil, collusion, copy-trading, timing, plagiarism)
+  are hard-gated. The penalty is a static floor that makes the attack
+  unprofitable regardless of signal, because the attack is unambiguous and
+  the signal is the attack itself.
+
+- **Scientific gaming** (overfitting, single-metric concentration, partner
+  selection, size bias) is treated as a *signal* to revise the scoring
+  function, not merely an attack to kill. The penalty is signal-driven from
+  the `ScoreVector` itself — the overfitting penalty raw value, the metric
+  concentration, the partner-correlation heuristic — and the signal also
+  feeds the `ExploitSignalCollector` so the scoring R&D loop can propose a
+  metric revision that addresses the root cause rather than only suppressing
+  the symptom.
+
+The static floor remains as a hard backstop in both cases, so a gamed metric
+that returns no signal cannot let an adversary outscore honest. The
+signal-driven path makes the penalty *proportional* to the exploit severity
+and makes the exploit *diagnostic*: it reveals where the oracle lies, which
+is exactly the information needed to improve the scoring function next.
+
+### Scoring R&D loop
+
+`insignia/scoring_rnd.py::ScoringRNDLoop` implements a structured loop for
+scoring-function R&D:
+
+1. **Propose** a scoring-function variant (weight rebalance, normalization
+   transform) from an exploit signal or a manual hypothesis.
+2. **Evaluate** it against a held-out population of submissions with known
+   honest/adversarial labels, computing enrichment-style discrimination
+   metrics (separation, AUC, honest floor, adversary ceiling, leak rate).
+3. **Keep or drop** based on the `RetrospectiveValidator` gate: a variant is
+   promoted only if it improves separation or AUC by at least the configured
+   delta without regressing the honest floor.
+4. **Promote** kept variants to the live scorer and record the experiment for
+   audit and future warm-starting.
+
+This mirrors the retrospective validation discipline used in drug-discovery
+scoring (hit-identification enrichment): a scoring change ships only with
+evidence it improves discrimination on held-out data.
+
+### Exploit signal collection
+
+`ExploitSignalCollector` captures scientific-gaming events and converts them
+into candidate revisions:
+
+- **metric_concentration**: a miner's composite is dominated by one metric,
+  suggesting the metric weight is too high or the normalization too lenient.
+- **size_bias**: a composite correlates with a size confound (feature count,
+  trade count) across the population, suggesting a missing size normalization.
+- **oracle_blind_spot**: a miner scores high on the composite but fails an
+  orthogonal quality check, suggesting a missing metric.
+
+Each signal carries a suggested revision. `propose_revisions()` dedupes them
+into candidate experiments for the R&D loop.
+
+---
+
+## Novelty & Diversity Scoring
+
+The subnet rewards exploration of genuinely new feature families and
+execution styles while aggressively penalizing near-duplicate models and
+strategy clones. This prevents the population from collapsing onto a single
+locally-optimal approach.
+
+### Mechanism
+
+`insignia/novelty.py::NoveltyTracker` maintains an epoch-windowed history of
+model fingerprints, feature sets, prediction vectors, and trading-style
+signatures. For each submission it computes:
+
+- **novelty_score** in [0, 1]: 1 = fully novel, decays exponentially across
+  epochs as the same approach is re-submitted (`0.5 ** (epochs_since /
+  decay_epochs)`). A once-novel strategy becomes baseline over time.
+- **duplicate_score** in [0, 1]: 1 = exact or near-duplicate, 0 = unique.
+  Detected via cross-miner fingerprint collision, feature-set Jaccard
+  similarity, prediction correlation, and position-correlation clone
+  detection.
+
+The scoring engine applies both post-hoc in
+`CompositeScorer.apply_novelty_adjustment`:
+
+```
+composite *= (1 + novelty_bonus_weight * novelty_score
+                - duplicate_penalty * duplicate_score)
+```
+
+The base composite is preserved on the `ScoreVector` (`base_composite`) so
+telemetry can distinguish base quality from the exploration incentive.
+
+### Hard invalidation
+
+When `invalidate_exact_duplicates` is set, an exact-hash duplicate from a
+different miner is invalidated (novelty = 0, duplicate = 1) rather than
+merely penalized. This is the strongest form of duplicate suppression and
+makes copy-mining and re-serialization unprofitable.
+
+### Time-decay window
+
+History is pruned to `history_window_epochs` (default 12) so the tracker does
+not grow unbounded and novelty is measured against recent submissions, not
+the full historical corpus. This keeps the system exploring rather than
+rewarding a once-novel approach indefinitely.
+
+---
+
 ## Commit-Reveal Mechanism
 
 ### Overview
