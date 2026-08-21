@@ -10,8 +10,6 @@ This document is the engineering source of truth for how Insignia uses the nativ
 
 ## Premise
 
-Until this primitive, miner entry was **burn registration**: TAO destroyed via a Dutch-auction moving average. The only signal you could express was “I paid this much to get in.”
-
 Native collateral splits that into two things:
 
 1. **The ticket** — the burned share of the registration price.
