@@ -530,6 +530,92 @@ rewarding a once-novel approach indefinitely.
 
 ---
 
+## Ground-Truth Enrichment Loop
+
+Sim separation (honest vs. adversarial) is necessary but not sufficient.
+The real objective is live desk P&L: a scoring function that separates
+honest from adversarial in simulation is only valuable if it also
+predicts which pairs will be profitable in live deployment. The
+enrichment loop formalizes this as a ground-truth feedback mechanism,
+analogous to the drug-discovery discipline where a virtual screen is
+validated against wet-lab hit rates before the scoring function is
+trusted.
+
+The analog:
+
+    virtual screen  →  wet-lab assay  →  hit rate
+    sim score        →  live desk P&L  →  enrichment factor
+
+### Enrichment metrics
+
+`insignia/enrichment.py::EnrichmentTracker` records the journey of each
+pair from sim composite score to live deployment outcome and computes
+`LiveEnrichmentMetrics`:
+
+- **promoted_hit_rate**: fraction of deployed (sim-top) pairs whose live
+  P&L exceeded the hit threshold (default: break-even).
+- **baseline_hit_rate**: fraction of non-deployed (sim-bottom or random
+  control) pairs that would have hit. This is the null model.
+- **enrichment_factor**: `promoted_hit_rate / baseline_hit_rate`. EF > 1
+  means the sim selects better than random; EF = 1 means no enrichment;
+  EF < 1 means the sim is anti-predictive.
+- **sim_vs_live_correlation**: Spearman rank correlation between sim
+  composite and live P&L across all observed pairs. Captures whether the
+  sim *ranking* predicts the live ranking, not just binary hit/miss.
+- **sim_floor_accuracy**: fraction of sim-bottom-quartile pairs that were
+  live losers (negative predictive value of the sim floor).
+- **shrinkage**: `sqrt(N / (N + confidence_k))` confidence shrinkage
+  (same pattern as the ratio metrics). At N >> k the factor approaches 1;
+  at small N the enrichment is shrunk toward 0, preventing thin-sample
+  enrichment from dominating tuner objectives.
+
+### Promotion gate
+
+The enrichment factor is a second promotion gate in
+`ScoringRNDLoop.evaluate`, alongside the existing held-out sim
+discrimination gate. A scoring variant is promoted only if:
+
+1. It improves sim separation or AUC by the configured delta without
+   regressing the honest floor (the existing gate).
+2. The shrunk enrichment factor does not fall below
+   `min_enrichment_factor` (default 1.5 — the sim must select at least
+   50% better than random to be worth promoting).
+
+When no live deployment data is available (early epochs, no deployments
+yet), the enrichment gate is skipped and the loop degrades gracefully to
+sim-only optimization.
+
+### Tuner objective
+
+The shrunk enrichment factor is the 5th NSGA-II objective in
+`compute_fitness` (`neg_enrichment_factor`). The tuner now searches for
+parameter configurations that simultaneously maximize honest score,
+minimize breach rate, minimize variance, maximize separation, and
+maximize live P&L predictivity. When enrichment data is absent, the 5th
+objective is 0.0 and the tuner falls back to the 4-objective sim-only
+search.
+
+### Sim-live gap signal
+
+`ExploitSignalCollector.record_sim_live_gap` fires an
+`oracle_blind_spot` signal when a pair scores high in sim but ranks low
+in live P&L. This is the "the sim oracle lies here" signal: it reveals
+where the scoring function's blind spot is and feeds the R&D loop a
+candidate revision — add or weight a metric that correlates with live
+P&L rank. This is the diagnostic half of the hybrid exploit philosophy
+applied to the sim-vs-live gap rather than the sim-vs-adversary gap.
+
+### Time-decay window
+
+Outcome history is pruned to `history_window_epochs` (default 12) so the
+enrichment factor is measured against recent deployment outcomes, not
+the full historical corpus. This keeps the loop responsive to regime
+changes: if the sim oracle's predictivity degrades after a market
+regime shift, the enrichment factor drops within 12 epochs and the
+scoring R&D loop is triggered to revise the metric.
+
+---
+
 ## Commit-Reveal Mechanism
 
 ### Overview

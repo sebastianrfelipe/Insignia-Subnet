@@ -129,8 +129,11 @@ class NoveltyTracker:
         self._model_history: Dict[str, ModelRegistration] = {}
         self._trading_history: Dict[str, TradingRegistration] = {}
         # Per-miner latest registrations for cross-miner duplicate detection.
-        self._miner_models: Dict[str, str] = {}  # miner_uid -> fingerprint
-        self._miner_styles: Dict[str, str] = {}  # miner_uid -> style_sig
+        # Each miner maps to the *set* of fingerprints/styles it has registered
+        # within the window, so an earlier-but-still-windowed artifact is not
+        # lost when a newer one is registered.
+        self._miner_models: Dict[str, Set[str]] = {}  # miner_uid -> fingerprints
+        self._miner_styles: Dict[str, Set[str]] = {}  # miner_uid -> style_sigs
         # All fingerprints seen this window for cross-miner checks.
         self._all_fingerprints: Dict[str, int] = {}  # fingerprint -> last_seen_epoch
 
@@ -163,7 +166,7 @@ class NoveltyTracker:
                 last_seen_epoch=epoch,
             )
 
-        self._miner_models[miner_uid] = fingerprint
+        self._miner_models.setdefault(miner_uid, set()).add(fingerprint)
         self._all_fingerprints[fingerprint] = epoch
 
     def model_novelty(
@@ -197,19 +200,25 @@ class NoveltyTracker:
             return 0.0, 1.0
 
         # --- Novelty decay based on first-seen epoch ---
-        existing = self._model_history.get(key)
-        if existing is not None:
-            epochs_since = max(0, epoch - existing.first_seen_epoch)
-            novelty = 0.5 ** (epochs_since / max(1, cfg.novelty_decay_epochs))
+        if exact_dup:
+            # An exact fingerprint match from a different miner is never
+            # novel, regardless of which epoch it was seen in. This matches
+            # trading_novelty's handling of exact style duplicates.
+            novelty = 0.0
         else:
-            # Check cross-miner fingerprint collision.
-            other_epoch = self._all_fingerprints.get(fingerprint)
-            if other_epoch is not None and other_epoch != epoch:
-                # Same fingerprint seen from a different miner: not novel.
-                epochs_since = max(0, epoch - other_epoch)
+            existing = self._model_history.get(key)
+            if existing is not None:
+                epochs_since = max(0, epoch - existing.first_seen_epoch)
                 novelty = 0.5 ** (epochs_since / max(1, cfg.novelty_decay_epochs))
             else:
-                novelty = 1.0
+                # Check cross-miner fingerprint collision.
+                other_epoch = self._all_fingerprints.get(fingerprint)
+                if other_epoch is not None:
+                    # Same fingerprint seen from a different miner: not novel.
+                    epochs_since = max(0, epoch - other_epoch)
+                    novelty = 0.5 ** (epochs_since / max(1, cfg.novelty_decay_epochs))
+                else:
+                    novelty = 1.0
 
         # --- Near-duplicate detection via feature-set Jaccard ---
         feature_dup = self._feature_set_duplicate_score(miner_uid, fs, epoch)
@@ -231,8 +240,8 @@ class NoveltyTracker:
         self, miner_uid: str, fingerprint: str, epoch: int
     ) -> bool:
         """True if the exact fingerprint was seen from a different miner."""
-        for other_uid, other_fp in self._miner_models.items():
-            if other_uid != miner_uid and other_fp == fingerprint:
+        for other_uid, other_fps in self._miner_models.items():
+            if other_uid != miner_uid and fingerprint in other_fps:
                 return True
         return False
 
@@ -331,7 +340,7 @@ class NoveltyTracker:
                 last_seen_epoch=epoch,
             )
 
-        self._miner_styles[miner_uid] = style_signature
+        self._miner_styles.setdefault(miner_uid, set()).add(style_signature)
 
     def trading_novelty(
         self,
@@ -351,8 +360,8 @@ class NoveltyTracker:
 
         # Exact style duplicate across miners.
         exact_dup = False
-        for other_uid, other_sig in self._miner_styles.items():
-            if other_uid != miner_uid and other_sig == style_signature:
+        for other_uid, other_sigs in self._miner_styles.items():
+            if other_uid != miner_uid and style_signature in other_sigs:
                 exact_dup = True
                 break
 
@@ -360,15 +369,22 @@ class NoveltyTracker:
             return 0.0, 1.0
 
         # Novelty decay.
-        existing = self._trading_history.get(key)
-        if existing is not None:
-            epochs_since = max(0, epoch - existing.first_seen_epoch)
-            novelty = 0.5 ** (epochs_since / max(1, cfg.novelty_decay_epochs))
-        elif exact_dup:
-            # Seen from another miner: not novel.
+        if exact_dup:
+            # An exact style match from a different miner is never novel,
+            # regardless of epoch. This must be checked before the
+            # self-history lookup: after the documented register_trading
+            # then trading_novelty sequence, the copier's own row already
+            # exists in _trading_history, so the existing-is-not-None
+            # branch would otherwise fire and yield novelty=1.0 for a
+            # same-epoch clone. This mirrors model_novelty's ordering.
             novelty = 0.0
         else:
-            novelty = 1.0
+            existing = self._trading_history.get(key)
+            if existing is not None:
+                epochs_since = max(0, epoch - existing.first_seen_epoch)
+                novelty = 0.5 ** (epochs_since / max(1, cfg.novelty_decay_epochs))
+            else:
+                novelty = 1.0
 
         # Near-duplicate via position correlation.
         style_dup = 0.0
@@ -432,6 +448,25 @@ class NoveltyTracker:
         self._all_fingerprints = {
             fp: ep for fp, ep in self._all_fingerprints.items() if ep >= cutoff
         }
+        # Rebuild the per-miner lookup maps from surviving history so
+        # exact-duplicate detection does not keep referencing submissions
+        # that have aged out of the window. Without this, a fingerprint or
+        # style that left the history window would still force novelty=0
+        # and duplicate_score=1 for other miners indefinitely.
+        # Each miner maps to the *set* of fingerprints/styles it has
+        # registered within the window, so an earlier-but-still-windowed
+        # artifact is not lost when a newer one is registered.
+        rebuilt_models: Dict[str, Set[str]] = {}
+        for k, v in self._model_history.items():
+            uid = k.split("::")[0]
+            rebuilt_models.setdefault(uid, set()).add(v.fingerprint)
+        self._miner_models = rebuilt_models
+
+        rebuilt_styles: Dict[str, Set[str]] = {}
+        for k, v in self._trading_history.items():
+            uid = k.split("::")[0]
+            rebuilt_styles.setdefault(uid, set()).add(v.style_signature)
+        self._miner_styles = rebuilt_styles
 
     def reset(self) -> None:
         """Clear all tracked history (used between tuning runs)."""

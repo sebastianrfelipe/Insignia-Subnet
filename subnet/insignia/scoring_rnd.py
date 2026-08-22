@@ -47,6 +47,7 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 import numpy as np
 
 from .scoring import CompositeScorer, ScoreVector, WeightConfig
+from .enrichment import LiveEnrichmentMetrics
 
 
 # ---------------------------------------------------------------------------
@@ -73,6 +74,9 @@ class ScoringExperiment:
     kept: bool = False
     reason: str = ""
     timestamp: str = ""
+    # Ground-truth enrichment factor at evaluation time (None when no
+    # live deployment data is available).
+    enrichment_factor: Optional[float] = None
 
 
 @dataclass
@@ -298,6 +302,55 @@ class ExploitSignalCollector:
         self._signals.append(signal)
         return signal
 
+    def record_sim_live_gap(
+        self,
+        pair_id: str,
+        epoch: int,
+        sim_composite: float,
+        live_pnl_rank: float,
+        gap_threshold: float = 0.30,
+    ) -> Optional[ExploitSignal]:
+        """
+        Detect when a pair scores high in sim but ranks low in live P&L.
+
+        This is the ground-truth oracle-blind-spot signal: the sim oracle
+        says the pair is good, but live deployment says otherwise. It fires
+        an ``oracle_blind_spot`` signal with
+        ``orthogonal_name="live_pnl_rank"`` so the R&D loop can propose a
+        metric revision that addresses the root cause.
+
+        Args:
+            pair_id: The pair identifier.
+            epoch: The deployment epoch.
+            sim_composite: The sim composite score (0-1, higher = better).
+            live_pnl_rank: The live P&L rank normalized to [0, 1]
+                (1 = best, 0 = worst). A pair that is sim-high but
+                live-low has a large ``sim_composite - live_pnl_rank`` gap.
+            gap_threshold: Minimum gap to trigger the signal.
+        """
+        gap = sim_composite - live_pnl_rank
+        if gap < gap_threshold:
+            return None
+
+        signal = ExploitSignal(
+            miner_uid=pair_id,
+            epoch=epoch,
+            signal_type="oracle_blind_spot",
+            affected_metric="live_pnl_rank",
+            severity=float(min(1.0, gap)),
+            description=(
+                f"pair {pair_id} sim composite {sim_composite:.2f} vs "
+                f"live_pnl_rank {live_pnl_rank:.2f} (gap {gap:.2f})"
+            ),
+            suggested_revision=(
+                "add or weight a metric that correlates with live P&L "
+                "rank (current sim composite does not predict live "
+                "outcome for this pair)"
+            ),
+        )
+        self._signals.append(signal)
+        return signal
+
     def propose_revisions(self) -> List[str]:
         """
         Convert collected signals into candidate scoring-function revision
@@ -472,10 +525,12 @@ class ScoringRNDLoop:
         self,
         baseline_scorer: Optional[CompositeScorer] = None,
         validator: Optional[RetrospectiveValidator] = None,
+        min_enrichment_factor: float = 1.5,
     ):
         self.current_scorer = baseline_scorer or CompositeScorer()
         self.current_weights = self.current_scorer.weights
         self.validator = validator or RetrospectiveValidator()
+        self.min_enrichment_factor = min_enrichment_factor
         self.history: List[ScoringExperiment] = []
         self._experiment_counter = 0
 
@@ -506,10 +561,17 @@ class ScoringRNDLoop:
         adversarial_scores_baseline: Sequence[float],
         honest_scores_candidate: Sequence[float],
         adversarial_scores_candidate: Sequence[float],
+        enrichment_metrics: Optional[LiveEnrichmentMetrics] = None,
     ) -> Tuple[bool, str]:
         """
         Evaluate a proposed experiment against held-out labeled scores.
         Populates the experiment's metrics and kept/reason fields.
+
+        When ``enrichment_metrics`` is provided (live deployment outcomes
+        available), a second promotion gate is applied: the shrunk
+        enrichment factor must not fall below ``min_enrichment_factor``.
+        This ensures a scoring variant that improves sim separation but
+        destroys live P&L predictivity is not promoted.
         """
         baseline = self.validator.compute_metrics(
             honest_scores_baseline, adversarial_scores_baseline
@@ -522,6 +584,24 @@ class ScoringRNDLoop:
         experiment.candidate_metrics = asdict(candidate)
 
         kept, reason = self.validator.should_promote(baseline, candidate)
+
+        # Ground-truth enrichment gate (second gate).
+        if kept and enrichment_metrics is not None:
+            shrunk_ef = enrichment_metrics.shrunk_enrichment_factor
+            experiment.enrichment_factor = round(
+                enrichment_metrics.enrichment_factor, 6
+            )
+            if shrunk_ef < self.min_enrichment_factor:
+                kept = False
+                ef_reason = (
+                    f"enrichment gate: shrunk EF {shrunk_ef:.3f} < "
+                    f"min {self.min_enrichment_factor:.3f} "
+                    f"(raw EF {enrichment_metrics.enrichment_factor:.3f}, "
+                    f"shrinkage {enrichment_metrics.shrinkage:.3f}, "
+                    f"N={enrichment_metrics.n_promoted + enrichment_metrics.n_baseline})"
+                )
+                reason = f"{reason}; {ef_reason}"
+
         experiment.kept = kept
         experiment.reason = reason
         self.history.append(experiment)

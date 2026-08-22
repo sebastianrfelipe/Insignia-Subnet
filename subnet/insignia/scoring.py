@@ -55,18 +55,21 @@ class ScoreVector:
     # Post-hoc novelty adjustments (0 when not applied).
     novelty_bonus: float = 0.0
     duplicate_penalty: float = 0.0
-    # Base composite before novelty adjustment (for telemetry).
-    base_composite: float = 0.0
+    # Base composite before novelty adjustment (None until
+    # apply_novelty_adjustment runs; emitted in to_dict only when set).
+    base_composite: Optional[float] = None
 
     def to_dict(self) -> Dict:
-        return {
+        d = {
             "raw": self.raw,
             "normalized": self.normalized,
             "composite": round(self.composite, 6),
             "novelty_bonus": round(self.novelty_bonus, 6),
             "duplicate_penalty": round(self.duplicate_penalty, 6),
-            "base_composite": round(self.base_composite, 6),
         }
+        if self.base_composite is not None:
+            d["base_composite"] = round(self.base_composite, 6)
+        return d
 
 
 # ---------------------------------------------------------------------------
@@ -201,6 +204,7 @@ def penalized_sharpe(
     actuals: np.ndarray,
     risk_free_rate: float = 0.0,
     annualization: float = np.sqrt(365 * 24),
+    confidence_k: float = 30.0,
 ) -> float:
     """
     Penalized Sharpe Ratio: risk-adjusted returns with a consistency
@@ -210,12 +214,23 @@ def penalized_sharpe(
     penalizes for high variance of sub-window Sharpe ratios. This prevents
     models that achieve a high aggregate Sharpe through a single lucky
     window while being inconsistent elsewhere.
+
+    A sample-size confidence shrinkage is applied to the raw Sharpe:
+    ``raw *= sqrt(N / (N + confidence_k))`` where N is the number of
+    prediction periods. This removes the √N inflation that lets a model
+    measured over a longer epoch mechanically outscore one with identical
+    per-period edge over a shorter epoch. At N >> confidence_k the factor
+    approaches 1 (no penalty); at small N the ratio is shrunk toward 0,
+    making thin-sample luck unprofitable. ``confidence_k`` defaults to 30
+    (the shrinkage is half-strength at N=30 and negligible by N~300).
     """
     position_returns = predictions * actuals
     if len(position_returns) < 2 or np.std(position_returns) < 1e-12:
         return 0.0
     excess = position_returns - risk_free_rate
-    sharpe = float(annualization * np.mean(excess) / np.std(excess))
+    n = len(position_returns)
+    shrink = math.sqrt(n / (n + confidence_k))
+    sharpe = float(annualization * shrink * np.mean(excess) / np.std(excess))
 
     n_windows = 5
     if len(position_returns) < n_windows * 2:
@@ -447,7 +462,11 @@ def annualized_return_score(
     return float(min(1.0, ann_ret / target_annualized))
 
 
-def omega_ratio(returns: np.ndarray, threshold: float = 0.0) -> float:
+def omega_ratio(
+    returns: np.ndarray,
+    threshold: float = 0.0,
+    confidence_k: float = 30.0,
+) -> float:
     """
     Omega Ratio — full-distribution risk measure capturing tail behavior.
 
@@ -476,10 +495,20 @@ def omega_ratio(returns: np.ndarray, threshold: float = 0.0) -> float:
     a strategy with a single winning trade and no losses) from dominating
     the composite score.
 
+    A sample-size confidence shrinkage is applied to the raw Omega before
+    the cap: ``raw *= sqrt(N / (N + confidence_k))`` where N is the number
+    of returns. This removes the trade-count confound — a strategy with a
+    thin trade history can hit the cap on luck, while the same edge over
+    many trades produces a more modest value. At N >> confidence_k the
+    factor approaches 1; at small N the ratio is shrunk toward 0.
+    ``confidence_k`` defaults to 30 (half-strength at N=30, negligible by
+    N~300).
+
     Args:
         returns: Array of per-trade or per-period returns (as decimals,
             e.g., 0.02 for a 2% return).
         threshold: Minimum acceptable return threshold (default 0.0).
+        confidence_k: Sample-size shrinkage constant (default 30.0).
 
     Returns:
         Float in [0, 10] where higher = better risk-adjusted gains.
@@ -488,11 +517,17 @@ def omega_ratio(returns: np.ndarray, threshold: float = 0.0) -> float:
 
     Weight: 13.83% of trading composite score.
     """
+    n = len(returns)
     gains = returns[returns > threshold] - threshold
     losses = threshold - returns[returns <= threshold]
     if len(losses) == 0 or np.sum(losses) < 1e-12:
-        return 10.0  # cap
-    return float(min(10.0, np.sum(gains) / np.sum(losses)))
+        # No losses observed: apply shrinkage to the cap so a thin
+        # history cannot hit 10.0 on luck alone.
+        shrink = math.sqrt(n / (n + confidence_k)) if n > 0 else 0.0
+        return float(min(10.0, 10.0 * shrink))
+    raw = float(np.sum(gains) / np.sum(losses))
+    shrink = math.sqrt(n / (n + confidence_k))
+    return float(min(10.0, raw * shrink))
 
 
 def win_rate(trades: List[float]) -> float:
@@ -624,6 +659,7 @@ def sharpe_ratio(
     daily_returns: np.ndarray,
     risk_free_rate: float = 0.0,
     trading_days: int = 365,
+    confidence_k: float = 30.0,
 ) -> float:
     """
     Sharpe Ratio — risk-adjusted return per unit of total volatility.
@@ -641,11 +677,22 @@ def sharpe_ratio(
 
     Where rf_daily = (1 + risk_free_rate)^(1/trading_days) - 1.
 
+    A sample-size confidence shrinkage is applied to the raw Sharpe
+    before the cap: ``raw *= sqrt(N / (N + confidence_k))`` where N is
+    the number of daily returns. This removes the √N inflation that
+    lets a strategy measured over a longer epoch mechanically outscore
+    one with identical per-day edge over a shorter epoch. At
+    N >> confidence_k the factor approaches 1; at small N the ratio is
+    shrunk toward 0, making thin-sample luck unprofitable.
+    ``confidence_k`` defaults to 30 (half-strength at N=30, negligible
+    by N~300).
+
     Args:
         daily_returns: Array of daily return values (as decimals).
         risk_free_rate: Annual risk-free rate (default 0.0).
         trading_days: Number of trading days per year (default 365
             for crypto).
+        confidence_k: Sample-size shrinkage constant (default 30.0).
 
     Returns:
         Float representing annualized Sharpe ratio. Can be negative
@@ -656,9 +703,11 @@ def sharpe_ratio(
     """
     if len(daily_returns) < 2 or np.std(daily_returns) < 1e-12:
         return 0.0
+    n = len(daily_returns)
     rf_daily = (1 + risk_free_rate) ** (1 / trading_days) - 1
     excess = daily_returns - rf_daily
-    raw = float(np.mean(excess) / np.std(excess) * np.sqrt(trading_days))
+    shrink = math.sqrt(n / (n + confidence_k))
+    raw = float(np.mean(excess) / np.std(excess) * np.sqrt(trading_days) * shrink)
     return max(-5.0, min(10.0, raw))
 
 
@@ -666,6 +715,7 @@ def sortino_ratio(
     daily_returns: np.ndarray,
     risk_free_rate: float = 0.0,
     trading_days: int = 365,
+    confidence_k: float = 30.0,
 ) -> float:
     """
     Sortino Ratio — risk-adjusted return per unit of *downside* volatility.
@@ -684,11 +734,23 @@ def sortino_ratio(
         downside_dev = sqrt(mean(downside_returns^2))
         sortino = (mean(daily_returns) - rf_daily) / downside_dev * sqrt(trading_days)
 
+    A sample-size confidence shrinkage is applied to the raw Sortino
+    before the cap: ``raw *= sqrt(N / (N + confidence_k))`` where N is
+    the number of daily returns. This removes the √N inflation that
+    lets a strategy measured over a longer epoch mechanically outscore
+    one with identical per-day edge over a shorter epoch, and
+    additionally stabilizes the downside-deviation denominator, which
+    is itself unstable at small N. At N >> confidence_k the factor
+    approaches 1; at small N the ratio is shrunk toward 0, making
+    thin-sample luck unprofitable. ``confidence_k`` defaults to 30
+    (half-strength at N=30, negligible by N~300).
+
     Args:
         daily_returns: Array of daily return values (as decimals).
         risk_free_rate: Annual risk-free rate (default 0.0).
         trading_days: Number of trading days per year (default 365
             for crypto).
+        confidence_k: Sample-size shrinkage constant (default 30.0).
 
     Returns:
         Float representing annualized Sortino ratio. Capped at [-5, 15]
@@ -700,13 +762,15 @@ def sortino_ratio(
     """
     if len(daily_returns) < 2:
         return 0.0
+    n = len(daily_returns)
     rf_daily = (1 + risk_free_rate) ** (1 / trading_days) - 1
     excess = daily_returns - rf_daily
     downside = np.minimum(excess, 0.0)
     downside_dev = float(np.sqrt(np.mean(downside ** 2)))
+    shrink = math.sqrt(n / (n + confidence_k))
     if downside_dev < 1e-12:
-        return 10.0 if np.mean(excess) > 0 else 0.0
-    raw = float(np.mean(excess) / downside_dev * np.sqrt(trading_days))
+        return max(-5.0, min(15.0, 10.0 * shrink)) if np.mean(excess) > 0 else 0.0
+    raw = float(np.mean(excess) / downside_dev * np.sqrt(trading_days) * shrink)
     return max(-5.0, min(15.0, raw))
 
 

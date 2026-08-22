@@ -17,6 +17,8 @@ Objectives (all minimized):
   2. attack_breach_rate: Fraction of attack vectors breached
   3. score_variance: Variance of honest miner scores (prefer stability)
   4. -score_separation: Negative gap between honest and adversarial scores
+  5. -enrichment_factor: Negative shrunk enrichment factor (live P&L
+     predictivity of the sim oracle; 0.0 when no live data available)
 
 The optimizer uses a repair operator to enforce weight-sum constraints
 and exports metrics to Prometheus after each generation.
@@ -56,11 +58,12 @@ from tuning.parameter_space import (
 from tuning.simulation import SimulationHarness, create_default_agents, SimulationResult
 from tuning.attack_detector import AttackDetector, BreachReport
 from tuning.metrics_exporter import export_simulation_metrics, export_optimizer_metrics
+from insignia.enrichment import LiveEnrichmentMetrics
 
 logger = logging.getLogger("optimizer")
 logger.setLevel(logging.INFO)
 
-N_OBJECTIVES = 4
+N_OBJECTIVES = 5
 NSGA2_V13_PROFILE = {
     "version": "13.0",
     "revision": "R2",
@@ -88,12 +91,18 @@ NSGA2_V13_PROFILE = {
 def compute_fitness(
     sim_result: SimulationResult,
     breach_report: BreachReport,
+    enrichment: Optional[LiveEnrichmentMetrics] = None,
 ) -> np.ndarray:
     """
     Compute the multi-objective fitness vector from simulation results.
     All objectives are minimized.
 
-    Returns: [neg_honest_score, breach_rate, score_variance, neg_separation]
+    Returns: [neg_honest_score, breach_rate, score_variance, neg_separation,
+              neg_enrichment_factor]
+
+    The 5th objective (neg_enrichment_factor) is 0.0 when no live
+    deployment enrichment data is available, so the tuner gracefully
+    falls back to sim-only optimization.
     """
     honest = sim_result.honest_researcher_scores
     adversarial = sim_result.adversarial_researcher_scores
@@ -109,7 +118,15 @@ def compute_fitness(
     separation = mean_honest - mean_adversarial
     neg_separation = -separation
 
-    return np.array([neg_honest_score, breach_rate, score_variance, neg_separation])
+    if enrichment is not None:
+        neg_enrichment = -enrichment.shrunk_enrichment_factor
+    else:
+        neg_enrichment = 0.0
+
+    return np.array([
+        neg_honest_score, breach_rate, score_variance,
+        neg_separation, neg_enrichment,
+    ])
 
 
 OBJECTIVE_NAMES = [
@@ -117,6 +134,7 @@ OBJECTIVE_NAMES = [
     "breach_rate",
     "score_variance",
     "neg_separation",
+    "neg_enrichment_factor",
 ]
 
 
@@ -144,7 +162,9 @@ if PYMOO_AVAILABLE:
         Multi-objective optimization problem for Insignia subnet parameters.
 
         Each evaluation runs a full simulation with all agent types and
-        computes the 4-objective fitness vector.
+        computes the 5-objective fitness vector. The 5th objective
+        (neg_enrichment_factor) is 0.0 when no enrichment tracker is
+        provided, so the tuner falls back to sim-only optimization.
         """
 
         def __init__(
@@ -153,6 +173,7 @@ if PYMOO_AVAILABLE:
             n_adversarial_each: int = 1,
         n_epochs: int = 100,
             n_trading_steps: int = 150,
+            enrichment_tracker=None,
         ):
             lower, upper = get_bounds()
             super().__init__(
@@ -166,6 +187,7 @@ if PYMOO_AVAILABLE:
             self.n_epochs = n_epochs
             self.n_trading_steps = n_trading_steps
             self.detector = AttackDetector()
+            self.enrichment_tracker = enrichment_tracker
             self._eval_count = 0
             self._generation = 0
 
@@ -214,7 +236,14 @@ if PYMOO_AVAILABLE:
                 try:
                     sim_result = harness.run(x_repaired)
                     breach_report = self.detector.evaluate(sim_result)
-                    fitness = compute_fitness(sim_result, breach_report)
+                    enrichment = None
+                    if self.enrichment_tracker is not None:
+                        enrichment = self.enrichment_tracker.compute_enrichment(
+                            current_epoch=self._generation
+                        )
+                    fitness = compute_fitness(
+                        sim_result, breach_report, enrichment
+                    )
 
                     export_simulation_metrics(
                         sim_result, breach_report,
@@ -222,7 +251,7 @@ if PYMOO_AVAILABLE:
                     )
                 except Exception as e:
                     logger.warning("Evaluation failed for individual %d: %s", i, e)
-                    fitness = np.array([0.0, 1.0, 1.0, 0.0])
+                    fitness = np.array([0.0, 1.0, 1.0, 0.0, 0.0])
 
                 F[i] = fitness
                 self._eval_count += 1
@@ -298,6 +327,7 @@ class RandomSearchOptimizer:
                     + 2.0 * fitness[1]   # breach rate (heavily penalize)
                     + 0.5 * fitness[2]   # variance
                     + 0.5 * fitness[3]   # separation
+                    + 0.5 * fitness[4]   # enrichment (neg, so lower is better)
                 )
 
                 entry = {

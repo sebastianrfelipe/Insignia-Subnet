@@ -86,6 +86,33 @@ class NoveltyTrackerTests(unittest.TestCase):
         self.assertEqual(novelty, 0.0)
         self.assertEqual(dup, 1.0)
 
+    def test_same_epoch_cross_miner_copy_is_not_novel(self):
+        # Bug 1 regression: a cross-miner exact fingerprint match in the
+        # same epoch must score novelty=0, not 1.0. Previously the
+        # `other_epoch != epoch` guard skipped the collision branch and
+        # left novelty=1.0, so apply_novelty_adjustment boosted the
+        # copier on top of the duplicate penalty.
+        fp = "shared_fp"
+        features = ["f1", "f2"]
+        self.tracker.register_model("r0", fp, features, None, epoch=0)
+        novelty, dup = self.tracker.model_novelty(
+            "r1", fp, features, None, epoch=0
+        )
+        self.assertEqual(novelty, 0.0)
+        self.assertEqual(dup, 1.0)
+
+    def test_cross_epoch_cross_miner_copy_decays_novelty_not_full(self):
+        # A cross-miner copy in a later epoch should also be non-novel
+        # (decayed from 0), never 1.0.
+        fp = "shared_fp"
+        features = ["f1", "f2"]
+        self.tracker.register_model("r0", fp, features, None, epoch=0)
+        novelty, dup = self.tracker.model_novelty(
+            "r1", fp, features, None, epoch=4
+        )
+        self.assertEqual(novelty, 0.0)
+        self.assertEqual(dup, 1.0)
+
     def test_near_duplicate_feature_jaccard(self):
         features_a = ["f1", "f2", "f3", "f4"]
         features_b = ["f1", "f2", "f3", "f5"]  # 3/5 overlap = 0.6 jaccard
@@ -132,6 +159,22 @@ class NoveltyTrackerTests(unittest.TestCase):
         novelty, dup = self.tracker.trading_novelty("t1", sig, vec, epoch=1)
         self.assertEqual(dup, 1.0)
 
+    def test_trading_same_epoch_clone_after_register_is_not_novel(self):
+        # Bug 1 regression (trading side): after the documented
+        # register_trading then trading_novelty sequence, the copier's own
+        # row already exists in _trading_history. The self-history lookup
+        # would fire before the exact_dup branch, yielding novelty=1.0 for
+        # a same-epoch clone. The exact_dup check must take precedence so
+        # the novelty boost cannot offset the clone penalty.
+        sig = "shared_style"
+        vec = np.array([1.0, -1.0])
+        self.tracker.register_trading("t0", sig, vec, epoch=0)
+        # Copier registers then scores in the same epoch.
+        self.tracker.register_trading("t1", sig, vec, epoch=0)
+        novelty, dup = self.tracker.trading_novelty("t1", sig, vec, epoch=0)
+        self.assertEqual(novelty, 0.0)
+        self.assertEqual(dup, 1.0)
+
     def test_time_decay_prunes_old_entries(self):
         self.tracker.register_model("r0", "fp_old", ["f1"], None, epoch=0)
         # Prune everything older than epoch 12 - 12 = 0 boundary.
@@ -139,6 +182,56 @@ class NoveltyTrackerTests(unittest.TestCase):
         # After pruning, the old entry should be gone, so re-submit is novel.
         novelty, _ = self.tracker.model_novelty("r0", "fp_old", ["f1"], None, epoch=13)
         self.assertEqual(novelty, 1.0)
+
+    def test_time_decay_clears_miner_models_for_aged_entries(self):
+        # Bug 2 regression: time_decay pruned _model_history but not
+        # _miner_models, so exact-duplicate detection kept forcing
+        # novelty=0/dup=1 for copies of abandoned fingerprints.
+        self.tracker.register_model("r0", "fp_old", ["f1"], None, epoch=0)
+        self.tracker.time_decay(current_epoch=13)
+        # After pruning, a different miner submitting the same fingerprint
+        # should be novel (not penalized by the aged-out entry).
+        novelty, dup = self.tracker.model_novelty("r1", "fp_old", ["f1"], None, epoch=13)
+        self.assertEqual(novelty, 1.0)
+        self.assertEqual(dup, 0.0)
+
+    def test_time_decay_clears_miner_styles_for_aged_entries(self):
+        # Bug 2 regression (trading side): _miner_styles must also be
+        # pruned so abandoned styles stop forcing novelty=0/dup=1.
+        sig = "old_style"
+        vec = np.array([1.0, -1.0])
+        self.tracker.register_trading("t0", sig, vec, epoch=0)
+        self.tracker.time_decay(current_epoch=13)
+        novelty, dup = self.tracker.trading_novelty("t1", sig, vec, epoch=13)
+        self.assertEqual(novelty, 1.0)
+        self.assertEqual(dup, 0.0)
+
+    def test_earlier_windowed_model_artifact_is_exact_duplicate(self):
+        # Bug 3 regression: _miner_models stored only the latest fingerprint
+        # per miner, so a copy of another miner's earlier-but-still-windowed
+        # artifact was not treated as an exact duplicate.
+        # Miner r0 submits fp_a at epoch 0, then fp_b at epoch 1 (overwriting
+        # the _miner_models entry). At epoch 2, r1 copies fp_a. fp_a is still
+        # in the history window (window=12), so it must be detected as an
+        # exact duplicate and novelty must be 0.
+        self.tracker.register_model("r0", "fp_a", ["f1"], None, epoch=0)
+        self.tracker.register_model("r0", "fp_b", ["f2"], None, epoch=1)
+        novelty, dup = self.tracker.model_novelty("r1", "fp_a", ["f1"], None, epoch=2)
+        self.assertEqual(novelty, 0.0)
+        self.assertEqual(dup, 1.0)
+
+    def test_earlier_windowed_style_is_exact_duplicate(self):
+        # Bug 3 regression (trading side): _miner_styles stored only the
+        # latest style per miner, so a clone of an earlier-but-still-windowed
+        # style was missed.
+        sig_a = "style_a"
+        sig_b = "style_b"
+        vec = np.array([1.0, -1.0])
+        self.tracker.register_trading("t0", sig_a, vec, epoch=0)
+        self.tracker.register_trading("t0", sig_b, vec, epoch=1)
+        novelty, dup = self.tracker.trading_novelty("t1", sig_a, vec, epoch=2)
+        self.assertEqual(novelty, 0.0)
+        self.assertEqual(dup, 1.0)
 
     def test_reset_clears_history(self):
         self.tracker.register_model("r0", "fp", ["f1"], None, epoch=0)
@@ -198,6 +291,15 @@ class ScoringNoveltyIntegrationTests(unittest.TestCase):
         self.assertIn("novelty_bonus", d)
         self.assertIn("duplicate_penalty", d)
         self.assertIn("base_composite", d)
+
+    def test_scorevector_to_dict_omits_base_composite_when_unset(self):
+        # When apply_novelty_adjustment never ran, base_composite is None
+        # and must not appear in to_dict (otherwise telemetry reads 0.0
+        # as if the whole score came from novelty).
+        sv = ScoreVector(composite=0.5)
+        d = sv.to_dict()
+        self.assertIn("composite", d)
+        self.assertNotIn("base_composite", d)
 
 
 if __name__ == "__main__":

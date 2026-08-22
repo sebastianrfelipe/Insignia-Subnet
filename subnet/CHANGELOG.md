@@ -1,5 +1,51 @@
 # Changelog
 
+## 2026-08-19 - Ground-truth enrichment feedback loop: sim-to-live P&L predictivity
+
+- **New module** `insignia/enrichment.py` closes the loop between
+  simulation scoring and real deployment outcomes. The analog in
+  drug-discovery hit identification: their "virtual → wet-lab → hit
+  rate" is our "sim → paper → live desk → NAV."
+  - `EnrichmentTracker`: epoch-windowed record of pair outcomes
+    (sim composite → live P&L). Computes `LiveEnrichmentMetrics`:
+    promoted/baseline hit rates, enrichment factor
+    (promoted_hit_rate / baseline_hit_rate), sim-vs-live Spearman rank
+    correlation, sim-floor accuracy, and sample-size confidence
+    shrinkage (`sqrt(N / (N + k))`, same pattern as the ratio metrics).
+  - `LiveEnrichmentMetrics`: the ground-truth analog of
+    `DiscriminationMetrics`. EF > 1 = sim selects better than random;
+    EF = 1 = no enrichment; EF < 1 = sim is anti-predictive.
+- **Enrichment promotion gate** added to `ScoringRNDLoop.evaluate`.
+  A scoring variant is now promoted only if it improves sim separation
+  *and* the shrunk enrichment factor does not fall below
+  `min_enrichment_factor` (default 1.5). When no live data is
+  available, the gate is skipped (graceful degradation to sim-only).
+  `ScoringExperiment` gained `enrichment_factor` field for telemetry.
+- **5th NSGA-II tuner objective** (`neg_enrichment_factor`) added to
+  `compute_fitness`. The tuner now searches for configurations that
+  maximize live P&L predictivity alongside honest score, breach rate,
+  variance, and separation. `N_OBJECTIVES` raised from 4 to 5;
+  `OBJECTIVE_NAMES` updated. `InsigniaTuningProblem` accepts an optional
+  `enrichment_tracker`. The `RandomSearchOptimizer` scalarization
+  includes the 5th objective. When enrichment is absent, the 5th
+  objective is 0.0 (backward compatible).
+- **Sim-live gap signal** added to `ExploitSignalCollector`:
+  `record_sim_live_gap(pair_id, epoch, sim_composite, live_pnl_rank)`
+  fires an `oracle_blind_spot` signal with
+  `affected_metric="live_pnl_rank"` when a pair scores high in sim but
+  ranks low in live P&L. This is the "the sim oracle lies here" signal
+  that feeds the R&D loop to propose a metric revision.
+- **Sample-size confidence shrinkage** on the four ratio metrics
+  (`penalized_sharpe`, `omega_ratio`, `sharpe_ratio`, `sortino_ratio`):
+  `raw *= sqrt(N / (N + confidence_k))` with `confidence_k` defaulting
+  to 30. Removes the √N inflation that let miners measured over longer
+  epochs mechanically outscore those with identical per-period edge over
+  shorter epochs. The no-loss/no-downside degenerate cases for Omega
+  and Sortino now return `cap × shrink` instead of the hard cap.
+- **New tests:** `tests/test_enrichment.py` (13 tests). All pass.
+- **Docs:** `docs/INCENTIVE_MECHANISM.md` gained "Ground-Truth
+  Enrichment Loop" section.
+
 ## 2026-08-19 - Incentive design: scoring-function R&D loop, hybrid exploit philosophy, novelty/diversity scoring
 
 - **Scoring-function R&D** is now a first-class subsystem. New module
