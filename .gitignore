@@ -12,6 +12,12 @@ subnet/data/
 subnet/results/
 subnet/testnet_results/
 
+# Operational state, evidence, and tuning results (proprietary)
+state/
+evidence/
+results/
+Orchestration Report/
+
 # Vercel
 .vercel/
 
