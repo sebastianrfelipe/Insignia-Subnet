@@ -7,9 +7,6 @@
 **References:**
 - Bittensor docs, https://www.bittensor.com/docs (emissions, dTAO, conviction; pull formulas from here, never from memory)
 - Taostats, https://taostats.io/ (live chain data + API for pool reserves, prices, emission shares)
-- Insignia MCP, internal data service (MongoDB-backed; see [scripts/mcp_probe.py](../scripts/mcp_probe.py) for the wire protocol). Fund accounting and factsheet pipelines may read attested revenue and desk P&L from here.
-- Quantitative model source: [dashboards/charts.py](../dashboards/charts.py) (port of `model_v6.py`), regenerating [docs/investor/](investor/).
-
 ---
 
 ## 0. Corrections to the original thesis (read first)
