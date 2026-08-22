@@ -3,18 +3,18 @@
 A distinct primitive from conviction `lock_stake` AND from Insignia deployment
 bonds (`treasury/collateral.py`). Three layers, do not conflate them:
 
-1. **Conviction lock** — governance weight; LP / owner-hotkey path (SPEC §4).
-2. **Native registration collateral (this module)** — a time-bond recovered
+1. **Conviction lock** - governance weight; LP / owner-hotkey path (SPEC §4).
+2. **Native registration collateral (this module)** - a time-bond recovered
    only by earning emission. `lock_share` splits the registration price into a
    burned share and a locked share; `drain_ratio` releases locked alpha per
    alpha of hotkey emission earned. Stopping earning freezes the remainder
    indefinitely; deregistration does not unlock it. See docs/COLLATERAL.md.
-3. **Deployment collateral** — loss-linked P&L bond on the desk-deployed
+3. **Deployment collateral** - loss-linked P&L bond on the desk-deployed
    `(researcher, trader)` pair; slashed alpha is burned (`add_stake_burn`).
 
 This module mirrors the pallet's settle / coverage math in floats for the fund
 layer. Validators enforce a published floor by zeroing weights (they cannot
-write another miner's `min_locked` on-chain — that extrinsic is miner-signed).
+write another miner's `min_locked` on-chain - that extrinsic is miner-signed).
 
 Engineering defaults below are NOT chain commitments. The owner sets
 `CollateralLockShare` / `CollateralDrainRatio` on-chain; every reader goes
@@ -29,7 +29,7 @@ from dataclasses import dataclass, replace
 U16_MAX = 65_535
 LOCK_SHARE_CHAIN_CAP = 0.95
 
-# Engineering defaults for Insignia policy — labelled as such, never hardcoded
+# Engineering defaults for Insignia policy - labelled as such, never hardcoded
 # into production paths. lock_share = 0.5: half the registration price is a
 # recoverable bond, half still burns. drain_ratio = 1.0: one locked alpha
 # releases per one alpha of emission earned (k < 1 stretches the horizon).
@@ -68,7 +68,7 @@ class MinerCollateralPosition:
     """One `(netuid, hotkey, coldkey)` standing collateral row.
 
     Pallet storage: `MinerCollateral`. Nominators on the same hotkey are not
-    frozen by the owner's bond — keyed by the triple, not the hotkey alone.
+    frozen by the owner's bond - keyed by the triple, not the hotkey alone.
     `stake` is the position's total alpha (locked + free); used to size the
     leftover that can still `transfer_stake` a deployment bond.
     """
@@ -104,7 +104,7 @@ class SettleResult:
     """One tempo of `settle_miner_collateral`.
 
     `captured` is emission diverted INTO the lock when below the miner-set
-    floor — the caller must credit only the remainder of the capturable slice
+    floor - the caller must credit only the remainder of the capturable slice
     to the owner. Release does not capture; it just drops `locked`.
     `position` is None when the row fully drained with no floor.
     """
@@ -122,7 +122,7 @@ def lock_share_from_u16(raw: int) -> float:
 
 def registration_split(registration_cost_tao: float, lock_share: float
                        ) -> tuple[float, float]:
-    """(burned_tao, collateral_tao) — the pallet's `pay_registration` split.
+    """(burned_tao, collateral_tao) - the pallet's `pay_registration` split.
 
     `collateral_tao = p × registration_cost`; the rest burns. lock_share = 0
     is classic burned registration.
@@ -164,7 +164,7 @@ def settle_miner_collateral(position: MinerCollateralPosition,
 
     `emission` drives lifetime earned and the release rate. `capturable` must
     be value that already belongs to the owner (full miner incentive, or only
-    the validator's take) — nominator / root-claimable shares must never be
+    the validator's take) - nominator / root-claimable shares must never be
     passed as capturable.
     """
     if emission <= 0:
@@ -198,7 +198,7 @@ def drain_ratio_release(emission: float, drain_ratio: float) -> float:
 
 
 def total_native_locked(positions: list[MinerCollateralPosition]) -> float:
-    """Aggregate standing lock — the unsellable native-collateral stock (R11)."""
+    """Aggregate standing lock - the unsellable native-collateral stock (R11)."""
     return sum(p.locked for p in positions)
 
 

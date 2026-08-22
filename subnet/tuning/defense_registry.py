@@ -1,4 +1,4 @@
-"""Defense wiring registry — the V13-R3 copycat lesson, made permanent.
+"""Defense wiring registry - the V13-R3 copycat lesson, made permanent.
 
 V13-R3 failed empirical validation because the surrogate model assumed
 anti-gaming defenses that the scoring path never implemented (copycat scored
@@ -7,7 +7,7 @@ anti-gaming defenses that the scoring path never implemented (copycat scored
 anti-gaming control to:
 
 1. its live-path implementation symbol (import-checked), and
-2. the runtime evidence proving the simulator actually exercises it — penalty
+2. the runtime evidence proving the simulator actually exercises it - penalty
    multipliers applied in the scoring loop and telemetry keys emitted in the
    result. Catches defenses "assumed but unimplemented".
 

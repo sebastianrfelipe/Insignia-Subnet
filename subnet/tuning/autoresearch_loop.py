@@ -4,7 +4,7 @@ Autoresearch Experiment Loop
 Karpathy-style autonomous experimentation adapted for Insignia subnet
 parameter tuning. Instead of evolutionary population search, this module
 makes targeted single-variable modifications to parameter configurations,
-evaluates the result, and keeps or discards — building understanding of
+evaluates the result, and keeps or discards - building understanding of
 the parameter landscape through systematic ablation.
 
 This runs complementary to NSGA-II. While the optimizer searches the full

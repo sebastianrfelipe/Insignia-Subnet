@@ -1,4 +1,4 @@
-"""Native Subtensor registration collateral — validator-side gate.
+"""Native Subtensor registration collateral - validator-side gate.
 
 Fund-layer pallet math lives in `chainio/collateral.py` (the subnet package
 must not import the fund distribution). This module is the live path the

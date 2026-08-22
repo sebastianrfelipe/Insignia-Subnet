@@ -1,5 +1,5 @@
 ###############################################################################
-# Insignia Subnet — Local Testnet Stack
+# Insignia Subnet - Local Testnet Stack
 #
 # Brings up a complete local development environment:
 #   - Local subtensor chain (fast 250ms blocks)
@@ -45,7 +45,7 @@ services:
       start_period: 30s
 
   # ---------------------------------------------------------------------------
-  # Prometheus — Metrics Collection
+  # Prometheus - Metrics Collection
   # ---------------------------------------------------------------------------
   prometheus:
     image: prom/prometheus:v2.51.0
@@ -64,7 +64,7 @@ services:
     restart: unless-stopped
 
   # ---------------------------------------------------------------------------
-  # Grafana — Real-time Dashboards
+  # Grafana - Real-time Dashboards
   # ---------------------------------------------------------------------------
   grafana:
     image: grafana/grafana:10.4.0

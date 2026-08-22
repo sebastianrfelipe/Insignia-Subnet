@@ -54,7 +54,7 @@
     scoring-function variants (weight rebalances, normalization transforms).
     Each experiment is evaluated against held-out honest/adversarial scores
     using enrichment-style discrimination metrics (separation, AUC, honest
-    floor, adversary ceiling, leak rate) — the retrospective validation
+    floor, adversary ceiling, leak rate) - the retrospective validation
     discipline used in drug-discovery hit identification. A variant is only
     promoted if it improves separation or AUC without regressing the honest
     floor.
@@ -67,7 +67,7 @@
 - **Hybrid exploit philosophy** wired into the simulation harness
   (`tuning/simulation.py`). The adversary penalty paths now distinguish:
   - *Economic attacks* (copycat, copytrader, sybil, collusion) keep hard-gate
-    static floors — the penalty is a flat multiplier because the attack is
+    static floors - the penalty is a flat multiplier because the attack is
     unambiguous.
   - *Scientific gaming* (overfitting, single-metric, partner-gaming) uses
     signal-driven penalties derived from the `ScoreVector` (overfitting
@@ -107,7 +107,7 @@
 ## 2026-08-16 - Native registration collateral stacked under scoring and the desk bond
 
 - **Native Subtensor collateral** is now a first-class Insignia lever: `lock_share` of the registration price is a recoverable alpha bond, unlocked only by earning emission at `drain_ratio`. Validators enforce a published floor and freeze martingale blow-ups by zeroing Yuma weights (`insignia/native_collateral.py`, wired into `PairedValidator.finalize_generation`). This is Const's SN8 Sharpe/Sortino primitive, not a replacement for loss-linked deployment bonds.
-- **Defense registry:** `NATIVE-COLLATERAL-GATE` is live-path only — the simulator does not model registration locks.
+- **Defense registry:** `NATIVE-COLLATERAL-GATE` is live-path only - the simulator does not model registration locks.
 - **Docs:** [docs/COLLATERAL.md](../docs/COLLATERAL.md), SPEC §0.17, RISK_REGISTER R17, this file §Native Registration Collateral and attack vector 14.
 
 ## 2026-08-03 - Trading metric revamp: annualized return replaces realized P&L; win rate demoted to diagnostics

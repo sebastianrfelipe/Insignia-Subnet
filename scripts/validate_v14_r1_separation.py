@@ -1,7 +1,7 @@
 """Empirical V14-R1 separation validation (cycle step 2).
 
 Runs `SimulationHarness` with the V14-R1-CORRECTED-KP proxy config
-(`encode_defaults` — the repo's "Phase 5 secure-and-improving profile")
+(`encode_defaults` - the repo's "Phase 5 secure-and-improving profile")
 for multiple trials and generations, then emits a structured report
 the orchestrator can consume to clear the §9 separation gate and
 unblock steps 3–5 (sentinel, tuner, researcher).
@@ -207,11 +207,11 @@ def main() -> int:
     lines.append("## Verdict")
     lines.append("")
     if s["gate_passed"]:
-        lines.append(f"✅ **GATE PASSED** — all {args.trials} trials clear §9 separation >= {args.gate}.")
+        lines.append(f"✅ **GATE PASSED** - all {args.trials} trials clear §9 separation >= {args.gate}.")
         lines.append("The merged anti-gaming fix (PR #34) + signal-driven SybilMiner penalty hold")
         lines.append("empirically. The cycle may proceed to step 3 (sentinel re-evaluation).")
     else:
-        lines.append(f"❌ **GATE FAILED** — {s['n_trials_passing_gate']}/{args.trials} trials passed.")
+        lines.append(f"❌ **GATE FAILED** - {s['n_trials_passing_gate']}/{args.trials} trials passed.")
         lines.append("Tighten the adversary penalty multipliers in `subnet/tuning/simulation.py`")
         lines.append("(search for `EXP-ADVERSARY-COVERAGE-002`) before re-dispatching.")
     lines.append("")

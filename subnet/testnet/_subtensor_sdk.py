@@ -5,7 +5,7 @@ managers fall back to this module, which drives the same operations through
 the `bittensor` Python SDK directly (`bt.subtensor`, `bt.wallet`).
 
 The backend is a drop-in companion to the btcli code paths in
-`subnet_manager.py` and `wallet_manager.py` — it mirrors the operations
+`subnet_manager.py` and `wallet_manager.py` - it mirrors the operations
 those managers need and returns the same shapes (`Optional[int]` netuids,
 `bool` success flags, `Dict[str, float]` balances). Each call wraps
 exceptions so a chain-side failure degrades to a logged warning + `None` /

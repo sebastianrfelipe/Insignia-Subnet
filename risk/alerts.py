@@ -1,4 +1,4 @@
-"""Live alert rules tied to chain data (SPEC §7) — the pager layer.
+"""Live alert rules tied to chain data (SPEC §7) - the pager layer.
 
 Inputs come from lockmgr.monitor sweeps (RPC: get_coldkey_lock,
 get_hotkey_conviction, get_most_convicted_hotkey_on_subnet) and treasury
@@ -44,11 +44,11 @@ def from_market(state: MarketState, nav_per_alpha: float,
     disc = premium_discount(state.spot_price, nav_per_alpha)
     if disc > band.issue_above - 1.0:
         alerts.append(Alert("warn", "treasury.band",
-                            f"spot at {disc:+.1%} to NAV — above band; buying halted, "
+                            f"spot at {disc:+.1%} to NAV - above band; buying halted, "
                             "consider OTC issuance"))
     elif disc < band.buy_below - 1.0:
         alerts.append(Alert("info", "treasury.band",
-                            f"spot at {disc:+.1%} to NAV — accretive buy zone"))
+                            f"spot at {disc:+.1%} to NAV - accretive buy zone"))
     return alerts
 
 
@@ -58,7 +58,7 @@ def from_cohorts(locks: list[LpLock], cap: float = 0.25,
     if share > cap:
         return [Alert("page", "lockmgr.cohorts",
                       f"{share:.1%} of locked supply shares the {window_days:.0f}-day "
-                      f"redemption window from day {start:.0f} (cap {cap:.0%}) — M6 breach")]
+                      f"redemption window from day {start:.0f} (cap {cap:.0%}) - M6 breach")]
     if share > cap * 0.8:
         return [Alert("warn", "lockmgr.cohorts",
                       f"redemption window at {share:.1%}, approaching the {cap:.0%} cap")]
@@ -70,18 +70,18 @@ def from_collateral(registry: BondRegistry, escrow_staked_alpha: float,
                     max_tempos_pending: int = 8) -> list[Alert]:
     """Deployment-collateral invariants (SPEC §5; INCENTIVE_MECHANISM
     §Deployment Collateral): escrow must cover bonds + unsettled slashes, and
-    the burn queue must drain — one add_stake_burn per tempo means a queue
+    the burn queue must drain - one add_stake_burn per tempo means a queue
     aging past a few tempos indicates a stuck pipeline, not a big slash."""
     alerts = []
     shortfall = registry.escrow_shortfall(escrow_staked_alpha)
     if shortfall > 0:
         alerts.append(Alert("page", "collateral.escrow",
-                            f"escrow coldkey short {shortfall:,.2f} alpha vs bond ledger — "
+                            f"escrow coldkey short {shortfall:,.2f} alpha vs bond ledger - "
                             "custody breach, halt deployments"))
     if registry.pending_burn_alpha > 0 and tempos_oldest_pending > max_tempos_pending:
         alerts.append(Alert("warn", "collateral.settlement",
                             f"{registry.pending_burn_alpha:,.2f} slashed alpha unburned for "
-                            f"{tempos_oldest_pending} tempos (max {max_tempos_pending}) — "
+                            f"{tempos_oldest_pending} tempos (max {max_tempos_pending}) - "
                             "settlement pipeline stuck or slippage-budget-bound"))
     return alerts
 
@@ -119,7 +119,7 @@ class Dispatcher:
 
 
 def webhook_sink(url: str) -> Sink:
-    """Pager webhook stub — wire to the ops pager before M5 game-day."""
+    """Pager webhook stub - wire to the ops pager before M5 game-day."""
 
     def _send(alert: Alert) -> None:
         import json

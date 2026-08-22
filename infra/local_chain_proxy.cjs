@@ -1,5 +1,5 @@
 /**
- * local_chain_proxy.cjs — TCP proxy for local subtensor chain access
+ * local_chain_proxy.cjs - TCP proxy for local subtensor chain access
  *
  * PROBLEM: The agent container cannot reach the local subtensor chain at
  * 127.0.0.1:9944 because the chain runs on the Docker host, not inside the
@@ -43,7 +43,7 @@
 
 const net = require('net');
 
-// Detect gateway — default Docker bridge gateway, can be overridden via env
+// Detect gateway - default Docker bridge gateway, can be overridden via env
 const GATEWAY = process.env.DOCKER_GATEWAY || '172.17.0.1';
 
 const FORWARDS = [

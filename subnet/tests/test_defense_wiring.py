@@ -1,14 +1,14 @@
-"""Defense wiring test — no defense is assumed unless provably exercised.
+"""Defense wiring test - no defense is assumed unless provably exercised.
 
 Encodes the V13-R3 copycat root-cause lesson (surrogate assumed defenses the
 scoring path never implemented) as three permanent checks against
 `tuning/defense_registry.py`:
 
-1. Import — every registered implementation symbol resolves.
-2. Forward — every declared evidence identifier appears in `tuning/simulation.py`
+1. Import - every registered implementation symbol resolves.
+2. Forward - every declared evidence identifier appears in `tuning/simulation.py`
    source the required number of times (multiplier: definition + application;
    telemetry key: emission). Catches "assumed but unimplemented".
-3. Reverse — every penalty-multiplier constant and ensemble detector key the
+3. Reverse - every penalty-multiplier constant and ensemble detector key the
    simulator defines is claimed by a registry entry. Catches "defined but never
    used".
 
@@ -56,7 +56,7 @@ class TestDefenseWiring(unittest.TestCase):
                         count,
                         min_occurrences,
                         f"{entry.control_id}: '{identifier}' appears {count}x in "
-                        f"simulation.py, needs >= {min_occurrences}x — defense "
+                        f"simulation.py, needs >= {min_occurrences}x - defense "
                         "assumed but not exercised",
                     )
 
@@ -68,7 +68,7 @@ class TestDefenseWiring(unittest.TestCase):
             self.assertEqual(
                 unclaimed,
                 set(),
-                f"simulator {family} with no registry entry: {sorted(unclaimed)} — "
+                f"simulator {family} with no registry entry: {sorted(unclaimed)} - "
                 "register them in tuning/defense_registry.py or delete the dead control",
             )
 

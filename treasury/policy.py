@@ -55,7 +55,7 @@ class RoutingPolicy:
             raise ValueError(f"routing split must sum to 1, got {total}")
 
     def route(self, revenue: float, action: BandAction) -> dict[str, float]:
-        """When not buying, the buy-flow tranche accrues to reserve — revenue is
+        """When not buying, the buy-flow tranche accrues to reserve - revenue is
         banked, never spent above NAV."""
         buying = action is BandAction.BUY
         return {
@@ -98,13 +98,13 @@ def tripped_breakers(state: MarketState,
                      breakers: CircuitBreakers = CircuitBreakers()) -> list[str]:
     tripped = []
     if state.ma30_price > 0 and state.spot_price > breakers.price_over_ma30_max * state.ma30_price:
-        tripped.append(f"price {state.spot_price / state.ma30_price:.2f}× the 30d MA — do not chase")
+        tripped.append(f"price {state.spot_price / state.ma30_price:.2f}× the 30d MA - do not chase")
     months = reserve_months(state)
     if months < breakers.reserve_floor_months:
         tripped.append(f"reserve covers only {months:.1f} months of median buy-flow")
     if state.emission_share_wow_change < -breakers.share_drop_wow_max:
         tripped.append(
-            f"emission share fell {-state.emission_share_wow_change:.0%} WoW despite flow — "
+            f"emission share fell {-state.emission_share_wow_change:.0%} WoW despite flow - "
             "possible parameter regime change, investigate before resuming")
     return tripped
 

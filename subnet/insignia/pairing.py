@@ -189,7 +189,7 @@ class NSGA2Matchmaker:
 
       - Pareto front rank (primary multi-objective signal),
       - scalar pair composite (so quality still discriminates when many pairs
-        share the non-dominated front — which is common in small populations),
+        share the non-dominated front - which is common in small populations),
       - crowding distance (diversity tiebreak).
 
     Without the composite term, a crowded front-0 would let a uniformly mediocre

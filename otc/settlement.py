@@ -1,7 +1,7 @@
 """OTC settlement: stake delivery + lock verification, atomic-ish (SPEC §6).
 
 Flow: deliver alpha to the LP coldkey via same-subnet `move-stake` (no swap, no
-fee, no price impact — SPEC §0.13), then verify `lock_stake` to the owner hotkey
+fee, no price impact - SPEC §0.13), then verify `lock_stake` to the owner hotkey
 AND the perpetual flag within `verify_deadline_blocks`, else mark CLAWBACK per
 the LP agreement. Chain access is injected (lockmgr.locks.LockClient interface)
 so both paths are testable.
@@ -65,7 +65,7 @@ class SettlementAgent:
             if lock.hotkey != settlement.owner_hotkey:
                 settlement.state = SettlementState.CLAWBACK
                 settlement.failure_reason = (
-                    f"locked to {lock.hotkey}, not the owner hotkey — no instant "
+                    f"locked to {lock.hotkey}, not the owner hotkey - no instant "
                     "conviction, weakens king defense")
             elif not lock.perpetual:
                 # lock_stake alone decays from day one; the perpetual flag is

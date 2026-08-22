@@ -42,7 +42,7 @@ def quote_add_stake(pool: PoolSnapshot, tao_in: float) -> float:
 
 
 def quote_unstake(pool: PoolSnapshot, alpha_in: float) -> float:
-    """TAO realised by unstaking `alpha_in` alpha — the ONLY valid way to value a
+    """TAO realised by unstaking `alpha_in` alpha - the ONLY valid way to value a
     position (SPEC §0.14: NAV must be quoted, not marked)."""
     return _swap_out(pool.tao_reserve, pool.w_tao, pool.alpha_reserve, pool.w_alpha,
                      alpha_in, pool.fee_rate)
@@ -70,7 +70,7 @@ def staged_redemption(pool: PoolSnapshot, increments: Iterable[float],
     against post-trade reserves.
 
     With refill=False reserves only deplete, which UNDERSTATES the benefit of
-    staging — in reality the pool refills between increments via emission
+    staging - in reality the pool refills between increments via emission
     injections and buy-flow (the v6 model's conservative assumption).
     """
     total = 0.0
@@ -86,7 +86,7 @@ def staged_redemption(pool: PoolSnapshot, increments: Iterable[float],
 
 def decay_schedule_increments(position: float, half_life_days: float,
                               horizon_days: float, step_days: float = 1.0) -> list[float]:
-    """Redeemable-alpha increments released by the exponential decay schedule —
+    """Redeemable-alpha increments released by the exponential decay schedule -
     the natural staging the lock decay imposes (SPEC §4: cliff exits prohibited)."""
     lam = math.log(2) / half_life_days
     increments = []
@@ -102,7 +102,7 @@ def decay_schedule_increments(position: float, half_life_days: float,
 
 def price_move_cost(pool: PoolSnapshot, price_ratio: float) -> float:
     """TAO required to move spot price by `price_ratio` (p′/p):
-    Δy = y·((p′/p)^w1 − 1). Convex — +10% costs 4.9% of the TAO reserve,
+    Δy = y·((p′/p)^w1 − 1). Convex - +10% costs 4.9% of the TAO reserve,
     +100% costs 41.4% (SPEC §0.5 'optimal rate')."""
     if price_ratio < 1.0:
         raise ValueError("price_move_cost quotes upward moves; ratio must be ≥ 1")
@@ -119,7 +119,7 @@ def max_fill_at_limit(pool: PoolSnapshot, limit_price: float) -> float:
 
 
 def move_stake_same_subnet(alpha_amount: float) -> float:
-    """`move-stake` between hotkeys on the SAME subnet is not a swap — no fee,
+    """`move-stake` between hotkeys on the SAME subnet is not a swap - no fee,
     no price impact (SPEC §0.13). Use for OTC delivery and owner-hotkey
     migration. Cross-subnet moves run two swaps; quote those explicitly."""
     return alpha_amount

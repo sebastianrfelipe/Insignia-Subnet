@@ -1,6 +1,6 @@
 """Per-LP vesting schedules, conviction math, cohort windows (SPEC §4, §10.1).
 
-All curves are parameterized by on-chain rates via `ChainParams` — τ values are
+All curves are parameterized by on-chain rates via `ChainParams` - τ values are
 root-mutable and must never be hardcoded downstream. Rates are exponential time
 constants (`exp(-dt/τ)`), matching the chain's roll-forward convention; the
 "~60-day half-life" in docs is `τ · ln 2` ≈ 62.4 days at current defaults.
@@ -202,7 +202,7 @@ def validate_cohort_windows(
 def redeemable_supply_curve(
     locks: list[LpLock], params: ChainParams, horizon_days: float = 730.0, step_days: float = 7.0
 ) -> list[tuple[float, float]]:
-    """(day, aggregate redeemable alpha) — the §8 lock-cohort schedule series."""
+    """(day, aggregate redeemable alpha) - the §8 lock-cohort schedule series."""
     curve = []
     day = 0.0
     while day <= horizon_days:

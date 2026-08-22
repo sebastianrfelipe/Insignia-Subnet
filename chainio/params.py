@@ -1,7 +1,7 @@
 """Chain parameters, pool snapshots, and the providers that fetch them live.
 
 Defaults reflect mainnet as of 2026-07 (SPEC §0.15) and exist for simulation and
-tests only. Production paths MUST go through a live provider each epoch — every
+tests only. Production paths MUST go through a live provider each epoch - every
 one of these values is mutable by root (SPEC §0.16).
 """
 
@@ -23,7 +23,7 @@ class ChainParams:
     """Protocol parameters the fund layer depends on.
 
     Rates named *_blocks are exponential time constants in blocks, matching the
-    chain's roll-forward `exp(-dt/Rate)` convention — NOT half-lives. The
+    chain's roll-forward `exp(-dt/Rate)` convention - NOT half-lives. The
     ~60-day figure quoted in docs is `unlock_tau_days * ln(2)` ≈ 62.4 days.
     """
 
@@ -94,12 +94,12 @@ class ValidatorBasket:
 
     `weights` is the normalized `Weights[ROOT]` vector keyed by netuid (uid 0 =
     the held-TAO stability slot). `escrow_alpha` is the alpha this validator's
-    fund holds on OUR netuid via the keyless pallet escrow — real stake, counted
+    fund holds on OUR netuid via the keyless pallet escrow - real stake, counted
     in SubnetAlphaOut, conviction-inert. Root stakers are not Insignia LPs.
     """
 
     hotkey: str
-    root_stake_tao: float                  # K_v — delegated root stake
+    root_stake_tao: float                  # K_v - delegated root stake
     weights: dict[int, float]              # netuid → normalized basket weight
     escrow_alpha: float = 0.0              # basket alpha held on our netuid
     nav_tao: float | None = None           # realizable fund NAV, if queryable
@@ -109,7 +109,7 @@ class ValidatorBasket:
 
 
 def stake_weighted_insignia_weight(baskets: list[ValidatorBasket], netuid: int) -> float:
-    """w_bar_ins — stake-weighted mean basket weight toward our subnet, the
+    """w_bar_ins - stake-weighted mean basket weight toward our subnet, the
     multiplier on the network dividend that becomes external bid
     (SPEC §0.16: F = w_bar · 983 τ/day scaled by stake share)."""
     total = sum(b.root_stake_tao for b in baskets)
@@ -119,14 +119,14 @@ def stake_weighted_insignia_weight(baskets: list[ValidatorBasket], netuid: int) 
 
 
 def total_escrow_alpha(baskets: list[ValidatorBasket]) -> float:
-    """Aggregate beta-basket escrow alpha on our netuid — the claim-flow
+    """Aggregate beta-basket escrow alpha on our netuid - the claim-flow
     overhang (R16) and the conviction-inert share of SubnetAlphaOut."""
     return sum(b.escrow_alpha for b in baskets)
 
 
 class ParamsProvider(Protocol):
     """Live read layer. Implementations must re-read every epoch and never cache
-    across a tempo boundary — parameter changes must surface within one epoch
+    across a tempo boundary - parameter changes must surface within one epoch
     (lockmgr.monitor alerts on deltas)."""
 
     def chain_params(self) -> ChainParams: ...
@@ -179,7 +179,7 @@ class SubtensorProvider:
     """Direct-RPC provider via the bittensor SDK (lazy import).
 
     M2 note: conviction v2 storage (UnlockRate, ConvictionMaturityRate, lock
-    maps) may not yet be surfaced by the SDK — fall back to raw substrate
+    maps) may not yet be surfaced by the SDK - fall back to raw substrate
     storage queries via `subtensor.substrate.query` and verify names on testnet
     against subtensor PRs #2658/#2687/#2696 before trusting this path.
     """
@@ -203,7 +203,7 @@ class SubtensorProvider:
                     overrides[field] = float(value.value)
             except Exception:
                 # Storage item absent (conviction v2 not deployed on this
-                # network) — keep the documented default and let monitor flag it.
+                # network) - keep the documented default and let monitor flag it.
                 continue
         return replace(base, **overrides) if overrides else base
 
@@ -220,7 +220,7 @@ class SubtensorProvider:
 
         Uses the betaBasket runtime API where exposed by the SDK; falls back to
         raw runtime calls. Names must be verified on testnet against subtensor
-        PR #2968 before trusting this path — a missing API returns [], which
+        PR #2968 before trusting this path - a missing API returns [], which
         lockmgr.monitor treats as "no escrow visibility" (warn), never as
         "no escrow".
         """
@@ -252,7 +252,7 @@ class SubtensorProvider:
                     nav_tao=float(nav) / 1e9 if nav is not None else None,
                 ))
             except Exception:
-                # API absent on this runtime — surface partial state; monitor
+                # API absent on this runtime - surface partial state; monitor
                 # flags missing visibility rather than assuming zero escrow.
                 continue
         return baskets
@@ -262,7 +262,7 @@ class SubtensorProvider:
 
         Prefers the SDK namespace (`sub.collateral.collateral_policy`); falls
         back to raw storage (`CollateralLockShare`, `CollateralDrainRatio`).
-        Names must be verified on testnet — a missing API returns the disabled
+        Names must be verified on testnet - a missing API returns the disabled
         policy (lock_share = 0), never a fabricated floor.
         """
         try:
@@ -290,7 +290,7 @@ class SubtensorProvider:
 
     def miner_collateral(self, netuid: int) -> list[MinerCollateralPosition]:
         """Per-UID standing collateral rows. Empty means 'no visibility'
-        (monitor warns), never 'no collateral' — same posture as root_baskets.
+        (monitor warns), never 'no collateral' - same posture as root_baskets.
         """
         positions: list[MinerCollateralPosition] = []
         try:

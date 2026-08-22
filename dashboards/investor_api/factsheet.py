@@ -93,7 +93,7 @@ def render_markdown(fs: Factsheet) -> str:
     defense = (fs.conviction_owner / fs.conviction_top_external
                if fs.conviction_top_external > 0 else float("inf"))
     lines = [
-        f"# Insignia factsheet — {fs.period}",
+        f"# Insignia factsheet - {fs.period}",
         "",
         f"## Premium/discount to NAV: {fs.premium_discount:+.1%}",
         "",
@@ -105,7 +105,7 @@ def render_markdown(fs: Factsheet) -> str:
         "|---|---|---|",
         f"| Issuance retention | {fs.issuance_retention:.1%} | miner sell-through {fs.miner_sell_through:.0%} |",
         f"| Staker APY (alpha terms) | {fs.staker_apy_alpha:.1%} | dilution recapture, not profit |",
-        f"| Staker APY (USD terms) | {fs.staker_apy_usd:.1%} | separate basis — do not blend |",
+        f"| Staker APY (USD terms) | {fs.staker_apy_usd:.1%} | separate basis - do not blend |",
         f"| Dilution hurdle | {fs.dilution_hurdle:.1%}/yr | NAV-flat trading return required |",
         f"| Emission share | {fs.emission_share:.2%} | {fs.emission_share_trend_wow:+.1%} WoW |",
         f"| Net TAO flow | {fs.net_tao_flow:+,.0f} τ | |",
@@ -128,7 +128,7 @@ def render_markdown(fs: Factsheet) -> str:
 
 
 def publish(fs: Factsheet, out_dir: Path) -> Path:
-    """Investor-facing publication — Phase-0 gated (SPEC §2)."""
+    """Investor-facing publication - Phase-0 gated (SPEC §2)."""
     require_legal_signoff()
     out_dir.mkdir(parents=True, exist_ok=True)
     out = out_dir / f"factsheet_{fs.period}.md"

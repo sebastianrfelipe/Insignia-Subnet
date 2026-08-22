@@ -1,4 +1,4 @@
-"""V14-R1 online-mode gate verification — orchestrator dispatch manifest v2.
+"""V14-R1 online-mode gate verification - orchestrator dispatch manifest v2.
 
 v2 fixes two guardrail rejections that cancelled 4/6 gates in the v1 run
 (dashboard 2026-07-05: 2/6 done, 4 cancelled, 0 failed):
@@ -15,7 +15,7 @@ v2 fixes two guardrail rejections that cancelled 4/6 gates in the v1 run
      collection and redirects the orchestrator to the filesystem KRET
      artifacts in `results/` (the step 2-5 offline evidence package).
 
-This script CANNOT dispatch the orchestrator from this repo — the
+This script CANNOT dispatch the orchestrator from this repo - the
 insignia-local MCP server is not available in this environment. It writes
 the v2 manifest to results/ for manual execution in the orchestrator env.
 
@@ -42,7 +42,7 @@ RUN_NAMESPACE: Dict[str, str] = {
 }
 
 # Collections the orchestrator is NOT allowed to mongodb_find on directly.
-# These belong to other playbooks — read their KRET artifacts from the
+# These belong to other playbooks - read their KRET artifacts from the
 # filesystem (results/) instead.
 FORBIDDEN_COLLECTIONS: List[str] = [
     "simulation_results",  # belongs to "Insignia subnet tuner" playbook
@@ -114,7 +114,7 @@ ONLINE_GATES: List[Dict[str, Any]] = [
             "type": "mcp_read",
             "collection": "convergence_metrics",
             "method": "§7 contract: all agents agree + grace period elapsed",
-            # v1 failure: NAMESPACE_FILTER_REQUIRED — v2 mandates the filter.
+            # v1 failure: NAMESPACE_FILTER_REQUIRED - v2 mandates the filter.
             "namespace_filter": {**RUN_NAMESPACE, "agent_type": "convergence_monitor"},
             "required_filter_fields": ["procedure", "agent_type", "playbook", "domain"],
         },
@@ -187,7 +187,7 @@ def build_manifest() -> Dict[str, Any]:
                 "validator_latency_severity=0.0351, prediction_timing_severity=0.025). "
                 "0 adversary leaks across the 19-vector sentinel surface. "
                 "2 non-penalty-path breaches remain (random_baseline_discrimination, "
-                "collusion_temporal_pattern) — both synthetic harness artifacts, not adversary leaks."
+                "collusion_temporal_pattern) - both synthetic harness artifacts, not adversary leaks."
             ),
             "read_instruction": (
                 "Read these from the FILESYSTEM, not MongoDB. The orchestrator's "
@@ -215,7 +215,7 @@ def build_manifest() -> Dict[str, Any]:
             "note": (
                 "Execute these commands in the orchestrator's agent env via the "
                 "insignia-local MCP. v2 adds namespace filters and forbids "
-                "simulation_results — fixes for the v1 guardrail rejections."
+                "simulation_results - fixes for the v1 guardrail rejections."
             ),
             "step1_file_task": {
                 "mcp_tool": "insignia-local.file_task",
@@ -223,12 +223,12 @@ def build_manifest() -> Dict[str, Any]:
                     "assignee": "orchestrator",
                     "priority": 10,
                     "description": (
-                        "V14-R1 online-mode gate verification (v2 — fixes v1 guardrail "
+                        "V14-R1 online-mode gate verification (v2 - fixes v1 guardrail "
                         "rejections): run the live V14-R1-CORRECTED-KP config on-chain "
                         "across >= 2 reruns with different seeds. Verify the 6 online-mode "
                         "§9 gates. Scope every MCP read with the namespace "
                         f"{RUN_NAMESPACE}. Do NOT mongodb_find on {FORBIDDEN_COLLECTIONS} "
-                        "— read filesystem KRET artifacts in results/ instead."
+                        "- read filesystem KRET artifacts in results/ instead."
                     ),
                     "metadata": {
                         "cycle_step": "5_to_HITL",
@@ -311,7 +311,7 @@ def main() -> int:
 
     # Markdown manifest
     lines = [
-        "# V14-R1 Online-Mode Gate Verification — Orchestrator Dispatch Manifest (v2)",
+        "# V14-R1 Online-Mode Gate Verification - Orchestrator Dispatch Manifest (v2)",
         "",
         f"**Generated:** {manifest['generated_at']}",
         f"**Config ID:** {manifest['config_id']}",
@@ -327,21 +327,21 @@ def main() -> int:
         "",
     ]
     for rc in manifest["v1_postmortem"]["root_causes"]:
-        lines.append(f"- **`{rc['error']}`** — trigger: {rc['trigger']}")
+        lines.append(f"- **`{rc['error']}`** - trigger: {rc['trigger']}")
         lines.append(f"  - v2 fix: {rc['fix_in_v2']}")
     lines += [
         "",
         "## v2 fixes",
         "",
-        f"1. **Namespace declared up front:** `{manifest['namespace']}` — every MCP read must include one of these filter fields.",
-        f"2. **Forbidden collections:** `{manifest['forbidden_collections']}` — orchestrator must NOT `mongodb_find` on these.",
+        f"1. **Namespace declared up front:** `{manifest['namespace']}` - every MCP read must include one of these filter fields.",
+        f"2. **Forbidden collections:** `{manifest['forbidden_collections']}` - orchestrator must NOT `mongodb_find` on these.",
         f"3. **Filesystem KRET redirect:** offline evidence read from filesystem (`results/`), not MongoDB.",
         "",
         "## Objective",
         "",
         manifest["objective"],
         "",
-        "## Offline Evidence Package (filesystem KRET artifacts — read from disk, NOT MongoDB)",
+        "## Offline Evidence Package (filesystem KRET artifacts - read from disk, NOT MongoDB)",
         "",
         f"- **Step 2 (simulator):** `{manifest['offline_evidence_package']['step2_simulator']}`",
         f"- **Step 3 (sentinel):** `{manifest['offline_evidence_package']['step3_sentinel']}`",
@@ -371,9 +371,9 @@ def main() -> int:
         f"- **If any gate fails:** {manifest['acceptance_criteria']['if_any_gate_fails']}",
         f"- **If all gates clear:** {manifest['acceptance_criteria']['if_all_gates_clear']}",
         "",
-        "## MCP Dispatch Commands (v2 — namespaced + forbidden-collection-aware)",
+        "## MCP Dispatch Commands (v2 - namespaced + forbidden-collection-aware)",
         "",
-        "**Cannot be executed from this repo** — the insignia-local MCP server is not available in this environment. Execute in the orchestrator's agent env.",
+        "**Cannot be executed from this repo** - the insignia-local MCP server is not available in this environment. Execute in the orchestrator's agent env.",
         "",
     ]
     mc = manifest["mcp_dispatch_commands"]

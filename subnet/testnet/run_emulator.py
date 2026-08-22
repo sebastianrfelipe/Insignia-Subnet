@@ -204,7 +204,7 @@ def run_full(config: EmulatorConfig, n_generations: int = 20, population: int = 
 
     ok = run_setup(config)
     if not ok:
-        logger.warning("Setup encountered issues — continuing with emulator in offline mode")
+        logger.warning("Setup encountered issues - continuing with emulator in offline mode")
 
     return run_evolve(config, n_generations=n_generations, population=population)
 
@@ -214,7 +214,7 @@ from tuning.optimizer import OBJECTIVE_NAMES
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Insignia Testnet Emulator — Hyperparameter & Incentive Mechanism Tuning",
+        description="Insignia Testnet Emulator - Hyperparameter & Incentive Mechanism Tuning",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Modes:
@@ -311,7 +311,7 @@ Examples:
             run_full(config, n_generations=args.generations, population=args.population)
 
     except KeyboardInterrupt:
-        logger.info("Interrupted — saving partial results...")
+        logger.info("Interrupted - saving partial results...")
     finally:
         if not args.no_metrics:
             stop_metrics_server()

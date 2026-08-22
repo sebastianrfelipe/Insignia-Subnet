@@ -1,12 +1,12 @@
 """Wrappers for the conviction v2 lock extrinsics (SPEC §4).
 
 M2 gate: every call here must be exercised end-to-end on testnet before mainnet
-use — extrinsic and storage names come from subtensor PRs #2658/#2687/#2696 and
+use - extrinsic and storage names come from subtensor PRs #2658/#2687/#2696 and
 may drift before mainnet deployment. The SDK may not expose them yet, in which
 case calls are composed raw via the substrate interface.
 
 Key architecture (SPEC §10.1): prefer LP-held coldkeys granting the desk a
-limited proxy over `lock_stake` / `set_perpetual_lock` ONLY — no transfer or
+limited proxy over `lock_stake` / `set_perpetual_lock` ONLY - no transfer or
 unstake authority. Verify on testnet which proxy type actually gates the lock
 extrinsics; if none does, fall back to fund-custodied cohort coldkeys under
 multisig and flag the custody change to Phase-0 counsel.
@@ -57,7 +57,7 @@ class LockClient:
         return receipt
 
     def lock_stake(self, hotkey: str, amount_alpha: float) -> Any:
-        """Creates a DECAYING lock by default — must be followed by
+        """Creates a DECAYING lock by default - must be followed by
         set_perpetual_lock(True) in the same session (SPEC §0.3)."""
         return self._compose(
             "lock_stake",

@@ -1,4 +1,4 @@
-"""Root Reborn overlay against SPEC §0.16 — protocol flow, not the LP product.
+"""Root Reborn overlay against SPEC §0.16 - protocol flow, not the LP product.
 
 LP return is the wrapper identity in test_emissions.py / SYSTEM_EQUATIONS §9.
 This module covers basket bid, escrow, claim monitoring, and R15/R16 shocks
@@ -23,7 +23,7 @@ NETUID = 77
 
 
 def test_root_base_yield_is_the_coupon_not_lp_yield():
-    # 983 τ/day × 365 / 5,374,582 ≈ 6.7%/yr — root TAO coupon, not wrapper return
+    # 983 τ/day × 365 / 5,374,582 ≈ 6.7%/yr - root TAO coupon, not wrapper return
     assert emissions.root_base_yield(PARAMS) == pytest.approx(0.0668, abs=0.001)
     y_alpha = emissions.lp_annual_yield(PARAMS, 365, 12e6)
     assert y_alpha == pytest.approx(0.076, abs=0.002)
@@ -32,7 +32,7 @@ def test_root_base_yield_is_the_coupon_not_lp_yield():
 
 
 def test_dividend_bid_scales_with_root_stake_not_lp_notional():
-    # w=0.9 — 16.5 / 41.1 / 82.3 / 164.6 τ/day at 100k/250k/500k/1M τ of *root* stake
+    # w=0.9 - 16.5 / 41.1 / 82.3 / 164.6 τ/day at 100k/250k/500k/1M τ of *root* stake
     for stake, expected in [(1e5, 16.5), (2.5e5, 41.1), (5e5, 82.3), (1e6, 164.6)]:
         assert emissions.dividend_bid(PARAMS, stake, 0.9) == pytest.approx(expected, abs=0.2)
 

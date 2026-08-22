@@ -1,12 +1,12 @@
-# V14-R1 Dispatch Manifest v3 — Pre-flight Correction Patch
+# V14-R1 Dispatch Manifest v3 - Pre-flight Correction Patch
 
 ## Issue
 
 The `local_chain_reachable` pre-flight check in
 `scripts/v14_r1_online_dispatch_manifest_v3.py` referenced:
 
-- `btcli chain-info` — **not a valid command**
-- `btcli subnets list` — raises `BlockQueryErrorForSwapAlphaSqrtPrice`
+- `btcli chain-info` - **not a valid command**
+- `btcli subnets list` - raises `BlockQueryErrorForSwapAlphaSqrtPrice`
   due to btcli 9.22.3 vs chain runtime mismatch
 
 ## Dispatch Finding (authoratative)
@@ -43,7 +43,7 @@ From `memory:v14_r1_online_verification_dispatch`:
    > `btcli chain-info`.
 
 3. **Parameter space status**: `config_matches_current_parameter_space`
-   pre-flight check PASSES — `parameter_space.py` and `scoring.py` already
+   pre-flight check PASSES - `parameter_space.py` and `scoring.py` already
    have the 8 trading-weight keys (including `trading_annualized_return`,
    no `trading_realized_pnl`/`trading_win_rate`), `scoring_schema =
    annualized_return_v2`, weights sum to 1.0. No changes needed to those
@@ -65,5 +65,5 @@ python scripts/v14_r1_preflight_chain_probe.py \
 
 ## Files Changed
 
-- `scripts/v14_r1_preflight_chain_probe.py` — **NEW** — corrected chain probe
-- `docs/v14_r1_preflight_correction.md` — **THIS FILE** — correction documentation
+- `scripts/v14_r1_preflight_chain_probe.py` - **NEW** - corrected chain probe
+- `docs/v14_r1_preflight_correction.md` - **THIS FILE** - correction documentation

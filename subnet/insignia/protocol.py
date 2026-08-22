@@ -5,7 +5,7 @@ Defines the Synapse (request/response) types for communication between
 validators and miners for both the researcher (model generation) and trader
 (strategy deployment) roles.
 
-Bittensor subnets communicate via Synapses — typed request/response
+Bittensor subnets communicate via Synapses - typed request/response
 objects that travel over the network. Each Synapse defines what a
 validator asks for and what a miner returns.
 """
@@ -83,7 +83,7 @@ class ModelSubmission(_SynapseBase):
 
     Reproducibility: in addition to the model artifact,
     the miner ships the source code that produced/serves it as a signed
-    ``code_bundle`` (a deterministic ``tar.gz`` — see
+    ``code_bundle`` (a deterministic ``tar.gz`` - see
     ``insignia.code_submission``). The validator re-executes the bundle's
     ``code_entrypoint`` in an isolated sandbox and confirms it reproduces the
     submitted artifact's predictions before the submission is scored. This
@@ -162,7 +162,7 @@ class ModelScoreReport(_SynapseBase):
 
     After scoring, validators inform miners of their composite score and
     per-metric breakdown so miners can iterate. The proprietary benchmark
-    data is never shared — only the resulting scores.
+    data is never shared - only the resulting scores.
     """
 
     epoch_id: int = 0
@@ -182,8 +182,8 @@ class TradingStrategySubmission(_SynapseBase):
     Trader miner -> validator: Submit live/paper trading strategy results.
 
     Trader miners run a strategy on the model assigned by the chain-seeded
-    pairing. They submit periodic performance snapshots — position logs,
-    P&L, and risk metrics — for validator scoring.
+    pairing. They submit periodic performance snapshots - position logs,
+    P&L, and risk metrics - for validator scoring.
     """
 
     strategy_id: str = ""
@@ -198,7 +198,7 @@ class TradingStrategySubmission(_SynapseBase):
     max_drawdown_pct: float = 0.0
     sharpe_ratio: float = 0.0
     omega_ratio: float = 0.0
-    win_rate: float = 0.0  # diagnostic only — not weighted in the composite
+    win_rate: float = 0.0  # diagnostic only - not weighted in the composite
     total_trades: int = 0
     evaluation_window_hours: int = 720  # 30 days default
 
@@ -244,7 +244,7 @@ class TradingPositionUpdate(_SynapseBase):
 
 
 # ---------------------------------------------------------------------------
-# Cross-Layer Synapses (DEPRECATED — retained for backward compatibility)
+# Cross-Layer Synapses (DEPRECATED - retained for backward compatibility)
 #
 # The single paired mechanism replaces L1->promotion->L2 with chain-seeded
 # pairing + joint evaluation, so cross-layer retroactive feedback is no longer

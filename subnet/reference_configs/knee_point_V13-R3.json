@@ -23,7 +23,7 @@
     "honest_score": 0.9808,
     "score_variance": 0.00081,
     "score_separation": 0.963,
-    "_note": "Surrogate/optimizer predictions only. score_separation was empirically falsified — see empirical_validation."
+    "_note": "Surrogate/optimizer predictions only. score_separation was empirically falsified - see empirical_validation."
   },
   "empirical_validation": {
     "verdict": "FAILED_SEPARATION_GATE",
@@ -38,9 +38,9 @@
     "separation_gate_threshold": 0.90,
     "surrogate_vs_empirical": "separation 0.963 predicted vs ~0.23 empirical (~4x); implied best-adversary 0.018 vs actual 0.733 (~40x underestimate)",
     "root_cause": [
-      "PRIMARY: training-data contamination — the 630 NSGA-II evaluations used the optimizer's simplified analytical adversary model, which scored Copycat/CopyTrader ~0.02-0.05 vs ~0.73 empirically",
+      "PRIMARY: training-data contamination - the 630 NSGA-II evaluations used the optimizer's simplified analytical adversary model, which scored Copycat/CopyTrader ~0.02-0.05 vs ~0.73 empirically",
       "SECONDARY: surrogate R2=0.96 measured fit to biased training targets, not ground truth",
-      "CONTRIBUTING: Pareto collapse — all 26 solutions sit in a narrow 0.958-0.967 separation band (false local optimum)"
+      "CONTRIBUTING: Pareto collapse - all 26 solutions sit in a narrow 0.958-0.967 separation band (false local optimum)"
     ],
     "honest_score_holds": true,
     "breach_rate_status": "not independently re-measured; separation is the failing gate"
@@ -54,12 +54,12 @@
     "breach_rate": "25.7% better (2.6e-6 vs 3.5e-6)",
     "honest_score": "0.13% better (0.9808 vs 0.9795)",
     "score_variance": "10% better (0.00081 vs 0.0009)",
-    "score_separation": "INVALID — both figures are surrogate-predicted; R3 empirical separation is ~0.23 (failed gate)"
+    "score_separation": "INVALID - both figures are surrogate-predicted; R3 empirical separation is ~0.23 (failed gate)"
   },
   "run": {
     "run_id": "nsga_ii_v13_r3_surrogate",
     "version": "13.0-R3",
-    "algorithm": "NSGA-II (pymoo). NOTE: an earlier version of this file claimed 'NSGA-II + GaussianProcess Surrogate (RBF+WhiteKernel) + ExpectedImprovement Infill' — a 2026-07-01 code audit found no surrogate exists in subnet/tuning/optimizer.py. The optimizer calls SimulationHarness.run() directly. See CORRECTION_2026_07_01 above.",
+    "algorithm": "NSGA-II (pymoo). NOTE: an earlier version of this file claimed 'NSGA-II + GaussianProcess Surrogate (RBF+WhiteKernel) + ExpectedImprovement Infill' - a 2026-07-01 code audit found no surrogate exists in subnet/tuning/optimizer.py. The optimizer calls SimulationHarness.run() directly. See CORRECTION_2026_07_01 above.",
     "population_size": 30,
     "generations": 20,
     "n_objectives": 4,
@@ -95,7 +95,7 @@
   "provenance": {
     "source": "insignia-local MCP (MongoDB `swarm` db)",
     "agent_memory_keys": ["tuner_v13_r3_gen20_final", "tuner_v13_r3_optimization_run"],
-    "captured_from_orchestration_report": "Orchestration Report — 2026-06-27T03-11-52",
+    "captured_from_orchestration_report": "Orchestration Report - 2026-06-27T03-11-52",
     "note": "The full 41-dim decoded parameter vector was not persisted as a flat artifact; it is reconstructable from MCP run `nsga_ii_v13_r3_surrogate`. This file records the knee point by objectives + run spec + lineage, matching the convention used for the prior R2 checkpoint."
   }
 }

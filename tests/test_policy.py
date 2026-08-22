@@ -36,7 +36,7 @@ def test_routing_split_sums_and_banks_above_nav():
 
     at_premium = routing.route(100.0, BandAction.STOP_BUYING)
     assert at_premium["buy_flow"] == 0.0
-    # the buy-flow tranche accrues to reserve — revenue is never spent above NAV
+    # the buy-flow tranche accrues to reserve - revenue is never spent above NAV
     assert at_premium["reserve"] == pytest.approx(75.0)
     assert sum(at_premium.values()) == pytest.approx(100.0)
 

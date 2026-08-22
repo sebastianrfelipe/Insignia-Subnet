@@ -295,7 +295,7 @@ def variance_score(
 def feature_efficiency(n_features_used: int, max_features: int = 200) -> float:
     """
     Penalizes models that require an excessive number of features.
-    Returns value in (0, 1] — fewer features = higher score.
+    Returns value in (0, 1] - fewer features = higher score.
     """
     if n_features_used <= 0:
         return 0.0
@@ -317,7 +317,7 @@ class OverfittingDetector(ABC):
     Abstract base for overfitting detection.
 
     The subnet owner's proprietary overfitting metric implements this
-    interface. The metric itself is never exposed — only the resulting
+    interface. The metric itself is never exposed - only the resulting
     score (0 = no overfitting, 1 = severe overfitting) is published.
 
     For the hackathon demo, a reference implementation is provided that
@@ -373,18 +373,18 @@ class ReferenceOverfittingDetector(OverfittingDetector):
 # predictions. Eight headline metrics capture complementary dimensions
 # of strategy quality:
 #
-#   1. Annualized Return (21.28%) — scale-invariant profitability (return on
+#   1. Annualized Return (21.28%) - scale-invariant profitability (return on
 #      capital, annualized on a 365-day crypto basis)
-#   2. Omega Ratio (13.83%)       — full-distribution risk (tail behavior)
-#   3. Max Drawdown (14.89%)      — peak-to-trough loss; hard elimination threshold
-#   4. Consistency (21.28%)       — rolling sub-window steadiness
-#   5. Execution Quality (10.64%) — latency, reliability, and slippage
-#   6. Annualized Volatility (5.32%) — cumulative realized volatility (inverted)
-#   7. Sharpe Ratio (6.38%)       — risk-adjusted return per unit total volatility
-#   8. Sortino Ratio (6.38%)      — risk-adjusted return per unit downside volatility
+#   2. Omega Ratio (13.83%)       - full-distribution risk (tail behavior)
+#   3. Max Drawdown (14.89%)      - peak-to-trough loss; hard elimination threshold
+#   4. Consistency (21.28%)       - rolling sub-window steadiness
+#   5. Execution Quality (10.64%) - latency, reliability, and slippage
+#   6. Annualized Volatility (5.32%) - cumulative realized volatility (inverted)
+#   7. Sharpe Ratio (6.38%)       - risk-adjusted return per unit total volatility
+#   8. Sortino Ratio (6.38%)      - risk-adjusted return per unit downside volatility
 #
 # Diagnostics tier (computed and reported, but NOT weighted in the composite):
-#   - Win Rate — signal precision; useful for diagnosing churn vs. edge, but
+#   - Win Rate - signal precision; useful for diagnosing churn vs. edge, but
 #     deliberately unweighted so it cannot reward low-conviction noise trading.
 #
 # Omega is retained alongside Sortino deliberately: the production stack
@@ -407,7 +407,7 @@ class ReferenceOverfittingDetector(OverfittingDetector):
 # metric no longer belongs in the per-miner score. Its weight was
 # redistributed across the remaining performance metrics.
 #
-# Execution Quality evaluates the strategy's infrastructure health —
+# Execution Quality evaluates the strategy's infrastructure health -
 # how cleanly and efficiently it interacts with the exchange. Strategies
 # with high latency, frequent order rejects, or excessive slippage are
 # penalized even if their P&L looks good, because poor execution quality
@@ -420,7 +420,7 @@ def annualized_return_score(
     target_annualized: float = 0.50,
 ) -> float:
     """
-    Annualized Return Score — scale-invariant profitability.
+    Annualized Return Score - scale-invariant profitability.
 
     Replaces the old absolute Realized P&L metric. Raw P&L is denominated in
     quote currency, which makes scores capital-dependent: a strategy running
@@ -468,7 +468,7 @@ def omega_ratio(
     confidence_k: float = 30.0,
 ) -> float:
     """
-    Omega Ratio — full-distribution risk measure capturing tail behavior.
+    Omega Ratio - full-distribution risk measure capturing tail behavior.
 
     Unlike Sharpe ratio (which only considers mean and variance), the Omega
     ratio captures the *entire* return distribution, including skewness and
@@ -497,7 +497,7 @@ def omega_ratio(
 
     A sample-size confidence shrinkage is applied to the raw Omega before
     the cap: ``raw *= sqrt(N / (N + confidence_k))`` where N is the number
-    of returns. This removes the trade-count confound — a strategy with a
+    of returns. This removes the trade-count confound - a strategy with a
     thin trade history can hit the cap on luck, while the same edge over
     many trades produces a more modest value. At N >> confidence_k the
     factor approaches 1; at small N the ratio is shrunk toward 0.
@@ -532,7 +532,7 @@ def omega_ratio(
 
 def win_rate(trades: List[float]) -> float:
     """
-    Win Rate — signal precision measuring the fraction of profitable trades.
+    Win Rate - signal precision measuring the fraction of profitable trades.
 
     DIAGNOSTIC ONLY: win rate is computed and reported in every trading
     ScoreVector (raw and normalized dicts), but it carries NO weight in the
@@ -565,7 +565,7 @@ def consistency_score(
     window_days: int = 7,
 ) -> float:
     """
-    Consistency Score — rolling sub-window analysis penalizing spike-then-collapse.
+    Consistency Score - rolling sub-window analysis penalizing spike-then-collapse.
 
     Measures whether a strategy performs *steadily* over time rather than
     generating returns through a single lucky streak. This is one of the
@@ -624,7 +624,7 @@ def annualized_volatility(
     trading_days: int = 365,
 ) -> float:
     """
-    Annualized Volatility — cumulative realized volatility of returns.
+    Annualized Volatility - cumulative realized volatility of returns.
 
     Measures the standard deviation of daily returns, annualized to give
     a yearly volatility figure. This is the most direct measure of how
@@ -662,7 +662,7 @@ def sharpe_ratio(
     confidence_k: float = 30.0,
 ) -> float:
     """
-    Sharpe Ratio — risk-adjusted return per unit of total volatility.
+    Sharpe Ratio - risk-adjusted return per unit of total volatility.
 
     The most widely used risk-adjusted performance measure in
     institutional finance. It answers the question: "How much excess
@@ -718,12 +718,12 @@ def sortino_ratio(
     confidence_k: float = 30.0,
 ) -> float:
     """
-    Sortino Ratio — risk-adjusted return per unit of *downside* volatility.
+    Sortino Ratio - risk-adjusted return per unit of *downside* volatility.
 
     A refinement of the Sharpe ratio that only penalizes harmful
     (downside) volatility rather than total volatility. This is more
     appropriate for trading strategies because upside volatility (large
-    gains) should not be penalized — only the risk of losses matters.
+    gains) should not be penalized - only the risk of losses matters.
 
     The denominator uses downside deviation: the standard deviation of
     returns that fall below the target (risk-free rate), treating all
@@ -788,14 +788,14 @@ class ExecutionMetrics:
     and exchange-level telemetry reported by trader miners.
     """
 
-    # Latency (milliseconds) — measured across the order lifecycle
+    # Latency (milliseconds) - measured across the order lifecycle
     ws_message_lag_ms: float = 0.0
     decision_to_submit_ms: float = 0.0
     submit_to_ack_ms: float = 0.0
     ack_to_fill_ms: float = 0.0
     end_to_end_intent_ms: float = 0.0
 
-    # Reliability — infrastructure failure counters
+    # Reliability - infrastructure failure counters
     order_reject_count: int = 0
     cancel_count: int = 0
     partial_fill_count: int = 0
@@ -803,7 +803,7 @@ class ExecutionMetrics:
     reconnect_count: int = 0
     total_orders: int = 0
 
-    # Performance — execution cost and quality
+    # Performance - execution cost and quality
     slippage_bps: float = 0.0
     realized_fees_pct: float = 0.0
     turnover: float = 0.0
@@ -811,7 +811,7 @@ class ExecutionMetrics:
 
 def execution_quality_score(metrics: ExecutionMetrics) -> float:
     """
-    Execution Quality Score — composite measure of infrastructure health.
+    Execution Quality Score - composite measure of infrastructure health.
 
     Evaluates three orthogonal dimensions of execution quality and combines
     them into a single score:
@@ -940,7 +940,7 @@ class CompositeScorer:
 
     The scorer is deterministic: given the same inputs and weights, it
     always produces the same output. This is critical for validator
-    consensus — all validators running the same scorer on the same data
+    consensus - all validators running the same scorer on the same data
     must agree on miner rankings.
     """
 
@@ -1009,7 +1009,7 @@ class CompositeScorer:
         """
         Compute the trading composite score for a trader miner's strategy.
 
-        All inputs are derived from real or paper trading outcomes — no
+        All inputs are derived from real or paper trading outcomes - no
         simulation involved. This is the empirical proof layer that closes
         the gap between backtested model quality and deployment viability.
 
@@ -1048,7 +1048,7 @@ class CompositeScorer:
             execution_metrics: Aggregated execution telemetry for the
                 epoch (latency, reliability, slippage). If None, a
                 default ExecutionMetrics() is used, which yields a
-                perfect execution quality score — appropriate for
+                perfect execution quality score - appropriate for
                 paper trading where execution infrastructure is
                 simulated.
 
@@ -1145,11 +1145,11 @@ class CompositeScorer:
             Clamped.
           - omega: Divided by 3.0 (Omega >= 3 → 1.0).
           - max_drawdown: Inverted (1 - dd).
-          - win_rate: Already in [0, 1]. Clamped. DIAGNOSTIC ONLY — present
+          - win_rate: Already in [0, 1]. Clamped. DIAGNOSTIC ONLY - present
             in the output dict but excluded from the composite.
           - consistency: Already in [0, 1]. Clamped.
           - execution_quality: Already in [0, 1]. Clamped.
-          - annualized_volatility: Inverted and scaled — lower vol =
+          - annualized_volatility: Inverted and scaled - lower vol =
             higher score. Vol <= 0.3 (30%) maps to 1.0; vol >= 1.5
             (150%) maps to 0.0. Uses linear interpolation.
           - sharpe_ratio: Sigmoid-like transform centered at 1.0.

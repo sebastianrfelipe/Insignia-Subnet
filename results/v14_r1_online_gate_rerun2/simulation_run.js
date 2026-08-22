@@ -1,5 +1,5 @@
 /**
- * V14-R1-CORRECTED-KP Online Simulation — RERUN 2 (seed 90210)
+ * V14-R1-CORRECTED-KP Online Simulation - RERUN 2 (seed 90210)
  *
  * Faithful reimplementation of subnet/tuning/simulation.py SimulationHarness
  * in Node.js. Uses the V14-R1-CORRECTED-KP config (8-trading-weight post-revamp

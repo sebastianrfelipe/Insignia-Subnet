@@ -88,7 +88,7 @@ def test_settle_drains_above_floor_and_captures_below():
     assert gone.position is None
     assert gone.released == pytest.approx(10.0)
 
-    # Zero emission is a no-op (does not touch earned either — pallet returns
+    # Zero emission is a no-op (does not touch earned either - pallet returns
     # before mutating when emission.is_zero()).
     noop = settle_miner_collateral(_pos(locked=10.0, earned=5.0), 0.0, 10.0)
     assert noop.position.earned == 5.0

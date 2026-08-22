@@ -15,7 +15,7 @@ const SEED = 14071;
 const N_EPOCHS = 3;
 const N_TRADING_STEPS = 200;
 
-// Penalty multipliers (EXP-ADVERSARY-COVERAGE-002) — matching simulation.py
+// Penalty multipliers (EXP-ADVERSARY-COVERAGE-002) - matching simulation.py
 const COPYCAT_M = 0.0001, COPYTRADER_M = 0.0001, OVERFITTER_M = 0.0001;
 const SINGLE_M = 0.0001, COLLUDER_M = 0.0001, PARTNER_M = 0.0001;
 const SYBIL_DS = 0.92, SYBIL_CP = 0.85, SYBIL_GS = 0.005, SYBIL_FLOOR = 0.0001;

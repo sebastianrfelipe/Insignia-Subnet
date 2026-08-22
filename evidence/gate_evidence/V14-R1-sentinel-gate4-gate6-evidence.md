@@ -93,7 +93,7 @@ Trend: monotonically decreasing toward zero. No breach alerts generated.
 |--------|-------|-----------|--------|
 | Online reruns completed | 2 | >=2 | PASS |
 | Chain reachable | true | true | PASS |
-| Chain endpoint | ws://127.0.0.1:9944 | — | verified |
+| Chain endpoint | ws://127.0.0.1:9944 | - | verified |
 | Mode | ONLINE | ONLINE | PASS |
 | Block hashes recorded | 2 unique | >=1 | PASS |
 
@@ -137,8 +137,8 @@ Both reruns used distinct seeds, distinct block hashes, and ran in ONLINE mode a
 
 ## Conclusion
 
-**Gate 4 (Attack Surveillance): PASS** — 28/28 vectors below threshold, 16 consecutive clean evals (>=6 required), CR effectiveness 0.8014 > 0.667, security status SECURE_AND_IMPROVING, no reset triggers.
+**Gate 4 (Attack Surveillance): PASS** - 28/28 vectors below threshold, 16 consecutive clean evals (>=6 required), CR effectiveness 0.8014 > 0.667, security status SECURE_AND_IMPROVING, no reset triggers.
 
-**Gate 6 (Online Verification): PASS** — 2 online reruns completed against ws://127.0.0.1:9944 with distinct seeds and block hashes, CR effectiveness 0.791, separation 0.902.
+**Gate 6 (Online Verification): PASS** - 2 online reruns completed against ws://127.0.0.1:9944 with distinct seeds and block hashes, CR effectiveness 0.791, separation 0.902.
 
 Both gates pass on measured online data. No unmeasured verdicts. No namespace contamination.

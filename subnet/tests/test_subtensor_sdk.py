@@ -1,6 +1,6 @@
 """Offline smoke tests for the Python SDK backend and manager fallback wiring.
 
-These tests do NOT hit a live chain — they verify:
+These tests do NOT hit a live chain - they verify:
   1. `_subtensor_sdk.PySdkBackend` imports cleanly and degrades gracefully
      when `bittensor` is not installed (returns `is_online == False`).
   2. `SubnetManager` and `WalletManager` correctly detect whether `btcli`

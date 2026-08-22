@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-Insignia Subnet — Full End-to-End Demo (Paired Genetic Mechanism)
+Insignia Subnet - Full End-to-End Demo (Paired Genetic Mechanism)
 
 Demonstrates the single incentive mechanism end-to-end:
 
@@ -53,7 +53,7 @@ def run_full_demo(
     n_generations: int = 3,
     n_trading_steps: int = 120,
 ):
-    section("INSIGNIA SUBNET — PAIRED GENETIC MECHANISM DEMO")
+    section("INSIGNIA SUBNET - PAIRED GENETIC MECHANISM DEMO")
     logger.info(
         "  Researchers: %d | Traders: %d | Generations: %d | Trading steps: %d",
         n_researchers, n_traders, n_generations, n_trading_steps,

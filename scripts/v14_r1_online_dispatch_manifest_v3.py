@@ -1,4 +1,4 @@
-"""V14-R1 online-mode gate verification — orchestrator dispatch manifest v3.
+"""V14-R1 online-mode gate verification - orchestrator dispatch manifest v3.
 
 v3 hardens v2 to prevent the premature-promotion failure mode observed in
 the v2 run (report 2026-07-07T20-41-48):
@@ -48,7 +48,7 @@ v3 changes vs v2:
      promotion.
   6. NO PROJECTION VERDICTS: the strings "PASS (projected)",
      "PASS (conditional)", "PASS (inferred from baseline)" are forbidden.
-     A gate is PASS, FAIL, or INSUFFICIENT_EVIDENCE — nothing else.
+     A gate is PASS, FAIL, or INSUFFICIENT_EVIDENCE - nothing else.
   7. PARAMETER_SPACE.PY PROTECTION: the coder MUST NOT mark
      parameter_space.py as updated/PROMOTED unless the file change is
      actually pushed to the git branch. agent_memory records with
@@ -79,7 +79,7 @@ AMENDMENT 2026-08-03 (trading metric revamp, subnet/CHANGELOG.md 2026-08-03):
   - New hard block no_stale_parameter_space_promotion: no git-push
     promotion, no btcli hyperparameter apply for a stale-space config.
 
-This script CANNOT dispatch the orchestrator from this repo — the
+This script CANNOT dispatch the orchestrator from this repo - the
 insignia-local MCP server is not available in this environment. It writes
 the v3 manifest to results/ for manual execution in the orchestrator env.
 
@@ -97,7 +97,7 @@ from pathlib import Path
 from typing import Dict, Any, List
 
 
-# Namespace for this verification run. Locked — every read AND write must
+# Namespace for this verification run. Locked - every read AND write must
 # use these fields. Writes with procedure="insignia_subnet_tuner" are
 # forbidden (that's the tuner's playbook).
 RUN_NAMESPACE: Dict[str, str] = {
@@ -111,7 +111,7 @@ FORBIDDEN_COLLECTIONS: List[str] = [
     "simulation_results",  # belongs to "Insignia subnet tuner" playbook
 ]
 
-# Filesystem KRET artifacts (offline evidence — usable as CONTEXT only,
+# Filesystem KRET artifacts (offline evidence - usable as CONTEXT only,
 # NOT as primary evidence for gate verdicts in v3).
 FILESYSTEM_KRET_ARTIFACTS: Dict[str, str] = {
     "simulator_step2": "results/v14_r1_empirical_validation_2026-07-04T02-21-09.json",
@@ -168,7 +168,7 @@ AMENDMENTS: List[Dict[str, Any]] = [
 
 
 # Pre-flight checks that MUST pass before any gate evaluation begins.
-# If any fail, the run ABORTS — no projection-based verdicts, no
+# If any fail, the run ABORTS - no projection-based verdicts, no
 # criterion_met=true writes, no promotion status writes.
 PREFLIGHT_CHECKS: List[Dict[str, Any]] = [
     {
@@ -271,7 +271,7 @@ for _gate in EVIDENCE_REQUIREMENTS:
     _gate["forbidden_evidence"].append(STALE_COMPOSITE_FORBIDDEN_EVIDENCE)
 
 
-# Hard blocks — actions the orchestrator/coder MUST NOT take.
+# Hard blocks - actions the orchestrator/coder MUST NOT take.
 HARD_BLOCKS: List[Dict[str, Any]] = [
     {
         "id": "no_projection_verdicts",
@@ -281,7 +281,7 @@ HARD_BLOCKS: List[Dict[str, Any]] = [
     {
         "id": "no_criterion_met_writes_without_evidence",
         "rule": "mongodb_insert_one / mongodb_update_one into convergence_metrics, sentinel_state, audit_log with criterion_met=true or status=PROMOTED for V14-R1 is FORBIDDEN until the EVIDENCE_REQUIREMENTS for all 6 gates are satisfied with V14-R1 documents.",
-        "enforcement": "The coder's HITL task must read simulation_epochs (>= 2 V14-R1 docs), sentinel_state (>= 1 V14-R1 doc), convergence_metrics (NOT pre-existing) BEFORE any promotion write. If any prerequisite is missing, the HITL task returns BLOCKED — not PROMOTED_WITH_PENDING_BTCLI.",
+        "enforcement": "The coder's HITL task must read simulation_epochs (>= 2 V14-R1 docs), sentinel_state (>= 1 V14-R1 doc), convergence_metrics (NOT pre-existing) BEFORE any promotion write. If any prerequisite is missing, the HITL task returns BLOCKED - not PROMOTED_WITH_PENDING_BTCLI.",
     },
     {
         "id": "no_namespace_leak",
@@ -325,11 +325,11 @@ def build_manifest() -> Dict[str, Any]:
         # v2 post-mortem: why v3 exists
         "v2_postmortem": {
             "v2_manifest": "results/v14_r1_online_dispatch_manifest_v2_2026-07-05T18-00-10.json",
-            "v2_report": "Orchestration Report/Orchestration Report — 2026-07-07T20-41-48.pdf",
+            "v2_report": "Orchestration Report/Orchestration Report - 2026-07-07T20-41-48.pdf",
             "v2_result": "6/6 completed, 0 failed (guardrails fixed)",
             "v2_actual_outcome": "Premature promotion: orchestrator declared PASS on projected V13-R3 baseline + offline KRET; coder persisted criterion_met=true to MongoDB without V14-R1 runs; parameter_space.py update stuck in PENDING_GITHUB_PUSH; reviewer audit said INSUFFICIENT_EVIDENCE on all 6 gates and was overridden by orchestrator summary.",
             "v2_caveats_that_were_the_whole_verification": [
-                "Local chain UNREACHABLE — 0 on-chain evidence",
+                "Local chain UNREACHABLE - 0 on-chain evidence",
                 "0 V14-R1 documents in MongoDB across 12+ collections",
                 "0 reruns completed (manifest required >= 2)",
                 "V13-R3 convergence FAILED (criterion_met=false) yet used as baseline projection",
@@ -364,7 +364,7 @@ def build_manifest() -> Dict[str, Any]:
         "namespace": RUN_NAMESPACE,
         "forbidden_collections": FORBIDDEN_COLLECTIONS,
         "filesystem_kret_artifacts": FILESYSTEM_KRET_ARTIFACTS,
-        "filesystem_kret_role": "CONTEXT ONLY — usable for cycle continuity / debugging, NOT as primary evidence for any §9 online gate verdict in v3.",
+        "filesystem_kret_role": "CONTEXT ONLY - usable for cycle continuity / debugging, NOT as primary evidence for any §9 online gate verdict in v3.",
         "invalidated_kret_artifacts": INVALIDATED_KRET_ARTIFACTS,
         "evidence_scoring_schema": EVIDENCE_SCORING_SCHEMA,
         "preflight_checks": PREFLIGHT_CHECKS,
@@ -408,7 +408,7 @@ def build_manifest() -> Dict[str, Any]:
                     "assignee": "orchestrator",
                     "priority": 10,
                     "description": (
-                        "V14-R1 online-mode gate verification (v3 — hard-blocks premature "
+                        "V14-R1 online-mode gate verification (v3 - hard-blocks premature "
                         "promotion): run the live V14-R1-CORRECTED-KP config on-chain across "
                         ">= 2 reruns with different seeds. PRE-FLIGHT: abort if local chain "
                         "unreachable; abort with ABORTED_CONFIG_PARAMETER_SPACE_STALE if the "
@@ -525,7 +525,7 @@ def main() -> int:
 
     # Markdown manifest
     lines = [
-        "# V14-R1 Online-Mode Gate Verification — Orchestrator Dispatch Manifest (v3)",
+        "# V14-R1 Online-Mode Gate Verification - Orchestrator Dispatch Manifest (v3)",
         "",
         f"**Generated:** {manifest['generated_at']}",
         f"**Amended:** {manifest['amended_at']} ({AMENDMENTS[0]['id']}, {AMENDMENTS[0]['source']})",
@@ -570,15 +570,15 @@ def main() -> int:
         "",
         "## v3 hardening summary",
         "",
-        "1. **PRE-FLIGHT GATE** — abort if local chain unreachable (no projection fallback).",
-        "2. **EVIDENCE-BACKED VERDICTS** — each gate must cite a V14-R1 MongoDB document; V13-R3 / offline refs are forbidden evidence.",
-        "3. **PROMOTION WRITE-BLOCK** — `criterion_met=true` writes forbidden until ≥2 V14-R1 `simulation_epochs` + V14-R1 `sentinel_state` persisted.",
-        "4. **NAMESPACE LOCK** — V14-R1 writes must use `procedure=v14_r1_online_gate_check` (not `insignia_subnet_tuner`).",
-        "5. **REVIEWER VETO** — orchestrator summary must match reviewer verdicts; disagreement → correction task, not promotion.",
-        "6. **NO PROJECTION VERDICTS** — `PASS (projected)` / `PASS (conditional)` are forbidden; verdicts are PASS / FAIL / INSUFFICIENT_EVIDENCE.",
-        "7. **NO PROMOTION WITHOUT GIT PUSH** — `PENDING_GITHUB_PUSH` is a TODO, not a promotion.",
-        "8. **CONFIG PARAMETER-SPACE GATE (2026-08-03)** — abort with `ABORTED_CONFIG_PARAMETER_SPACE_STALE` if V14-R1-CORRECTED-KP is still expressed in the pre-revamp trading-weight space; file a re-basing task instead of verifying.",
-        "9. **EVIDENCE SCORING SCHEMA (2026-08-03)** — gate evidence must carry `scoring_schema='annualized_return_v2'`; pre-revamp composite runs do not count toward `min_documents`.",
+        "1. **PRE-FLIGHT GATE** - abort if local chain unreachable (no projection fallback).",
+        "2. **EVIDENCE-BACKED VERDICTS** - each gate must cite a V14-R1 MongoDB document; V13-R3 / offline refs are forbidden evidence.",
+        "3. **PROMOTION WRITE-BLOCK** - `criterion_met=true` writes forbidden until ≥2 V14-R1 `simulation_epochs` + V14-R1 `sentinel_state` persisted.",
+        "4. **NAMESPACE LOCK** - V14-R1 writes must use `procedure=v14_r1_online_gate_check` (not `insignia_subnet_tuner`).",
+        "5. **REVIEWER VETO** - orchestrator summary must match reviewer verdicts; disagreement → correction task, not promotion.",
+        "6. **NO PROJECTION VERDICTS** - `PASS (projected)` / `PASS (conditional)` are forbidden; verdicts are PASS / FAIL / INSUFFICIENT_EVIDENCE.",
+        "7. **NO PROMOTION WITHOUT GIT PUSH** - `PENDING_GITHUB_PUSH` is a TODO, not a promotion.",
+        "8. **CONFIG PARAMETER-SPACE GATE (2026-08-03)** - abort with `ABORTED_CONFIG_PARAMETER_SPACE_STALE` if V14-R1-CORRECTED-KP is still expressed in the pre-revamp trading-weight space; file a re-basing task instead of verifying.",
+        "9. **EVIDENCE SCORING SCHEMA (2026-08-03)** - gate evidence must carry `scoring_schema='annualized_return_v2'`; pre-revamp composite runs do not count toward `min_documents`.",
         "",
         "## Objective",
         "",
@@ -627,9 +627,9 @@ def main() -> int:
         f"- **If any gate fails:** {manifest['acceptance_criteria']['if_any_gate_fails']}",
         f"- **If all gates clear:** {manifest['acceptance_criteria']['if_all_gates_clear']}",
         "",
-        "## MCP Dispatch Commands (v3 — pre-flight + write-block + namespace lock)",
+        "## MCP Dispatch Commands (v3 - pre-flight + write-block + namespace lock)",
         "",
-        "**Cannot be executed from this repo** — the insignia-local MCP server is not available in this environment. Execute in the orchestrator's agent env.",
+        "**Cannot be executed from this repo** - the insignia-local MCP server is not available in this environment. Execute in the orchestrator's agent env.",
         "",
     ]
     mc = manifest["mcp_dispatch_commands"]

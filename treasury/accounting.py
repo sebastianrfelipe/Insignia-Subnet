@@ -1,7 +1,7 @@
 """Lot-level accounting, depth-adjusted NAV, proof-of-reserves (SPEC §0.14, §5).
 
 Hard requirement: NAV is QUOTED, not marked. Treasury alpha is valued at what
-`quote-unstake` would realise against live reserves, never at spot × amount —
+`quote-unstake` would realise against live reserves, never at spot × amount -
 on the reference pool a 500k-alpha spot mark overstates realisable value by 17%.
 """
 
@@ -103,7 +103,7 @@ def compute_nav(as_of: dt.datetime, book: TreasuryBook, pool: PoolSnapshot,
 
 def proof_of_reserves(report: NavReport, book: TreasuryBook) -> dict:
     """Monthly publication payload (SPEC §5). On-chain balances are
-    independently verifiable; trading AUM is the attested desk figure — the
+    independently verifiable; trading AUM is the attested desk figure - the
     standing NAV-oracle conflict is disclosed in RISK_REGISTER.md."""
     return {
         "as_of": report.as_of.isoformat(),

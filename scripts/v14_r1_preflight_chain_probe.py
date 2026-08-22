@@ -1,4 +1,4 @@
-"""V14-R1 pre-flight chain reachability probe — btcli caveat implementation.
+"""V14-R1 pre-flight chain reachability probe - btcli caveat implementation.
 
 Dispatch finding (memory:v14_r1_online_verification_dispatch):
   btcli subnets list raises BlockQueryErrorForSwapAlphaSqrtPrice due to
@@ -18,7 +18,7 @@ Usage:
 Exit codes:
     0 = PASS (chain reachable and advancing)
     1 = FAIL (chain unreachable or not advancing)
-    2 = ERROR (probe crashed — check stderr)
+    2 = ERROR (probe crashed - check stderr)
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, Optional, Tuple
 
 # --------------------------------------------------------------------------- #
-# btcli probe caveat — documented for all downstream agents
+# btcli probe caveat - documented for all downstream agents
 # --------------------------------------------------------------------------- #
 BTCLI_PROBE_CAVEAT: Dict[str, Any] = {
     "issue": (
@@ -83,7 +83,7 @@ async def probe_chain_block(ws_url: str) -> Tuple[Optional[int], Optional[str]]:
         substrate = AsyncSubstrateInterface(url=ws_url)
         block = await substrate.get_block()
         if block is None:
-            return None, "get_block returned None — chain may not be synced"
+            return None, "get_block returned None - chain may not be synced"
         block_number = block.get("header", {}).get("number")
         if block_number is None:
             # Try alternative field access

@@ -1,4 +1,4 @@
-"""Tuner prep — fold V14-R1 empirical fitness into an NSGA-II warm-start seed (cycle step 4).
+"""Tuner prep - fold V14-R1 empirical fitness into an NSGA-II warm-start seed (cycle step 4).
 
 Computes the V14-R1-CORRECTED-KP proxy config's empirical fitness vector using
 the optimizer's own `compute_fitness()` function (so the seed is consistent
@@ -55,7 +55,7 @@ def main() -> int:
     out_dir.mkdir(parents=True, exist_ok=True)
     ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H-%M-%S")
 
-    print("Tuner prep — computing V14-R1 empirical fitness for NSGA-II warm-start seed...")
+    print("Tuner prep - computing V14-R1 empirical fitness for NSGA-II warm-start seed...")
     t0 = time.time()
 
     # Run the harness with the V14-R1 proxy config.

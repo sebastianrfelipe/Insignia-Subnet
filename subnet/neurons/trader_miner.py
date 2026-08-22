@@ -1,9 +1,9 @@
 """
-Trader Miner — Trading Operations / Strategy Deployment (Paper Trading)
+Trader Miner - Trading Operations / Strategy Deployment (Paper Trading)
 
 Template miner for the trader role of the Insignia subnet. Trader miners build
-complete trading strategies — position sizing, entry/exit logic, risk limits,
-execution timing — around a model's signals, then run those strategies against
+complete trading strategies - position sizing, entry/exit logic, risk limits,
+execution timing - around a model's signals, then run those strategies against
 real market conditions via paper trading.
 
 Under the single paired mechanism the trader does NOT self-select models from a
@@ -181,7 +181,7 @@ class PaperTradingEngine:
     ) -> Optional[Position]:
         """Open a new position with slippage and risk checks."""
         if self._killed:
-            logger.warning("Kill switch active — no new positions")
+            logger.warning("Kill switch active - no new positions")
             return None
 
         if instrument in self.positions:
@@ -322,7 +322,7 @@ class TraderMiner:
     validator's chain-seeded pairing, executing via the paper trading engine.
 
     The strategy logic here is a reference implementation. In production,
-    miners are free to build any strategy — the validator only scores
+    miners are free to build any strategy - the validator only scores
     outcomes, not methodology.
     """
 
@@ -355,7 +355,7 @@ class TraderMiner:
         Load the model assigned by the validator's pairing for this generation.
 
         Unlike the old self-selection flow, the trader cannot pick which model
-        it runs — it is the researcher half of the chain-seeded pair.
+        it runs - it is the researcher half of the chain-seeded pair.
         """
         self.load_model(model_id, model_artifact)
 
@@ -513,7 +513,7 @@ class TraderMiner:
 def demo():
     """Demonstrate paper trading on a paired researcher model."""
     logger.info("=" * 60)
-    logger.info("Insignia Trader Miner — Demo Mode (Paper Trading)")
+    logger.info("Insignia Trader Miner - Demo Mode (Paper Trading)")
     logger.info("=" * 60)
 
     from neurons.researcher_miner import ResearcherMiner, generate_demo_data

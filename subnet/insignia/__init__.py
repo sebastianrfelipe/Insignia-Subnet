@@ -1,5 +1,5 @@
 """
-Insignia Subnet — Decentralized Predictive Modeling for On-Chain Markets
+Insignia Subnet - Decentralized Predictive Modeling for On-Chain Markets
 
 A Bittensor subnet implementing a single paired genetic incentive mechanism:
 researcher miners (ML models) and trader miners (trading operations) share one

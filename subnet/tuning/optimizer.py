@@ -373,12 +373,12 @@ def load_warm_start(path: str) -> Tuple[Optional[np.ndarray], Dict[str, Any]]:
     Returns (warm_start_x, warm_start_meta). warm_start_x is None when the
     file is missing, has no params, or has the wrong number of params (a
     warning is logged in those cases). Raises ValueError when the file has
-    exactly 75 params — the stale pre-roster-dims format that must be
+    exactly 75 params - the stale pre-roster-dims format that must be
     re-generated or migrated before use.
     """
     ws_path = Path(path)
     if not ws_path.exists():
-        logger.warning("Warm-start seed not found at %s — ignoring", path)
+        logger.warning("Warm-start seed not found at %s - ignoring", path)
         return None, {}
 
     with open(ws_path, "r", encoding="utf-8") as f:
@@ -386,7 +386,7 @@ def load_warm_start(path: str) -> Tuple[Optional[np.ndarray], Dict[str, Any]]:
 
     ws_params = ws_data.get("params")
     if ws_params is None:
-        logger.warning("Warm-start seed has no params — ignoring")
+        logger.warning("Warm-start seed has no params - ignoring")
         return None, {}
 
     if len(ws_params) != N_PARAMS:
@@ -402,7 +402,7 @@ def load_warm_start(path: str) -> Tuple[Optional[np.ndarray], Dict[str, Any]]:
                 f"(5,1,1,1,1,3,1) before retrying."
             )
         logger.warning(
-            "Warm-start seed has %d params (expected %d) — ignoring",
+            "Warm-start seed has %d params (expected %d) - ignoring",
             len(ws_params), N_PARAMS,
         )
         return None, {}
@@ -448,7 +448,7 @@ def run_nsga2(
     samples. This is the "fold fitness into NSGA-II" step (cycle step 4).
     """
     if not PYMOO_AVAILABLE:
-        logger.warning("pymoo not installed — falling back to random search")
+        logger.warning("pymoo not installed - falling back to random search")
         rs = RandomSearchOptimizer(
             n_iterations=population_size,
             n_honest=n_honest,

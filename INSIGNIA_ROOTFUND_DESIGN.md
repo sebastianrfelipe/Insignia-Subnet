@@ -1,4 +1,4 @@
-# Insignia Fund Structure — LP Wrapper and Root Reborn
+# Insignia Fund Structure - LP Wrapper and Root Reborn
 
 **Status:** draft · 2026-08-16 · companion to [INSIGNIA_SYSTEM_EQUATIONS.md](INSIGNIA_SYSTEM_EQUATIONS.md) and [docs/SPEC.md](docs/SPEC.md) §0.5 (wrapper) and §0.16 (Root Reborn mechanics)
 **Chain context:** Root Reborn, runtime v441, mainnet 2026-08-03 (subtensor PR #2968; guide `docs/guides/root-reborn.mdx`). **Every parameter below is root-mutable, read from chain at runtime, never hardcode.**
@@ -12,9 +12,9 @@ Verified mechanics this rests on: LP alpha is contractually staked (SPEC §4); r
 
 ## 1 · The structure: one LP asset, one conduit
 
-1. **LP position — locked, staked alpha.** Converted OTC, delivered `move_stake` to the subnet-owner hotkey, 12-month perpetual lock then 60-day exponential decay. Principal is alpha. Root stake is not the LP product.
-2. **Alpha — miner incentive and the wrapper.** The 41% miner tranche, plus the LP unit. Alpha price is how desk P&L reaches LPs. The NAV band is the discipline: buy below 0.9× realizable NAV from routed revenue, never above 1.1×.
-3. **Root validators — protocol overlay, not LP capital.** Each root validator runs a beta-basket of escrowed subnet alpha (SPEC §0.16). That flow is extra bid or extra claim-sell on *our* pool. Delegated TAO on an Insignia root seat is mercenary / IR capital: its coupon can be redeployed into Insignia, but the principal never enters the wrapper and is not sold as desk exposure.
+1. **LP position - locked, staked alpha.** Converted OTC, delivered `move_stake` to the subnet-owner hotkey, 12-month perpetual lock then 60-day exponential decay. Principal is alpha. Root stake is not the LP product.
+2. **Alpha - miner incentive and the wrapper.** The 41% miner tranche, plus the LP unit. Alpha price is how desk P&L reaches LPs. The NAV band is the discipline: buy below 0.9× realizable NAV from routed revenue, never above 1.1×.
+3. **Root validators - protocol overlay, not LP capital.** Each root validator runs a beta-basket of escrowed subnet alpha (SPEC §0.16). That flow is extra bid or extra claim-sell on *our* pool. Delegated TAO on an Insignia root seat is mercenary / IR capital: its coupon can be redeployed into Insignia, but the principal never enters the wrapper and is not sold as desk exposure.
 
 Everything in [SYSTEM_EQUATIONS](INSIGNIA_SYSTEM_EQUATIONS.md) §§1–3, 6–8 (emission share, EMA, issuance, pool mechanics, move/hold costs) is unchanged and still governs.
 
@@ -45,7 +45,7 @@ Only unstaked positions eat the full dilution hurdle \(h = 7{,}200 \times 365/T\
 
 $$B \;=\; \underbrace{\text{LP conversion buys}}_{\text{principal hitting the pool}} + \underbrace{\varphi\,R\cdot\text{AUM routed below the band}}_{\text{revenue buy-flow}} + \underbrace{\bar{w}_{\text{ins}}\cdot 983 \cdot K_{\text{ext}}/\tau_{\text{root}}}_{\text{external basket flow, SPEC §0.16}}$$
 
-Conversion is one-shot demand from LP entry (DCA'd). Revenue routing is the standing bid, gated by \(\delta < -0.1\). External (and optional own-validator) basket flow is protocol dividend redeployment — it scales with *root* stake, not with LP notional, and must not be counted as if the LP's principal were buying alpha.
+Conversion is one-shot demand from LP entry (DCA'd). Revenue routing is the standing bid, gated by \(\delta < -0.1\). External (and optional own-validator) basket flow is protocol dividend redeployment - it scales with *root* stake, not with LP notional, and must not be counted as if the LP's principal were buying alpha.
 
 Against maintenance \(7{,}200\,\sigma p\) (93.6 τ/day at \(\sigma=0.65\), \(p=0.02\)), the load-bearing terms are conversion + routed revenue. Basket flow is incremental.
 
@@ -80,7 +80,7 @@ LP locks to the owner hotkey grant **instant** conviction equal to locked mass (
 
 ## 6 · Interactive charts (website)
 
-Engine, slider wiring, `Chart` class unchanged (`charts.js`). LP math lives in `treasury/emissions.py` and `lockmgr/schedules.py` — charts must not invent a second yield.
+Engine, slider wiring, `Chart` class unchanged (`charts.js`). LP math lives in `treasury/emissions.py` and `lockmgr/schedules.py` - charts must not invent a second yield.
 
 ```js
 const lpAlphaYield = p => yieldNumerator(p.age) / p.staked;          // y_α, recapture
@@ -98,27 +98,27 @@ const escrowSS     = p => extBid(p) / (p.alphaPrice * p.claimRate);
 //   sigma: 0.65, conversionTao: 0, wExt: 0.00, claimRate: 0.5
 ```
 
-**`chart-lp-return` — the wrapper.** x: \(R_{\text{trading}}\) ∈ [0, 40%]. Series: `lpReturn`. Message: dollar return is staking yield times what the desk earns on price.
+**`chart-lp-return` - the wrapper.** x: \(R_{\text{trading}}\) ∈ [0, 40%]. Series: `lpReturn`. Message: dollar return is staking yield times what the desk earns on price.
 
-**`chart-dilution` — hurdle vs staked drag.** x: \(\sigma\) ∈ [0, 1]. Series: `leakageDrag` at \(S\) ∈ {6M, 12M, 24M}; dashed unstaked hurdle. Message: staking + reinvested owner cut caps LP drag at the leakage term.
+**`chart-dilution` - hurdle vs staked drag.** x: \(\sigma\) ∈ [0, 1]. Series: `leakageDrag` at \(S\) ∈ {6M, 12M, 24M}; dashed unstaked hurdle. Message: staking + reinvested owner cut caps LP drag at the leakage term.
 
-**`chart-flow` — who counters the miners.** x: \(\sigma\) ∈ [0, 1]. Series: `maintFlow` (need); stacked `convBid`, `revBid`, `extBid`. Marker: \(\sigma^{*}\) from standing bids.
+**`chart-flow` - who counters the miners.** x: \(\sigma\) ∈ [0, 1]. Series: `maintFlow` (need); stacked `convBid`, `revBid`, `extBid`. Marker: \(\sigma^{*}\) from standing bids.
 
-**`chart-vesting` — LP lock lifecycle.** Owner-hotkey conviction instant; 12-month perpetual then 60-day decay. Caption: the LP position is locked alpha, not root TAO.
+**`chart-vesting` - LP lock lifecycle.** Owner-hotkey conviction instant; 12-month perpetual then 60-day decay. Caption: the LP position is locked alpha, not root TAO.
 
-**`chart-conviction` — king defense.** Auto-lock + LP owner-hotkey path vs escrow-inflated SubnetAlphaOut (dashed), 10% marker.
+**`chart-conviction` - king defense.** Auto-lock + LP owner-hotkey path vs escrow-inflated SubnetAlphaOut (dashed), 10% marker.
 
-**`chart-escrow` — claim overhang.** x: claim rate \(c\); series \(E^{*}\) at observed basket \(F\). Message: escrow is leaked, conviction-inert, and a drawdown-correlated sell stock.
+**`chart-escrow` - claim overhang.** x: claim rate \(c\); series \(E^{*}\) at observed basket \(F\). Message: escrow is leaked, conviction-inert, and a drawdown-correlated sell stock.
 
 ---
 
 ## Reading order for an investor
 
-1. §1 — LPs hold locked alpha; root baskets are protocol flow, not the LP
-2. §2 — \(R_{\text{LP}} = (1+y_\alpha)(1+g_p)-1\): yield is fixed, dollars come from the desk
-3. §3 — conversion + NAV-band buy-flow absorb miner supply; basket flow is extra
-4. §4 — Root Reborn defers the root slice into escrow; it is still leakage
-5. Falsifiers — what we watch
+1. §1 - LPs hold locked alpha; root baskets are protocol flow, not the LP
+2. §2 - \(R_{\text{LP}} = (1+y_\alpha)(1+g_p)-1\): yield is fixed, dollars come from the desk
+3. §3 - conversion + NAV-band buy-flow absorb miner supply; basket flow is extra
+4. §4 - Root Reborn defers the root slice into escrow; it is still leakage
+5. Falsifiers - what we watch
 
 ## What would falsify this design
 
@@ -130,7 +130,7 @@ const escrowSS     = p => extBid(p) / (p.alphaPrice * p.claimRate);
 
 ## Open items
 
-1. **Counsel** on the wrapper (OTC alpha, lock, Howey surface) — Phase 0 still gates investor-facing features on `LEGAL_SIGNOFF.md`.
+1. **Counsel** on the wrapper (OTC alpha, lock, Howey surface) - Phase 0 still gates investor-facing features on `LEGAL_SIGNOFF.md`.
 2. **Own root seat:** IR and coupon-bid only; never marketed as the LP. If run, disclose public weights and a standing rule that the desk never trades ahead of epoch deployments.
 3. **Re-run `risk/reflexivity.py`** on the wrapper baseline (LP lock cohorts on): conversion + revenue routing, plus R15 basket rotation and R16 claim clustering as overlay shocks.
 4. **Factsheet:** \(E\), per-validator weights toward Insignia, trailing claim flow (SPEC §8).

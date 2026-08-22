@@ -124,7 +124,7 @@ class BreachReport:
             status = "BREACHED" if b.breached else "DEFENDED"
             lines.append(
                 f"  [{status}] {b.attack_name}: severity={b.severity:.2f} "
-                f"tier={b.risk_tier} — {b.description}"
+                f"tier={b.risk_tier} - {b.description}"
             )
         return "\n".join(lines)
 
@@ -813,7 +813,7 @@ class AttackDetector:
 
     def _check_random_baseline(self, result: SimulationResult) -> AttackBreach:
         """
-        Check that random miners don't score well — if they do,
+        Check that random miners don't score well - if they do,
         the scoring mechanism isn't discriminating enough.
         """
         random_scores = [

@@ -69,7 +69,7 @@ def test_unexplained_loss_is_shared_but_discounted():
     result = slash_for_window(bond, 500.0, "W1",
                               attribution=attribution(researcher=0.0, trader=0.0))
     # Nothing is explained, so only the ambiguous exposure (50%) is slashed at
-    # all — punishment scales with the strength of the justification.
+    # all - punishment scales with the strength of the justification.
     assert result.blame.explained_fraction == 0.0
     assert result.slash_alpha == pytest.approx(2_500.0)
     assert result.per_coldkey["ck_researcher"] == pytest.approx(1_500.0)
@@ -105,7 +105,7 @@ def test_degradation_from_breakdowns():
                                      (1.0, 1.0), (0.5, 0.5), (0.05, 0.0)])
 @pytest.mark.parametrize("loss", [1.0, 500.0, 6_000.0])
 def test_per_coldkey_always_sums_to_the_slash(d_r, d_t, loss):
-    """The split must never create or destroy slashed alpha — the burn queue is
+    """The split must never create or destroy slashed alpha - the burn queue is
     fed from slash_alpha while miners are debited from per_coldkey."""
     result = slash_for_window(make_bond(), loss, "W1", attribution(d_r, d_t))
     assert sum(result.per_coldkey.values()) == pytest.approx(result.slash_alpha)

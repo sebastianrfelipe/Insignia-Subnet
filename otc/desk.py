@@ -27,7 +27,7 @@ class DiscountSchedule:
     points: tuple[tuple[int, float], ...] = (
         (0, -0.02),   # unlocked delivery: 2% premium, discouraged
         (6, 0.03),
-        (12, 0.08),   # the standard term — spans the EMA + root-proportion ramps
+        (12, 0.08),   # the standard term - spans the EMA + root-proportion ramps
         (24, 0.12),
     )
 

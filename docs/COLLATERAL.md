@@ -14,12 +14,12 @@ Until this primitive, miner entry was **burn registration**: TAO destroyed via a
 
 Native collateral splits that into two things:
 
-1. **The ticket** — the burned share of the registration price.
-2. **The bet on future mining** — alpha locked as a bond, recoverable **only by earning emission** on that subnet.
+1. **The ticket** - the burned share of the registration price.
+2. **The bet on future mining** - alpha locked as a bond, recoverable **only by earning emission** on that subnet.
 
 The origin is trading subnets that score Sharpe / Sortino / PnL (the SN8 fights). A miner can martingale: lever up, go all-in one direction, look statistically brilliant until they blow up. Short-window scores pay them; the blow-up is someone else’s problem.
 
-**Force them to collateralize performance, and you pull expected return further into the future.** They have to keep mining — and keep not blowing up — long enough to unlock the bond. If validators catch an exploit or a blow-up and set weights to zero, the miner stops earning, remaining collateral **freezes**, and a later re-registration credits the standing lock rather than unlocking it.
+**Force them to collateralize performance, and you pull expected return further into the future.** They have to keep mining - and keep not blowing up - long enough to unlock the bond. If validators catch an exploit or a blow-up and set weights to zero, the miner stops earning, remaining collateral **freezes**, and a later re-registration credits the standing lock rather than unlocking it.
 
 Predecessor: the [Church of Rao EVM collateral contracts](https://github.com/bactensor/collateral-contracts) (ComputeHorde SN12). Those allowed validators to `slashCollateral()` but required H160 wallets, gas, per-validator contracts, and reclaim/deny flows. Native collateral is the same economic idea pulled into Subtensor so explorers and `btcli` can see it.
 
@@ -40,7 +40,7 @@ This is **exactly Insignia’s scoring surface** (Sharpe, Sortino, Omega, max dr
 | Custody | Miner/LP’s own stake | Pallet lock on the miner’s own stake | `transfer_stake` to fund escrow coldkey |
 | Code | `lockmgr/` | `chainio/collateral.py`, `subnet/insignia/native_collateral.py` | `treasury/collateral.py` |
 
-Conviction and native collateral both subtract from `available_to_unstake`, but they are different maps. Native collateral is keyed `(netuid, hotkey, coldkey)` so nominators on the same hotkey are not frozen by the owner’s bond. It has **no transfer exit**: `ensure_transfer_respects_collateral` refuses to let a miner `transfer_stake` their lock to someone else (including the fund escrow). That is the interaction risk with deployment bonds — see below.
+Conviction and native collateral both subtract from `available_to_unstake`, but they are different maps. Native collateral is keyed `(netuid, hotkey, coldkey)` so nominators on the same hotkey are not frozen by the owner’s bond. It has **no transfer exit**: `ensure_transfer_respects_collateral` refuses to let a miner `transfer_stake` their lock to someone else (including the fund escrow). That is the interaction risk with deployment bonds - see below.
 
 ---
 
@@ -55,8 +55,8 @@ Owner-set, per subnet (admin-utils events `CollateralLockShareSet` / `Collateral
 
 Miner-signed extrinsics:
 
-- `add_collateral(netuid, hotkey, alpha, limit_price)` — lock additional alpha on the signer’s own hotkey. Prefers free already-staked alpha; buys the shortfall with TAO. Does **not** re-snapshot drain ratio (a top-up is not a new registration).
-- `set_min_collateral(netuid, hotkey, min_locked)` — miner-set floor. Drain stops at the floor; emission fills a shortfall. Zero clears it. **Validators cannot set another miner’s floor on-chain.** They publish a required minimum and zero weights if the metagraph row is short.
+- `add_collateral(netuid, hotkey, alpha, limit_price)` - lock additional alpha on the signer’s own hotkey. Prefers free already-staked alpha; buys the shortfall with TAO. Does **not** re-snapshot drain ratio (a top-up is not a new registration).
+- `set_min_collateral(netuid, hotkey, min_locked)` - miner-set floor. Drain stops at the floor; emission fills a shortfall. Zero clears it. **Validators cannot set another miner’s floor on-chain.** They publish a required minimum and zero weights if the metagraph row is short.
 
 Settle (`settle_miner_collateral`, called from emission distribution):
 
@@ -103,14 +103,14 @@ Unlock horizon, the actual statistical-significance bond:
 days = (locked − min_locked) / (drain_ratio × daily_emission)
 ```
 
-At \(k = 1\), a miner with 1,000 α locked earning 10 α/day takes 100 days to recover the bond. At \(k = 0.5\), 200 days. At daily_emission = 0, the horizon is infinite — that is the freeze.
+At \(k = 1\), a miner with 1,000 α locked earning 10 α/day takes 100 days to recover the bond. At \(k = 0.5\), 200 days. At daily_emission = 0, the horizon is infinite - that is the freeze.
 
 ### Validator enforcement (the teeth)
 
 Validators **cannot** write another miner’s `min_locked`. They enforce by zeroing Yuma weights (`subnet/insignia/native_collateral.py`, applied in `PairedValidator.finalize_generation`):
 
-1. **Floor shortfall** — `locked < required_min_alpha` (when the published floor is > 0).
-2. **Martingale / blow-up freeze** — `FreezeLedger` records a trader whose `max_drawdown` breaches 20%. Weights stay zero across subsequent epochs so they cannot immediately farm emission (and drain the lock) on the next lucky window. The record drops when the UID leaves the metagraph (pruned or re-registered).
+1. **Floor shortfall** - `locked < required_min_alpha` (when the published floor is > 0).
+2. **Martingale / blow-up freeze** - `FreezeLedger` records a trader whose `max_drawdown` breaches 20%. Weights stay zero across subsequent epochs so they cannot immediately farm emission (and drain the lock) on the next lucky window. The record drops when the UID leaves the metagraph (pruned or re-registered).
 
 A frozen miner earns nothing → collateral cannot drain → the standing lock is still there when they re-register. That is Const’s “collateral is a bet on your future mining.”
 
@@ -157,9 +157,9 @@ Retention (R11): the two stocks are **disjoint**. `emissions.effective_sell_thro
 | `risk/alerts.py` | `from_native_collateral` |
 | `treasury/emissions.py` | `native_locked_fraction` on the R11 lever |
 | `dashboards/investor_api/factsheet.py` | Locked α, lock_share, deployment bonds, cumulative burns |
-| Defense registry | `NATIVE-COLLATERAL-GATE` (live-path only — the simulator does not model registration locks) |
+| Defense registry | `NATIVE-COLLATERAL-GATE` (live-path only - the simulator does not model registration locks) |
 
-Owner runbook (once the SDK/CLI expose the admin extrinsics — verify names on testnet):
+Owner runbook (once the SDK/CLI expose the admin extrinsics - verify names on testnet):
 
 1. Set `CollateralLockShare` / `CollateralDrainRatio` to the Insignia defaults (or a deliberate variant).
 2. Publish `required_min_alpha` in miner docs if it is not zero.
@@ -171,4 +171,4 @@ Owner runbook (once the SDK/CLI expose the admin extrinsics — verify names on 
 
 ## Legal
 
-Miner-facing, not investor-facing — does not sit behind `LEGAL_SIGNOFF`. Registration-collateral terms (lock share, drain, freeze-on-zero-weight) and deployment-agreement slash terms still need Phase-0 counsel review as enforceable miner agreements. See INCENTIVE_MECHANISM.md §Deployment Collateral legal note.
+Miner-facing, not investor-facing - does not sit behind `LEGAL_SIGNOFF`. Registration-collateral terms (lock share, drain, freeze-on-zero-weight) and deployment-agreement slash terms still need Phase-0 counsel review as enforceable miner agreements. See INCENTIVE_MECHANISM.md §Deployment Collateral legal note.

@@ -29,7 +29,7 @@ def require_legal_signoff(signoff_file: Path = LEGAL_SIGNOFF_FILE) -> None:
         raise ComplianceGateError(
             "Phase-0 gate: LEGAL_SIGNOFF.md not found at repo root. Investor-facing "
             "functionality (OTC quotes, settlement, factsheet publication) is blocked "
-            "until securities counsel signs off — see docs/SPEC.md §2 Phase 0."
+            "until securities counsel signs off - see docs/SPEC.md §2 Phase 0."
         )
 
 

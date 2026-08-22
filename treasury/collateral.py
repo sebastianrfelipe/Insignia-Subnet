@@ -3,17 +3,17 @@
 
 Burn, don't just withhold: scoring penalties forfeit upside a gamed pair never
 had; the bond creates real downside for a deployed pair that loses the desk
-money. Slashed alpha is BURNED, never redistributed — redistribution is a
+money. Slashed alpha is BURNED, never redistributed - redistribution is a
 bounty for inducing other pairs' losses and is recyclable by sybil clusters.
 
 This module is pure bookkeeping and slash math. The chain legs (escrow via
 transfer_stake, per-tempo unstake + add_stake_burn settlement) live in
 treasury.execution.burn. Native Subtensor registration collateral is a
-different primitive (time-bond recovered by earning emission) — see
+different primitive (time-bond recovered by earning emission) - see
 chainio.collateral and docs/COLLATERAL.md. The two stocks are disjoint:
 native locks cannot be transfer_stake'd into this escrow.
 
-Researcher and trader are SEPARATE miners who do not choose each other —
+Researcher and trader are SEPARATE miners who do not choose each other -
 PAIRING_MECHANISM.md §2.3 assigns pairs deterministically from chain block hash
 and hides partner identity until evaluation. Splitting a slash by bond size
 alone would therefore punish one miner for the other's error with no screening
@@ -22,7 +22,7 @@ noise the emission side removes via the K-partner floor and the
 variance-penalized credit formula (pairing.py::MarginalContributionCredit).
 Slashes are therefore split by ATTRIBUTION (§blame_split): what the per-role
 diagnostics explain lands on that role, and only the genuinely joint residual
-is shared — at reduced exposure, because an unexplained loss is a weaker
+is shared - at reduced exposure, because an unexplained loss is a weaker
 justification for punishment than an explained one.
 """
 
@@ -32,7 +32,7 @@ import enum
 from dataclasses import dataclass, field
 
 # Bond sizing and slash caps are contractual terms (deployment agreement,
-# Phase-0 counsel review) — these are engineering defaults, not commitments.
+# Phase-0 counsel review) - these are engineering defaults, not commitments.
 DEFAULT_BOND_RATIO = 0.10        # bond = 10% of allocated deployment capital (TAO terms)
 DEFAULT_WINDOW_SLASH_CAP = 0.25  # ≤ 25% of the ORIGINAL bond per settlement window
 DEFAULT_AMBIGUOUS_EXPOSURE = 0.5  # fraction of an UNEXPLAINED loss that is slashed at all
@@ -92,7 +92,7 @@ def degradation(validated: dict[str, float], live: dict[str, float],
     higher-is-better scores from the subnet's per-role breakdowns.
 
     0 means the role performed as validated (its diagnostics do not explain the
-    loss); 1 means total breakdown. Keys absent from either dict are skipped —
+    loss); 1 means total breakdown. Keys absent from either dict are skipped -
     an unavailable diagnostic must read as "explains nothing", never as fault.
     """
     drops = []
@@ -110,7 +110,7 @@ class LossAttribution:
 
     Build with `degradation()` against the pair's validation-time and live
     diagnostic breakdowns. Omit entirely (pass None to the slash call) when
-    diagnostics are unavailable — the loss is then treated as fully
+    diagnostics are unavailable - the loss is then treated as fully
     unexplained, which reduces the slash rather than defaulting to blame.
     """
 
@@ -142,7 +142,7 @@ def blame_split(bond: Bond, attribution: LossAttribution | None,
     Explained portion: `min(1, d_researcher + d_trader)` of the loss, divided
     between the roles in proportion to their own degradation. Unexplained
     residual: a genuine joint-mismatch cost (a sound model and a sound strategy
-    can still be a bad pairing), so it is shared pro-rata by bond — but only
+    can still be a bad pairing), so it is shared pro-rata by bond - but only
     `ambiguous_exposure` of it is slashed at all. Punishment scales with the
     strength of the justification; the unslashed remainder is simply forgiven,
     since the bond is an incentive device, not a loss-recovery claim.
@@ -182,10 +182,10 @@ def slash_for_window(bond: Bond, realized_loss_tao: float, window_id: str,
     Size: `original_bond × (loss / deployed_capital)`, reduced by the share of
     the loss no diagnostic explains, then capped at `window_cap` × the original
     bond and at the remaining bond. Windows net internally, but a profitable
-    window never restores prior slashes — the bond only ratchets down (gains
+    window never restores prior slashes - the bond only ratchets down (gains
     pay through the standard reward split).
 
-    Split: by `blame_split` — the explained part follows the degraded role, the
+    Split: by `blame_split` - the explained part follows the degraded role, the
     unexplained remainder is shared pro-rata. See the module docstring for why
     a pure pro-rata split is not acceptable across unaffiliated miners.
     """
@@ -296,14 +296,14 @@ class BondRegistry:
 
     @property
     def total_bonded_alpha(self) -> float:
-        """Alpha that cannot be sold while its pair is deployed — the R11
+        """Alpha that cannot be sold while its pair is deployed - the R11
         retention lever, reported monthly."""
         return sum(b.remaining_alpha for b in self.bonds.values()
                    if b.state is BondState.ACTIVE)
 
     def escrow_shortfall(self, escrow_staked_alpha: float) -> float:
         """Positive when the on-chain escrow coldkey holds less than active
-        bonds + unsettled slashes — page-severity custody breach."""
+        bonds + unsettled slashes - page-severity custody breach."""
         expected = self.total_bonded_alpha + self.pending_burn_alpha + sum(
             b.remaining_alpha for b in self.bonds.values() if b.state is BondState.RELEASING)
         return max(0.0, expected - escrow_staked_alpha)

@@ -1,9 +1,9 @@
-"""V14-R1 online-mode gate verification — orchestrator dispatch manifest (cycle step 5→HITL).
+"""V14-R1 online-mode gate verification - orchestrator dispatch manifest (cycle step 5→HITL).
 
 This script produces the dispatch manifest the user (or the orchestrator's
 agent env) must execute via the insignia-local MCP to trigger the V14-R1
 online-mode gate verification. It cannot dispatch the orchestrator directly
-from this repo — the insignia-local MCP server is not available in this
+from this repo - the insignia-local MCP server is not available in this
 environment, so the manifest is written to a file for manual execution.
 
 The manifest contains:
@@ -32,7 +32,7 @@ from typing import Dict, Any, List
 
 
 # The 6 online-mode §9 gates that require live chain verification.
-# These cannot be checked against the offline harness — per §9 the gates
+# These cannot be checked against the offline harness - per §9 the gates
 # must hold "in `online` mode, across >= 2 reruns with different seeds".
 ONLINE_GATES: List[Dict[str, Any]] = [
     {
@@ -106,7 +106,7 @@ def build_manifest() -> Dict[str, Any]:
                 "validator_latency_severity=0.0351, prediction_timing_severity=0.025). "
                 "0 adversary leaks across the 19-vector sentinel surface. "
                 "2 non-penalty-path breaches remain (random_baseline_discrimination, "
-                "collusion_temporal_pattern) — both synthetic harness artifacts, not adversary leaks."
+                "collusion_temporal_pattern) - both synthetic harness artifacts, not adversary leaks."
             ),
         },
         "online_gates_to_verify": ONLINE_GATES,
@@ -128,7 +128,7 @@ def build_manifest() -> Dict[str, Any]:
             "note": (
                 "Execute these commands in the orchestrator's agent env via the "
                 "insignia-local MCP. These cannot be executed from the offline repo "
-                "— the insignia-local MCP server is not available in this environment."
+                "- the insignia-local MCP server is not available in this environment."
             ),
             "step1_file_task": {
                 "mcp_tool": "insignia-local.file_task",
@@ -215,7 +215,7 @@ def main() -> int:
 
     # Markdown manifest
     lines = [
-        "# V14-R1 Online-Mode Gate Verification — Orchestrator Dispatch Manifest",
+        "# V14-R1 Online-Mode Gate Verification - Orchestrator Dispatch Manifest",
         "",
         f"**Generated:** {manifest['generated_at']}",
         f"**Config ID:** {manifest['config_id']}",
@@ -253,7 +253,7 @@ def main() -> int:
     lines.append("")
     lines.append("## MCP Dispatch Commands")
     lines.append("")
-    lines.append("**⚠️ Cannot be executed from this repo** — the insignia-local MCP server is not available in this environment. Execute these in the orchestrator's agent env (or trigger via the swarm gateway).")
+    lines.append("**⚠️ Cannot be executed from this repo** - the insignia-local MCP server is not available in this environment. Execute these in the orchestrator's agent env (or trigger via the swarm gateway).")
     lines.append("")
     mc = manifest["mcp_dispatch_commands"]
     lines.append(f"_{mc['note']}_")

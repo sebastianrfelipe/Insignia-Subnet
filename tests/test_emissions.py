@@ -9,13 +9,13 @@ PARAMS = ChainParams()
 
 
 def test_alpha_staker_share_ramp_matches_spec():
-    # SPEC §0.10: 12.7% at 1 month, 23.5% at 3, 29.9% at 6, 34.6% at 12 — vs the 41% headline
+    # SPEC §0.10: 12.7% at 1 month, 23.5% at 3, 29.9% at 6, 34.6% at 12 - vs the 41% headline
     for age_days, expected in [(30, 0.127), (90, 0.235), (180, 0.299), (365, 0.346)]:
         assert emissions.alpha_staker_share(PARAMS, age_days) == pytest.approx(expected, abs=0.002)
 
 
 def test_issuance_retention_matches_spec():
-    # SPEC §0.5: at a 1-year-old subnet — 93.6% retained at 0% miner sell-through,
+    # SPEC §0.5: at a 1-year-old subnet - 93.6% retained at 0% miner sell-through,
     # 81.3% at 30%, 69.0% at 60%, 52.6% at 100%
     for sell, expected in [(0.0, 0.936), (0.3, 0.813), (0.6, 0.690), (1.0, 0.526)]:
         assert emissions.issuance_retention(PARAMS, 365, sell) == pytest.approx(expected, abs=0.002)

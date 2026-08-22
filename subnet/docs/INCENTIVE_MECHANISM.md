@@ -69,7 +69,7 @@ A researcher's model composite is one half of every `(researcher, trader)` pair 
 
 | Diagnostic | Purpose |
 |------------|---------|
-| Win Rate | Signal precision; diagnoses churn vs. directional edge. Demoted from the headline suite — a high win rate alone does not imply profitability, and weighting it risks rewarding low-conviction noise trading. |
+| Win Rate | Signal precision; diagnoses churn vs. directional edge. Demoted from the headline suite - a high win rate alone does not imply profitability, and weighting it risks rewarding low-conviction noise trading. |
 
 > **Removed, Model Attribution.** Earlier versions of this layer included a
 > "Model Attribution" metric that credited a trader for the deployment track
@@ -112,7 +112,7 @@ Omega = sum(max(r_i - threshold, 0)) / sum(max(threshold - r_i, 0))
 - An Omega > 1 means the strategy's gain mass exceeds its loss mass at the threshold.
 - Raw values are capped at 10.0 to prevent degenerate cases (e.g., a single winning trade with no losses) from dominating.
 - This metric is critical for crypto markets, where returns are rarely normally distributed and tail risk is the primary destroyer of capital.
-- **Why Omega is retained alongside Sortino**: the production execution stack assumes Student-t (fat-tailed) return innovations. Under fat tails, Sortino's downside-deviation-only view understates tail mass, while Omega integrates the full return CDF on both sides of the threshold — pricing exactly the tail behavior the Student-t assumption says will show up in production.
+- **Why Omega is retained alongside Sortino**: the production execution stack assumes Student-t (fat-tailed) return innovations. Under fat tails, Sortino's downside-deviation-only view understates tail mass, while Omega integrates the full return CDF on both sides of the threshold - pricing exactly the tail behavior the Student-t assumption says will show up in production.
 
 **Normalization**: Divided by 3.0, so Omega >= 3.0 maps to a perfect normalized score of 1.0. This threshold reflects that an Omega of 3+ is exceptional for crypto trading strategies.
 
@@ -410,7 +410,7 @@ Weights are published and configurable via `WeightConfig`. They are balanced so 
 | | |
 |---|---|
 | **Attack** | Trader takes highly leveraged or all-in one-direction bets. Short-window Sharpe / Sortino / PnL look exceptional; the book blows up later. The SN8 failure mode native collateral was built to stretch. |
-| **Defense** | Scoring withholds the blown-up epoch (max-drawdown hard ceiling at 20%, 7-day consistency, Omega for fat tails). `FreezeLedger` then zeros that trader's Yuma weights across subsequent epochs so remaining native registration collateral cannot drain (`insignia/native_collateral.py`). Unlock horizon is `locked / (drain_ratio × daily_emission)` — they have to keep mining, and keep not blowing up, to recover the bond. Deployed pairs additionally post a loss-linked desk bond that burns on realized P&L. |
+| **Defense** | Scoring withholds the blown-up epoch (max-drawdown hard ceiling at 20%, 7-day consistency, Omega for fat tails). `FreezeLedger` then zeros that trader's Yuma weights across subsequent epochs so remaining native registration collateral cannot drain (`insignia/native_collateral.py`). Unlock horizon is `locked / (drain_ratio × daily_emission)` - they have to keep mining, and keep not blowing up, to recover the bond. Deployed pairs additionally post a loss-linked desk bond that burns on realized P&L. |
 | **Why it fails** | A lucky window no longer pays and then unlocks. Zero weight freezes the entry bond until re-registration; the desk bond (if they were deployed) takes real, burned downside. |
 
 ---
@@ -433,8 +433,8 @@ Insignia distinguishes two classes of exploitation:
 - **Scientific gaming** (overfitting, single-metric concentration, partner
   selection, size bias) is treated as a *signal* to revise the scoring
   function, not merely an attack to kill. The penalty is signal-driven from
-  the `ScoreVector` itself — the overfitting penalty raw value, the metric
-  concentration, the partner-correlation heuristic — and the signal also
+  the `ScoreVector` itself - the overfitting penalty raw value, the metric
+  concentration, the partner-correlation heuristic - and the signal also
   feeds the `ExploitSignalCollector` so the scoring R&D loop can propose a
   metric revision that addresses the root cause rather than only suppressing
   the symptom.
@@ -578,7 +578,7 @@ discrimination gate. A scoring variant is promoted only if:
 1. It improves sim separation or AUC by the configured delta without
    regressing the honest floor (the existing gate).
 2. The shrunk enrichment factor does not fall below
-   `min_enrichment_factor` (default 1.5 — the sim must select at least
+   `min_enrichment_factor` (default 1.5 - the sim must select at least
    50% better than random to be worth promoting).
 
 When no live deployment data is available (early epochs, no deployments
@@ -601,7 +601,7 @@ search.
 `oracle_blind_spot` signal when a pair scores high in sim but ranks low
 in live P&L. This is the "the sim oracle lies here" signal: it reveals
 where the scoring function's blind spot is and feeds the R&D loop a
-candidate revision — add or weight a metric that correlates with live
+candidate revision - add or weight a metric that correlates with live
 P&L rank. This is the diagnostic half of the hybrid exploit philosophy
 applied to the sim-vs-live gap rather than the sim-vs-adversary gap.
 
@@ -724,12 +724,12 @@ Native Subtensor collateral is a **registration-layer** primitive, stacked under
 
 **The SN8 problem this closes.** Trading scores (Sharpe, Sortino, PnL) can be gamed with a martingale: lever up, go all-in one direction, look statistically brilliant until they blow up. Scoring already withholds that epoch's upside (max-drawdown hard ceiling, consistency, Omega). Native collateral adds *downside on the entry bond*: unlock is proportional to earned emission (`drain_ratio`), and a zero-weight / freeze stops the drain.
 
-**Insignia defaults** (engineering, not chain commitments — owner sets `CollateralLockShare` / `CollateralDrainRatio` on-chain; readers go through `ParamsProvider`):
+**Insignia defaults** (engineering, not chain commitments - owner sets `CollateralLockShare` / `CollateralDrainRatio` on-chain; readers go through `ParamsProvider`):
 
-- `lock_share = 0.50` — half the registration price is a recoverable alpha bond, half still burns.
-- `drain_ratio = 1.0` — one locked alpha releases per one alpha of emission earned. Lower \(k\) stretches the horizon: `days = (locked − min_locked) / (k × daily_emission)`.
+- `lock_share = 0.50` - half the registration price is a recoverable alpha bond, half still burns.
+- `drain_ratio = 1.0` - one locked alpha releases per one alpha of emission earned. Lower \(k\) stretches the horizon: `days = (locked − min_locked) / (k × daily_emission)`.
 - Validator floor `required_min_alpha = 0` unless published higher. Validators **cannot** write another miner's `min_locked`; they enforce by zeroing Yuma weights (`insignia.native_collateral.apply_collateral_gate`, applied in `PairedValidator.finalize_generation`).
-- `FreezeLedger` records a trader whose `max_drawdown` ≥ 20% (same ceiling as `TradingValidator`). Weights stay zero across subsequent epochs so they cannot immediately farm emission — and drain the lock — on the next lucky window. The record drops when the UID leaves the metagraph.
+- `FreezeLedger` records a trader whose `max_drawdown` ≥ 20% (same ceiling as `TradingValidator`). Weights stay zero across subsequent epochs so they cannot immediately farm emission - and drain the lock - on the next lucky window. The record drops when the UID leaves the metagraph.
 
 **What it does not replace.** Drain is tied to Yuma emission, not desk P&L. Freeze is not a burn. There is no researcher/trader attribution. The deployment bond below remains the live-P&L instrument.
 
@@ -739,17 +739,17 @@ Native Subtensor collateral is a **registration-layer** primitive, stacked under
 
 ## Deployment Collateral & Loss-Linked Slashing (End State)
 
-**Design commitment: burn, don't just withhold.** Every defense above operates by *withholding* — a gamed submission scores zero and forfeits emissions it never had. The signal-driven adversary penalties (this branch) sharpen that, but penalty scoring alone leaves an asymmetry: a deployed pair that loses the desk real money has, at worst, lost future upside. The end state closes that asymmetry with real economic downside: **deployed pairs post staked alpha as collateral against their live P&L, and realized losses slash the collateral.** Scoring penalties remain the interim and screening layer; slashing is the explicit end state for the deployment tier.
+**Design commitment: burn, don't just withhold.** Every defense above operates by *withholding* - a gamed submission scores zero and forfeits emissions it never had. The signal-driven adversary penalties (this branch) sharpen that, but penalty scoring alone leaves an asymmetry: a deployed pair that loses the desk real money has, at worst, lost future upside. The end state closes that asymmetry with real economic downside: **deployed pairs post staked alpha as collateral against their live P&L, and realized losses slash the collateral.** Scoring penalties remain the interim and screening layer; slashing is the explicit end state for the deployment tier.
 
 ### Mechanism
 
-1. **Staked-to-participate.** Acceptance into the deployment pipeline (the top-pair tier the desk actually trades) requires the pair's miners to post an alpha bond, escrowed via `transfer_stake` to a fund-controlled collateral coldkey. Bond size scales with allocated deployment capital. Undeployed pairs are unaffected — this gates the tier where miner output touches real money.
-2. **Loss-linked slashing.** Realized losses attributable to a deployed pair (net, over the settlement window) slash the bond up to a per-window cap. Realized *gains* accrue the pair's standard deployment rewards; the bond is returned (plus accrued staking emissions) on clean undeployment. **How the slash is split between the two miners is a first-order design question — see §Splitting a slash below; it is not pro-rata by bond size.**
+1. **Staked-to-participate.** Acceptance into the deployment pipeline (the top-pair tier the desk actually trades) requires the pair's miners to post an alpha bond, escrowed via `transfer_stake` to a fund-controlled collateral coldkey. Bond size scales with allocated deployment capital. Undeployed pairs are unaffected - this gates the tier where miner output touches real money.
+2. **Loss-linked slashing.** Realized losses attributable to a deployed pair (net, over the settlement window) slash the bond up to a per-window cap. Realized *gains* accrue the pair's standard deployment rewards; the bond is returned (plus accrued staking emissions) on clean undeployment. **How the slash is split between the two miners is a first-order design question - see §Splitting a slash below; it is not pro-rata by bond size.**
 3. **Slashed alpha is burned, not redistributed.** Redistribution creates a bounty for inducing other pairs' losses and is recyclable by sybil clusters; a burn is the only sink no adversary can route back to themselves. Burns are what separate signal from noise: a miner who won't stake against their own live P&L is telling you their signal isn't one.
 
 ### Splitting a slash between two unaffiliated miners
 
-A `(researcher, trader)` pair is two **separate** miners, and §2.3 of [PAIRING_MECHANISM.md](PAIRING_MECHANISM.md) assigns them to each other deterministically from chain block hash, hiding partner identity until evaluation. Neither miner can screen or monitor the other. A slash split by bond size alone would therefore punish a miner for a partner's error with no channel through which they could have prevented it — and would reintroduce precisely the partner noise the emission side is engineered to remove (the K-partner floor plus the variance-penalized `mean − λ·std` credit formula in `pairing.py::MarginalContributionCredit`).
+A `(researcher, trader)` pair is two **separate** miners, and §2.3 of [PAIRING_MECHANISM.md](PAIRING_MECHANISM.md) assigns them to each other deterministically from chain block hash, hiding partner identity until evaluation. Neither miner can screen or monitor the other. A slash split by bond size alone would therefore punish a miner for a partner's error with no channel through which they could have prevented it - and would reintroduce precisely the partner noise the emission side is engineered to remove (the K-partner floor plus the variance-penalized `mean − λ·std` credit formula in `pairing.py::MarginalContributionCredit`).
 
 The evolutionary mechanism does **not** launder this away, for three reasons: the K-partner averaging that de-noises credit does not exist at the deployment tier (a pair is deployed as one specific pair, over a settlement window of weeks, a handful of times); emissions are a recoverable flow while the bond is a depleting stock with an absorbing floor, so variance can eliminate a miner before the mean arrives; and joint liability earns its keep through peer screening and monitoring, both of which assigned pairing forecloses.
 
@@ -757,29 +757,29 @@ Slashes are therefore split by **attribution** (`treasury/collateral.py::blame_s
 
 | Portion of the loss | Determined by | Who pays |
 |---|---|---|
-| **Explained** — `min(1, d_researcher + d_trader)` | Per-role diagnostic degradation from validation to live: `overfitting_penalty` / `penalized_f1` / `variance` for the researcher, `execution_quality` / `consistency` / `penalized_sharpe` for the trader | The degraded role, in proportion to its own degradation |
-| **Unexplained** — the residual | Nothing in either role's diagnostics accounts for it | Shared pro-rata by bond, but only `ambiguous_exposure` (default 50%) of it is slashed at all |
+| **Explained** - `min(1, d_researcher + d_trader)` | Per-role diagnostic degradation from validation to live: `overfitting_penalty` / `penalized_f1` / `variance` for the researcher, `execution_quality` / `consistency` / `penalized_sharpe` for the trader | The degraded role, in proportion to its own degradation |
+| **Unexplained** - the residual | Nothing in either role's diagnostics accounts for it | Shared pro-rata by bond, but only `ambiguous_exposure` (default 50%) of it is slashed at all |
 
-Two properties worth stating explicitly. First, joint liability is reduced, **not eliminated**: a sound model and a sound strategy can still be a bad pairing (a high-turnover strategy on a slow-decaying signal), and that joint-mismatch cost is real — driving attribution to 100% would remove any incentive to be robust across partners, which is exactly what the variance penalty in the credit formula rewards. Second, punishment scales with the strength of the justification, and the unslashed remainder is simply **forgiven**: the bond is an incentive device, not a loss-recovery claim against miners, so a loss nobody can explain is a weak basis for taking someone's stake. Missing diagnostics therefore reduce the slash rather than defaulting to blame.
+Two properties worth stating explicitly. First, joint liability is reduced, **not eliminated**: a sound model and a sound strategy can still be a bad pairing (a high-turnover strategy on a slow-decaying signal), and that joint-mismatch cost is real - driving attribution to 100% would remove any incentive to be robust across partners, which is exactly what the variance penalty in the credit formula rewards. Second, punishment scales with the strength of the justification, and the unslashed remainder is simply **forgiven**: the bond is an incentive device, not a loss-recovery claim against miners, so a loss nobody can explain is a weak basis for taking someone's stake. Missing diagnostics therefore reduce the slash rather than defaulting to blame.
 
 ### Settlement pipeline (chain mechanics)
 
-The chain has no native "slash a miner" primitive — the slash is enforced at the escrow layer (the bond sits on a fund coldkey under the deployment agreement), and the *burn* leg uses the subnet-owner burn extrinsic:
+The chain has no native "slash a miner" primitive - the slash is enforced at the escrow layer (the bond sits on a fund coldkey under the deployment agreement), and the *burn* leg uses the subnet-owner burn extrinsic:
 
 - **Slash leg:** unstake the slashed alpha from escrow (sells into the pool → TAO proceeds).
 - **Burn leg:** the subnet owner calls `add_stake_burn` with those TAO proceeds. TAO is withdrawn from the owner coldkey into the pool's TAO reserve; the AMM prices the equivalent alpha, which is removed from the alpha reserve and burned in the same transaction. Net effect of both legs: circulating alpha falls by ≈ the slashed amount (less fees/slippage), pool TAO roughly round-trips, and alpha price adjusts upward from the supply reduction.
 
 Operational constraints (verify on-chain before implementing, per SPEC §0 discipline):
 
-- **Rate-limited: one `add_stake_burn` per tempo per subnet** (`AddStakeBurnRateLimitExceeded` on violation; default tempo 360 blocks ≈ 72 min at 12 s blocks). Slash settlement is therefore **batched per tempo** — which also matches the epoch cadence of scoring and keeps burns predictable and auditable.
-- **Slippage applies — but to the legs, not the round trip.** Because the burn leg re-buys on the pool the slash leg just displaced, the two legs' slippage cancels: net supply cost is ≈ 2× the pool fee at any batch size (verified in `tests/test_burn_settlement.py`). What does scale with size is the *transient* price displacement between the legs, which is front-runnable — so set an explicit limit price on both legs and split batches to bound the slash leg's price impact (implemented in `treasury/execution/burn.py::plan_settlement`).
-- The owner may equivalently fund the burn leg from treasury TAO and retain the slashed alpha in inventory — identical supply effect, different treasury composition; treat as a routing-policy choice (SPEC §5).
+- **Rate-limited: one `add_stake_burn` per tempo per subnet** (`AddStakeBurnRateLimitExceeded` on violation; default tempo 360 blocks ≈ 72 min at 12 s blocks). Slash settlement is therefore **batched per tempo** - which also matches the epoch cadence of scoring and keeps burns predictable and auditable.
+- **Slippage applies - but to the legs, not the round trip.** Because the burn leg re-buys on the pool the slash leg just displaced, the two legs' slippage cancels: net supply cost is ≈ 2× the pool fee at any batch size (verified in `tests/test_burn_settlement.py`). What does scale with size is the *transient* price displacement between the legs, which is front-runnable - so set an explicit limit price on both legs and split batches to bound the slash leg's price impact (implemented in `treasury/execution/burn.py::plan_settlement`).
+- The owner may equivalently fund the burn leg from treasury TAO and retain the slashed alpha in inventory - identical supply effect, different treasury composition; treat as a routing-policy choice (SPEC §5).
 
 ### Why this is also a retention lever
 
-Bonded alpha is alpha that cannot be sold while the pair is deployed — the deployment tier, which earns the most, is exactly the cohort whose sell-through matters most. This directly attacks the miner sell-through σ in RISK_REGISTER R11 and compounds the existing retention levers (deployment pipeline access, token-gated API). Report bonded collateral and cumulative burned alpha in the monthly retention metrics (SPEC §8).
+Bonded alpha is alpha that cannot be sold while the pair is deployed - the deployment tier, which earns the most, is exactly the cohort whose sell-through matters most. This directly attacks the miner sell-through σ in RISK_REGISTER R11 and compounds the existing retention levers (deployment pipeline access, token-gated API). Report bonded collateral and cumulative burned alpha in the monthly retention metrics (SPEC §8).
 
-**Legal note:** collateral posting and slashing terms for miners are contractual; route the deployment-agreement terms through Phase-0 counsel alongside the LP documents (they are miner-facing, not investor-facing, so they do not sit behind the `LEGAL_SIGNOFF` gate — but they are enforceable agreements and need the same review).
+**Legal note:** collateral posting and slashing terms for miners are contractual; route the deployment-agreement terms through Phase-0 counsel alongside the LP documents (they are miner-facing, not investor-facing, so they do not sit behind the `LEGAL_SIGNOFF` gate - but they are enforceable agreements and need the same review).
 
 ---
 

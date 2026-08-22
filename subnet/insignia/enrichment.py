@@ -14,8 +14,8 @@ The analog in drug-discovery hit identification:
     sim score       → live desk P&L → enrichment factor
 
 A scoring function that separates honest from adversarial in sim is
-necessary but not sufficient. The enrichment factor — promoted hit rate
-divided by baseline hit rate — measures whether the sim oracle has real
+necessary but not sufficient. The enrichment factor - promoted hit rate
+divided by baseline hit rate - measures whether the sim oracle has real
 predictive power over live outcomes. If the enrichment factor drops below
 1.0, the sim is no better than random selection, and the scoring function
 must be revised.

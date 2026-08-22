@@ -214,13 +214,13 @@ class ChainInterface:
 
         except ImportError:
             logger.warning(
-                "bittensor SDK not available — running in offline mode. "
+                "bittensor SDK not available - running in offline mode. "
                 "Install with: pip install bittensor"
             )
             return False
         except Exception as e:
             logger.warning(
-                "Could not connect to %s: %s — running in offline mode",
+                "Could not connect to %s: %s - running in offline mode",
                 self.config.endpoint,
                 e,
             )

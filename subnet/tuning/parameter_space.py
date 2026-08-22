@@ -59,7 +59,7 @@ PARAMETER_DEFINITIONS: List[ParameterBounds] = [
     ParameterBounds("trading_max_drawdown",            0.05, 0.30, "trading_weights", "Weight for max drawdown"),
     ParameterBounds("trading_consistency",             0.05, 0.30, "trading_weights", "Weight for consistency"),
     ParameterBounds("trading_execution_quality",       0.05, 0.30, "trading_weights", "Weight for execution quality (latency, reliability, slippage)"),
-    ParameterBounds("trading_annualized_volatility",   0.02, 0.15, "trading_weights", "Weight for annualized volatility (inverted — lower vol = higher score)"),
+    ParameterBounds("trading_annualized_volatility",   0.02, 0.15, "trading_weights", "Weight for annualized volatility (inverted - lower vol = higher score)"),
     ParameterBounds("trading_sharpe_ratio",            0.02, 0.15, "trading_weights", "Weight for Sharpe ratio (risk-adjusted return per unit total vol)"),
     ParameterBounds("trading_sortino_ratio",           0.02, 0.15, "trading_weights", "Weight for Sortino ratio (risk-adjusted return per unit downside vol)"),
 
@@ -97,10 +97,10 @@ PARAMETER_DEFINITIONS: List[ParameterBounds] = [
     ParameterBounds("buyback_min_profit",      100,  5000, "buyback", "Min P&L before buyback triggers"),
 
     # Emission Distribution (reverse sigmoid)
-    ParameterBounds("emission_sigmoid_midpoint",   0.2,  0.8,  "emissions", "Reverse sigmoid midpoint — controls how many miners get high emissions"),
-    ParameterBounds("emission_sigmoid_steepness",  1.0,  20.0, "emissions", "Reverse sigmoid steepness — controls drop-off gradient"),
+    ParameterBounds("emission_sigmoid_midpoint",   0.2,  0.8,  "emissions", "Reverse sigmoid midpoint - controls how many miners get high emissions"),
+    ParameterBounds("emission_sigmoid_steepness",  1.0,  20.0, "emissions", "Reverse sigmoid steepness - controls drop-off gradient"),
 
-    # Paired genetic mechanism (single incentive mechanism — replaces L1/L2 split)
+    # Paired genetic mechanism (single incentive mechanism - replaces L1/L2 split)
     ParameterBounds("partners_per_miner",              2,    6,    "pairing", "K: minimum partners each miner is evaluated against per generation"),
     ParameterBounds("elite_fraction",                  0.10, 0.60, "pairing", "Fraction of pairs retained as elites for reproduction"),
     ParameterBounds("mutation_rate",                   0.0,  0.50, "pairing", "Probability mass for random re-pairings (exploration)"),
@@ -150,7 +150,7 @@ PARAMETER_DEFINITIONS: List[ParameterBounds] = [
     ParameterBounds("symbol_diversity_penalty_max",        0.20, 0.80, "market_data", "Maximum PC-VH-006 penalty"),
     ParameterBounds("symbol_diversity_grace_generations",  0,    5,    "market_data", "Grace generations before PC-VH-006 penalties fully activate"),
 
-    # Miner roster (per-archetype counts — lets the NSGA-II tuner explore
+    # Miner roster (per-archetype counts - lets the NSGA-II tuner explore
     # population mix as part of the parameter vector. Defaults match the
     # V14-R1-CORRECTED-KP baseline: 5/1/1/1/1 researchers + 3/1 traders.)
     ParameterBounds("n_honest_researchers",  3, 10, "roster", "Number of honest L1 researcher miners"),
@@ -362,7 +362,7 @@ def decode(x: np.ndarray) -> Dict[str, Any]:
             "current_candidate_adversary_breach_rate": 0.0,
             "current_candidate_failed_gates": ["honest_mean_score", "prediction_timing_severity"],
             "current_candidate_pending_gates": ["convergence_contract"],
-            # Legacy V13-R2 knee — retained as the last surrogate-predicted
+            # Legacy V13-R2 knee - retained as the last surrogate-predicted
             # "state of record". Per §9: "A surrogate-predicted gate pass is
             # not a pass." V13-R2's 0.9795 honest score was never empirically
             # confirmed; V14-R1's 0.9007 is the empirical regime.
@@ -448,7 +448,7 @@ def encode_defaults() -> np.ndarray:
         "symbol_diversity_penalty_escalation": 1.5,
         "symbol_diversity_penalty_max": 0.50,
         "symbol_diversity_grace_generations": 2,
-        # Miner roster — V14-R1-CORRECTED-KP baseline (5/1/1/1/1 + 3/1).
+        # Miner roster - V14-R1-CORRECTED-KP baseline (5/1/1/1/1 + 3/1).
         # These match the create_default_agents() defaults in simulation.py
         # so the tuner starts from the empirically-validated population mix.
         "n_honest_researchers": 5,

@@ -1,5 +1,5 @@
 """
-Insignia Paired Validator — Single-Mechanism Joint Evaluation
+Insignia Paired Validator - Single-Mechanism Joint Evaluation
 
 The unified validator for the paired genetic incentive mechanism. It replaces
 the separate model and trading validators + cross-layer feedback with one pipeline:
@@ -61,12 +61,12 @@ class PairedValidator:
     Unified validator for the single paired mechanism.
 
     Lifecycle per generation (epoch):
-      1. `assign_pairs(...)` — derive the chain-seeded population.
+      1. `assign_pairs(...)` - derive the chain-seeded population.
       2. For each pair, compute a model `ScoreVector` and a trading
          `ScoreVector`, then call `score_pair(...)`.
-      3. `finalize_generation()` — NSGA-II rank, collusion screen, and convert
+      3. `finalize_generation()` - NSGA-II rank, collusion screen, and convert
          to a single per-miner weight vector.
-      4. `set_weights(...)` — publish to the chain (no-op without bittensor).
+      4. `set_weights(...)` - publish to the chain (no-op without bittensor).
     """
 
     def __init__(
@@ -246,7 +246,7 @@ class PairedValidator:
 def demo():
     """Standalone demo of the paired validator using synthetic score vectors."""
     logger.info("=" * 60)
-    logger.info("Insignia Paired Validator — Demo Mode")
+    logger.info("Insignia Paired Validator - Demo Mode")
     logger.info("=" * 60)
 
     validator = PairedValidator(pairing_config=PairingConfig(partners_per_miner=2))

@@ -63,7 +63,7 @@ if [ "$SKIP_DOCKER" = false ]; then
             done
         fi
     else
-        echo "  Docker not available — skipping subtensor startup"
+        echo "  Docker not available - skipping subtensor startup"
         echo "  Ensure subtensor is running at ws://127.0.0.1:9945"
     fi
 else
@@ -82,7 +82,7 @@ if ! python3 -c "import numpy, pandas, sklearn, joblib" 2>/dev/null; then
 fi
 
 if ! command -v btcli &> /dev/null; then
-    echo "  btcli not found — installing bittensor-cli..."
+    echo "  btcli not found - installing bittensor-cli..."
     pip install -q bittensor-cli 2>/dev/null || \
         pip3 install -q bittensor-cli || \
         echo "  WARNING: Could not install btcli. Emulator will run in offline mode."
@@ -114,7 +114,7 @@ echo "  Emulator complete!"
 echo "  Results: ${OUTPUT_DIR}/"
 echo "================================================================"
 
-# Step 4: Optional — start monitoring stack
+# Step 4: Optional - start monitoring stack
 if [ "$SKIP_DOCKER" = false ] && command -v docker &> /dev/null; then
     echo ""
     read -p "Start Prometheus + Grafana monitoring? [y/N] " -n 1 -r

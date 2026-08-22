@@ -1,5 +1,5 @@
 """
-Researcher Miner — Model Generation (single paired mechanism)
+Researcher Miner - Model Generation (single paired mechanism)
 
 Template miner for the researcher role of the Insignia subnet. Researcher
 miners train ML models (typically GBDTs) to predict short-horizon price
@@ -72,7 +72,7 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Feature Registry (public — miners and validators share this contract)
+# Feature Registry (public - miners and validators share this contract)
 # ---------------------------------------------------------------------------
 
 PUBLIC_FEATURE_REGISTRY = [
@@ -291,10 +291,10 @@ class ModelTrainer:
         reproducible code bundle.
 
         Contents:
-          - ``inference.py``  — sandbox entrypoint the validator executes
-          - ``model.joblib``  — the serialized model the entrypoint loads
-          - ``train.py``      — the full training source (this module), for audit
-          - ``metadata.json`` — declared model type, features, and hyperparams
+          - ``inference.py``  - sandbox entrypoint the validator executes
+          - ``model.joblib``  - the serialized model the entrypoint loads
+          - ``train.py``      - the full training source (this module), for audit
+          - ``metadata.json`` - declared model type, features, and hyperparams
 
         Miners are free to extend this with their real training package; the
         only hard requirement is that ``inference.py`` reproduces the artifact's
@@ -452,7 +452,7 @@ class ResearcherMiner:
 def demo():
     """Run a standalone demonstration of the researcher miner pipeline."""
     logger.info("=" * 60)
-    logger.info("Insignia Researcher Miner — Demo Mode")
+    logger.info("Insignia Researcher Miner - Demo Mode")
     logger.info("=" * 60)
 
     data = generate_demo_data(n_samples=5000)

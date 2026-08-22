@@ -1,4 +1,4 @@
-"""Monte Carlo of the flywheel under stress (SPEC §7) — published quarterly to LPs.
+"""Monte Carlo of the flywheel under stress (SPEC §7) - published quarterly to LPs.
 
 The loop being simulated is the known failure mode: revenue stalls → buy-flow
 stops → EMA price decays → emission share falls → yield falls → LPs toggle to
@@ -32,13 +32,13 @@ class RevenueShock:
 
 @dataclass(frozen=True)
 class BasketRotationShock:
-    """R15 — root validators rotate weight away from Insignia.
+    """R15 - root validators rotate weight away from Insignia.
 
     The public scoreboard makes basket flow momentum-amplifying: follower
     weight (w_ext) ramps to its floor over the shock and STAYS there
-    (rotation is sticky — recovering rank takes quarters), while a fraction
+    (rotation is sticky - recovering rank takes quarters), while a fraction
     of delegated stake on the fund's own root seat (if any) exits each shock
-    month at face value. Own-validator weight (w_ins) does not rotate — it
+    month at face value. Own-validator weight (w_ins) does not rotate - it
     is fund-controlled. This is protocol overlay, not LP capital leaving.
     """
 
@@ -179,7 +179,7 @@ def run(config: ScenarioConfig = ScenarioConfig()) -> SpiralReport:
             nav = (aum + treasury_alpha_value) / config.circulating_alpha
             disc = pool.spot_price / nav - 1.0 if nav > 0 else 0.0
 
-            # R15: rotation shock — follower weight ramps to its floor (sticky),
+            # R15: rotation shock - follower weight ramps to its floor (sticky),
             # own-seat delegators exit at face value during the shock
             rot = config.basket_rotation
             if rot is not None and m >= rot.start_month:

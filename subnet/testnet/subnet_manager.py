@@ -9,7 +9,7 @@ Handles subnet lifecycle operations on the Bittensor network:
 
 Operations go through `btcli` when available, with a Python SDK fallback
 (`_subtensor_sdk.PySdkBackend`) for environments where `btcli` is not in
-PATH (e.g. the deployer agent container — see the 2026-07-02 orchestration
+PATH (e.g. the deployer agent container - see the 2026-07-02 orchestration
 report's chain-connectivity verdict).
 """
 
@@ -108,7 +108,7 @@ class SubnetManager:
     ) -> bool:
         """Register a miner or validator hotkey on the subnet."""
         if self.netuid is None:
-            logger.error("No netuid set — create a subnet first")
+            logger.error("No netuid set - create a subnet first")
             return False
 
         logger.info(
@@ -142,7 +142,7 @@ class SubnetManager:
     def register_all_neurons(self, wallets: Dict[str, Any]) -> Dict[str, bool]:
         """Register all emulator wallets on the subnet."""
         if self.netuid is None:
-            logger.error("No netuid set — create a subnet first")
+            logger.error("No netuid set - create a subnet first")
             return {}
 
         results = {}
@@ -173,7 +173,7 @@ class SubnetManager:
         weights which are application-level parameters.
         """
         if self.netuid is None:
-            logger.error("No netuid set — create a subnet first")
+            logger.error("No netuid set - create a subnet first")
             return False
 
         params = params or self.config.subnet_params
@@ -249,7 +249,7 @@ class SubnetManager:
     def start_emissions(self) -> bool:
         """Attempt to start emissions on the subnet (local chain)."""
         if self.netuid is None:
-            logger.error("No netuid — create subnet first")
+            logger.error("No netuid - create subnet first")
             return False
 
         if self.config.network != NetworkTarget.LOCAL:

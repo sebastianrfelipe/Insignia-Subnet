@@ -1,5 +1,5 @@
 """
-Trading Validator — Strategy Performance Scoring
+Trading Validator - Strategy Performance Scoring
 
 Validates trader miner strategies by scoring their real/paper trading
 outcomes. Trading validators track positions in real-time, compute
@@ -9,10 +9,10 @@ Scoring Dimensions (8 headline + diagnostics):
   - Annualized Return (scale-invariant profitability, 365-day basis)
   - Omega Ratio (full distribution measure, captures tail behavior;
     retained for Student-t return innovations in the production stack)
-  - Max Drawdown (hard ceiling — breach = elimination)
+  - Max Drawdown (hard ceiling - breach = elimination)
   - Consistency (rolling sub-window analysis)
   - Execution Quality (latency, reliability, slippage)
-  - Annualized Volatility (cumulative realized volatility — lower = better)
+  - Annualized Volatility (cumulative realized volatility - lower = better)
   - Sharpe Ratio (risk-adjusted return per unit total volatility)
   - Sortino Ratio (risk-adjusted return per unit downside volatility)
 
@@ -281,7 +281,7 @@ class TradingValidator:
         Returns epoch summary with per-miner scores and rankings.
         """
         logger.info("=" * 50)
-        logger.info("Trading Epoch %d — Scoring %d strategies", self.current_epoch, len(self.trackers))
+        logger.info("Trading Epoch %d - Scoring %d strategies", self.current_epoch, len(self.trackers))
 
         scores = {}
         for miner_uid, tracker in self.trackers.items():
@@ -353,7 +353,7 @@ class TradingValidator:
 
         for rank, (uid, sv) in enumerate(ranked):
             status = "ELIMINATED" if self.trackers[uid].eliminated else f"score={sv.composite:.4f}"
-            logger.info("  Rank %d: %s — %s", rank + 1, uid, status)
+            logger.info("  Rank %d: %s - %s", rank + 1, uid, status)
 
         return epoch_summary
 
@@ -390,7 +390,7 @@ class TradingValidator:
 def demo():
     """Demonstrate trading validator scoring with multiple trader miners."""
     logger.info("=" * 60)
-    logger.info("Insignia Trading Validator — Demo Mode")
+    logger.info("Insignia Trading Validator - Demo Mode")
     logger.info("=" * 60)
 
     from neurons.trader_miner import TraderMiner, PaperTradingEngine, Side

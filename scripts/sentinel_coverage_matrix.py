@@ -43,12 +43,12 @@ from tuning.attack_detector import AttackDetector
 # Static mapping: vector → (adversary types, defense path, coverage state)
 #
 # Coverage states:
-#   CLOSED        — signal-driven penalty, empirically verified by step 2
-#   STATIC-FLOOR  — static multiplier penalty, empirically verified but
+#   CLOSED        - signal-driven penalty, empirically verified by step 2
+#   STATIC-FLOOR  - static multiplier penalty, empirically verified but
 #                   pending per-agent signal pipeline (TODO in simulation.py)
-#   CONFIG        — defended by a hyperparameter (consensus_integrity,
+#   CONFIG        - defended by a hyperparameter (consensus_integrity,
 #                   validation_timing, pairing) rather than a scoring penalty
-#   AGGREGATE     — defended by the combined effect of all penalty paths
+#   AGGREGATE     - defended by the combined effect of all penalty paths
 #                   (e.g. adversarial_dominance, insufficient_separation)
 # ---------------------------------------------------------------------------
 VECTOR_MAPPING: Dict[str, Dict[str, Any]] = {
@@ -57,7 +57,7 @@ VECTOR_MAPPING: Dict[str, Dict[str, Any]] = {
         "adversary_types": ["OverfittingMiner"],
         "defense_path": "_OVERFITTER_MULTIPLIER (static floor 0.0001)",
         "coverage_state": "STATIC-FLOOR",
-        "todo": "EXP-ADVERSARY-COVERAGE-002 §2 — replace with IS/OOS gap signal",
+        "todo": "EXP-ADVERSARY-COVERAGE-002 §2 - replace with IS/OOS gap signal",
     },
     "model_plagiarism": {
         "adversary_types": ["CopycatMiner"],
@@ -69,7 +69,7 @@ VECTOR_MAPPING: Dict[str, Dict[str, Any]] = {
         "adversary_types": ["SingleMetricGamer"],
         "defense_path": "_SINGLE_METRIC_MULTIPLIER (static floor 0.0001)",
         "coverage_state": "STATIC-FLOOR",
-        "todo": "EXP-ADVERSARY-COVERAGE-002 §3 — replace with metric concentration + entropy",
+        "todo": "EXP-ADVERSARY-COVERAGE-002 §3 - replace with metric concentration + entropy",
     },
     "sybil_attack": {
         "adversary_types": ["SybilMiner"],
@@ -85,7 +85,7 @@ VECTOR_MAPPING: Dict[str, Dict[str, Any]] = {
     },
     "random_baseline_discrimination": {
         "adversary_types": ["RandomMiner (noise baseline, NOT adversarial per §5.1)"],
-        "defense_path": "scoring discrimination (no penalty path — this vector checks the scorer separates signal from noise)",
+        "defense_path": "scoring discrimination (no penalty path - this vector checks the scorer separates signal from noise)",
         "coverage_state": "AGGREGATE",
         "todo": None,
     },
@@ -97,7 +97,7 @@ VECTOR_MAPPING: Dict[str, Dict[str, Any]] = {
     },
     "insufficient_separation": {
         "adversary_types": ["all adversaries (aggregate)"],
-        "defense_path": "§9 separation gate (>= 0.90) — all penalty paths combined",
+        "defense_path": "§9 separation gate (>= 0.90) - all penalty paths combined",
         "coverage_state": "CLOSED",
         "todo": None,
     },
@@ -176,7 +176,7 @@ POST_CR_VECTORS = list(VECTOR_MAPPING.keys())
 
 # Breach annotations for vectors that fire despite the anti-gaming fix being
 # correct. These are non-penalty-path issues (synthetic harness signals,
-# scoring-discrimination properties, or config-tuning gaps) — NOT adversary
+# scoring-discrimination properties, or config-tuning gaps) - NOT adversary
 # leaks. The annotation explains why the breach fires and what (if anything)
 # should be done about it.
 BREACH_NOTES: Dict[str, str] = {
@@ -185,7 +185,7 @@ BREACH_NOTES: Dict[str, str] = {
         "the synthetic scorer gives it ~0.81 by design (vs honest ~0.92, ratio 0.89 > 0.60 "
         "threshold). This vector checks scoring discrimination, not adversary suppression. "
         "Closing it would require changing the synthetic score generation, not the penalty "
-        "paths. Acceptable for the V14-R1 gate — RandomMiner is already excluded from the "
+        "paths. Acceptable for the V14-R1 gate - RandomMiner is already excluded from the "
         "adversarial set in test_simulation_separation.py."
     ),
     "prediction_timing_manipulation": (
@@ -270,7 +270,7 @@ def main() -> int:
     out_dir.mkdir(parents=True, exist_ok=True)
     ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H-%M-%S")
 
-    print("Sentinel coverage matrix — running harness with V14-R1 proxy config...")
+    print("Sentinel coverage matrix - running harness with V14-R1 proxy config...")
     t0 = time.time()
     result = run_harness(n_epochs=args.epochs, n_trading_steps=args.trading_steps)
     print(f"  harness completed in {time.time() - t0:.1f}s")
@@ -323,7 +323,7 @@ def main() -> int:
     cb = summary["coverage_breakdown"]
     da = summary["detector_aggregate"]
     lines = [
-        "# Sentinel Coverage Matrix — 19 Post-CR Surveillance Vectors",
+        "# Sentinel Coverage Matrix - 19 Post-CR Surveillance Vectors",
         "",
         f"**Generated:** {summary['generated_at']}",
         f"**Config source:** {summary['config_source']}",
@@ -377,16 +377,16 @@ def main() -> int:
     pending = [r for r in rows if r["coverage_state"] == "STATIC-FLOOR" and r["todo"]]
     if pending:
         for r in pending:
-            lines.append(f"- **`{r['vector']}`** — {r['todo']}")
+            lines.append(f"- **`{r['vector']}`** - {r['todo']}")
     else:
-        lines.append("_None — all STATIC-FLOOR vectors are empirically defended; TODOs are forward-looking only._")
+        lines.append("_None - all STATIC-FLOOR vectors are empirically defended; TODOs are forward-looking only._")
     lines.append("")
     lines.append("## Breach annotations (non-penalty-path breaches)")
     lines.append("")
     breached_rows = [r for r in rows if r["breached"]]
     if breached_rows:
         for r in breached_rows:
-            note = r.get("breach_note") or "No annotation available — investigate as a potential real leak."
+            note = r.get("breach_note") or "No annotation available - investigate as a potential real leak."
             lines.append(f"### `{r['vector']}` (severity {r['severity']}, {r['risk_tier']})")
             lines.append("")
             lines.append(f"**Detector description:** {r['description']}")
@@ -394,7 +394,7 @@ def main() -> int:
             lines.append(f"**Annotation:** {note}")
             lines.append("")
     else:
-        lines.append("_No breaches — all 19 vectors defended._")
+        lines.append("_No breaches - all 19 vectors defended._")
         lines.append("")
     lines.append("## Verdict")
     lines.append("")
@@ -407,7 +407,7 @@ def main() -> int:
     adversary_breaches = [r for r in breached_rows if r["vector"] in adversary_vectors]
     non_penalty_breaches = [r for r in breached_rows if r["vector"] not in adversary_vectors]
     if not adversary_breaches:
-        lines.append(f"✅ **All adversary-type vectors defended** — zero adversary leaks across the 19-vector surface.")
+        lines.append(f"✅ **All adversary-type vectors defended** - zero adversary leaks across the 19-vector surface.")
         lines.append(f"   - Adversary-type vectors (overfitting, plagiarism, single_metric, sybil, copy_trading,")
         lines.append(f"     miner_validator_collusion, adversarial_dominance, insufficient_separation): all severity 0.0.")
         if non_penalty_breaches:
@@ -438,7 +438,7 @@ def main() -> int:
 
     # Exit 0 only if no adversary-type vector is breached. Non-penalty-path
     # breaches (synthetic harness signals, config-tuning gaps) do not fail
-    # the cycle — they are documented in the report's breach annotations.
+    # the cycle - they are documented in the report's breach annotations.
     adversary_vector_names = {
         "overfitting_exploitation", "model_plagiarism", "single_metric_gaming",
         "sybil_attack", "copy_trading", "miner_validator_collusion",

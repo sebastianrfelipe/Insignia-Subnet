@@ -2,15 +2,15 @@
 Collateral).
 
 Two legs per settlement batch, both limit-bounded:
-  1. slash leg  — unstake slashed escrow alpha into the pool → TAO proceeds;
-  2. burn leg   — subnet owner calls `add_stake_burn` with those proceeds:
+  1. slash leg  - unstake slashed escrow alpha into the pool → TAO proceeds;
+  2. burn leg   - subnet owner calls `add_stake_burn` with those proceeds:
                   TAO enters the pool reserve, the AMM-equivalent alpha is
                   removed from the alpha reserve and burned in the same
                   transaction.
 
 Net effect: circulating alpha falls by ≈ the slashed amount less fees on both
 legs, pool TAO round-trips. `add_stake_burn` is rate-limited to ONE call per
-tempo per subnet (`AddStakeBurnRateLimitExceeded` on violation) — settlement is
+tempo per subnet (`AddStakeBurnRateLimitExceeded` on violation) - settlement is
 therefore batched per tempo, and oversized batches split across tempos to stay
 inside the slippage budget.
 
@@ -39,7 +39,7 @@ class BurnRateLimited(BurnCallError):
 class BurnLimits:
     """The batch bound targets the SLASH LEG's price impact, not the supply
     cost: the round-trip supply shortfall is ≈ 2× the input-side fee regardless
-    of size (the legs' slippage cancels — see RoundTrip), but between the legs
+    of size (the legs' slippage cancels - see RoundTrip), but between the legs
     the pool sits displaced and front-runnable, and that transient displacement
     IS monotone in batch size."""
 
@@ -99,7 +99,7 @@ def plan_settlement(pool: PoolSnapshot, pending_alpha: float,
                     limits: BurnLimits = BurnLimits()) -> SettlementPlan:
     """Split `pending_alpha` into per-tempo batches whose SLASH-LEG price
     impact (realized vs spot, pool_math.exit_slippage) stays inside
-    `max_batch_slippage_bps`. Halves the batch until it fits — exit slippage is
+    `max_batch_slippage_bps`. Halves the batch until it fits - exit slippage is
     monotone in size, so this terminates unless the budget sits below the
     input-side fee floor. Batches re-quote against post-batch reserves; in
     production each executes in its own tempo and SHOULD be re-planned against
@@ -154,7 +154,7 @@ class BurnRateLimiter:
 class BurnClient:
     """Extrinsic wrapper for the settlement legs, modeled on lockmgr.locks.
     Signs with the escrow coldkey for the slash leg and the OWNER coldkey for
-    add_stake_burn (owner-only extrinsic) — inject the matching wallet."""
+    add_stake_burn (owner-only extrinsic) - inject the matching wallet."""
 
     def __init__(self, subtensor: Any, escrow_wallet: Any, owner_wallet: Any, netuid: int):
         self._st = subtensor
@@ -179,7 +179,7 @@ class BurnClient:
         return receipt
 
     def escrow_return(self, hotkey: str, dest_coldkey: str, amount_alpha: float) -> Any:
-        """Bond release back to a miner coldkey — same-subnet transfer_stake,
+        """Bond release back to a miner coldkey - same-subnet transfer_stake,
         no swap, no price impact (SPEC §0.13)."""
         return self._compose(self._escrow, "transfer_stake", {
             "destination_coldkey": dest_coldkey,
@@ -191,7 +191,7 @@ class BurnClient:
 
     def slash_leg(self, hotkey: str, batch: BurnBatch) -> Any:
         """Unstake slashed escrow alpha, limit-bounded (remove_stake_limit,
-        allow_partial=False — all-or-nothing inside the planned batch)."""
+        allow_partial=False - all-or-nothing inside the planned batch)."""
         limit_price = batch.expected_tao / batch.alpha_to_unstake
         return self._compose(self._escrow, "remove_stake_limit", {
             "hotkey": hotkey,

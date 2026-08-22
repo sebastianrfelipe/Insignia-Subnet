@@ -68,7 +68,7 @@ v4 stratified dispatch for gate_7 roster robustness. Produce V14-R1 simulation_e
 | Gate 1 | honest_mean_score | >= 0.97 | 0.914011 | **FAIL** |
 | Gate 2 | separation | >= 0.90 | 0.913015 | **PASS** |
 | Gate 3 | cr_effectiveness | >= 0.90 | 1.000000 | **PASS** |
-| **Overall** | gates 1-3 | all pass | — | **FAIL** |
+| **Overall** | gates 1-3 | all pass | - | **FAIL** |
 
 **Verdict type**: ACTUAL_SIMULATION (not projected)
 
@@ -91,10 +91,10 @@ v4 stratified dispatch for gate_7 roster robustness. Produce V14-R1 simulation_e
 | separation | 0.907156 | 0.913015 | +0.00586 |
 | honest_score_variance | 1.281e-04 | 3.534e-05 | -9.28e-05 (lower) |
 
-**Key finding**: The adversarial-heavy roster (76.9% adversarial) produces slightly *higher* honest_mean_score and separation than the default roster (44.4% adversarial). This is because the honest agents' scores are unaffected by the number of adversaries (adversaries score near-zero regardless), and the honest_mean is computed only over honest agents. The variance is lower with 3 honest agents vs 5. Gate 1 still FAILs (honest_mean 0.914 < 0.97 threshold) — the corrected KP weights cannot push honest scores above 0.97 even under reduced honest population.
+**Key finding**: The adversarial-heavy roster (76.9% adversarial) produces slightly *higher* honest_mean_score and separation than the default roster (44.4% adversarial). This is because the honest agents' scores are unaffected by the number of adversaries (adversaries score near-zero regardless), and the honest_mean is computed only over honest agents. The variance is lower with 3 honest agents vs 5. Gate 1 still FAILs (honest_mean 0.914 < 0.97 threshold) - the corrected KP weights cannot push honest scores above 0.97 even under reduced honest population.
 
 ## Forbidden Checks
 - [x] No writes to `simulation_results` collection (verified: 0 docs)
 - [x] No V13-R3 projections used
-- [x] No PASS (projected) verdicts — all verdicts are ACTUAL_SIMULATION
-- [x] No `procedure=insignia_subnet_tuner` namespace leak — all docs use `procedure=v14_r1_online_gate_check`
+- [x] No PASS (projected) verdicts - all verdicts are ACTUAL_SIMULATION
+- [x] No `procedure=insignia_subnet_tuner` namespace leak - all docs use `procedure=v14_r1_online_gate_check`

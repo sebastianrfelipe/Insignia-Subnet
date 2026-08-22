@@ -1,4 +1,4 @@
-"""Researcher prep — V14-R1 production-reference gate check (cycle step 5).
+"""Researcher prep - V14-R1 production-reference gate check (cycle step 5).
 
 Evaluates the V14-R1-CORRECTED-KP proxy config against all 10 §9 acceptance
 gates from EMULATOR_SPEC.md and emits a promotion-readiness document the
@@ -51,7 +51,7 @@ from tuning.attack_detector import AttackDetector
 #
 # Each gate is classified by how it can be checked:
 #   - "harness": computed from the offline SimulationHarness result (separation,
-#     breach_rate, timing severities) — meaningful to check offline.
+#     breach_rate, timing severities) - meaningful to check offline.
 #   - "online": requires live chain data per §9 ("in `online` mode"). The
 #     harness's synthetic scores/telemetry are not comparable to live
 #     thresholds, so these are marked PENDING rather than PASS/FAIL when
@@ -172,7 +172,7 @@ def _compare(value, comparison, threshold):
 def evaluate_gates(sim_result, breach_report) -> List[Dict[str, Any]]:
     """Evaluate all 10 §9 gates against the simulation result.
 
-    Gates with `check_mode: "online"` are marked PENDING — per §9 the gates
+    Gates with `check_mode: "online"` are marked PENDING - per §9 the gates
     must hold "in `online` mode", and the offline harness's synthetic scores
     / hardcoded telemetry are not comparable to live thresholds. Only
     `check_mode: "harness"` gates are PASS/FAIL'd against the harness result.
@@ -234,7 +234,7 @@ def evaluate_gates(sim_result, breach_report) -> List[Dict[str, Any]]:
                 "passed": False,
                 "pending": True,
                 "check_mode": check_mode,
-                "note": "Online-mode gate per §9 — requires live chain data, not offline harness.",
+                "note": "Online-mode gate per §9 - requires live chain data, not offline harness.",
             })
             continue
 
@@ -265,7 +265,7 @@ def main() -> int:
     out_dir.mkdir(parents=True, exist_ok=True)
     ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H-%M-%S")
 
-    print("Researcher prep — V14-R1 §9 gate check...")
+    print("Researcher prep - V14-R1 §9 gate check...")
     t0 = time.time()
 
     l1, l2 = create_default_agents(
@@ -289,7 +289,7 @@ def main() -> int:
     n_pending = sum(1 for g in gate_results if g["pending"])
     n_failed = len(gate_results) - n_passed - n_pending
     # Promotable only if all harness-mode gates pass AND no online-mode gates
-    # are pending — but online-mode gates ALWAYS require live verification, so
+    # are pending - but online-mode gates ALWAYS require live verification, so
     # promotable is False from the offline harness. The honest answer is that
     # promotion requires the orchestrator's online verification.
     promotable = n_failed == 0 and n_pending == 0
@@ -349,7 +349,7 @@ def main() -> int:
         f"| Passed (harness-mode) | {n_passed} |",
         f"| Failed (harness-mode) | {n_failed} |",
         f"| Pending (online-mode, require live chain) | {n_pending} |",
-        f"| **Promotable to production reference** | **{'YES' if s['promotable_to_production_reference'] else 'NO — requires online verification'}** |",
+        f"| **Promotable to production reference** | **{'YES' if s['promotable_to_production_reference'] else 'NO - requires online verification'}** |",
         "",
         "## Per-gate results",
         "",
@@ -370,7 +370,7 @@ def main() -> int:
 
     lines.append("")
     if summary["failed_gates"]:
-        lines.append("## Failed harness-mode gates — remediation required")
+        lines.append("## Failed harness-mode gates - remediation required")
         lines.append("")
         for g in summary["failed_gates"]:
             lines.append(f"### `{g['gate']}` (value {g['value']}, threshold {g['threshold']} {g['comparison']})")
@@ -383,9 +383,9 @@ def main() -> int:
             lines.append(f"")
     pending_gates = [g for g in gate_results if g["pending"]]
     if pending_gates:
-        lines.append("## Pending online-mode gates — require live chain verification per §9")
+        lines.append("## Pending online-mode gates - require live chain verification per §9")
         lines.append("")
-        lines.append("Per §9: \"A configuration is promotable to the production-reference approval gate **only when all** hold, in `online` mode, across ≥ 2 reruns with different seeds.\" The offline harness cannot verify these gates — they require live chain data.")
+        lines.append("Per §9: \"A configuration is promotable to the production-reference approval gate **only when all** hold, in `online` mode, across ≥ 2 reruns with different seeds.\" The offline harness cannot verify these gates - they require live chain data.")
         lines.append("")
         for g in pending_gates:
             note = g.get("note", "")
@@ -397,7 +397,7 @@ def main() -> int:
     lines.append("## Verdict")
     lines.append("")
     if promotable:
-        lines.append(f"✅ **V14-R1 CLEARS ALL §9 GATES** — promotable to production reference.")
+        lines.append(f"✅ **V14-R1 CLEARS ALL §9 GATES** - promotable to production reference.")
         lines.append(f"The researcher agent may proceed to the HITL promotion gate (§9) with this evidence.")
     else:
         n_harness = sum(1 for g in gate_results if g.get("check_mode") == "harness")
@@ -412,7 +412,7 @@ def main() -> int:
             failed_names = [g["gate"] for g in summary["failed_gates"]]
             lines.append(f"- {', '.join(failed_names)}")
             lines.append(f"")
-            lines.append(f"**Do NOT promote V14-R1 as production reference yet.** The V13-R3 knee was promoted prematurely on surrogate predictions and failed empirical validation (§6.6) — the same mistake must not be repeated with V14-R1.")
+            lines.append(f"**Do NOT promote V14-R1 as production reference yet.** The V13-R3 knee was promoted prematurely on surrogate predictions and failed empirical validation (§6.6) - the same mistake must not be repeated with V14-R1.")
     lines.append("")
     lines.append(f"_JSON report: `{json_path.name}`_")
 

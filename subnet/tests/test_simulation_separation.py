@@ -4,7 +4,7 @@ Regression test for honest/adversarial separation in the simulation harness.
 Grounds EMULATOR_SPEC §9 (acceptance gate: empirical separation >= 0.90) in an
 actual harness run with the default 14-agent benchmark population. The spec's
 §6.6 "surrogate-vs-empirical" narrative describes a GP surrogate that does not
-exist in the codebase — the optimizer already routes through `SimulationHarness`
+exist in the codebase - the optimizer already routes through `SimulationHarness`
 (see `subnet/tuning/optimizer.py:172-213`). This test pins the harness's actual
 separation behavior so any future regression (e.g. an adversary penalty
 multiplier at `simulation.py` being silently raised) is caught.
@@ -128,7 +128,7 @@ class SeparationRegressionTests(unittest.TestCase):
         researcher_types = _per_type_breakdown(sim_result)
         trader_types = _trader_type_breakdown(sim_result)
         # Adversary types per spec §5.1 / §5.2. NOTE: `random` is deliberately
-        # excluded — per EMULATOR_SPEC §5.1 it is the "Noise-floor baseline",
+        # excluded - per EMULATOR_SPEC §5.1 it is the "Noise-floor baseline",
         # not an adversary. `RandomMiner` does not override `is_adversarial()`
         # (inherits base class default `False` at simulation.py:102-103), so
         # the harness at simulation.py:930 routes its scores into
@@ -164,9 +164,9 @@ class SeparationRegressionTests(unittest.TestCase):
         regardless of behavior. The signal-driven path (EXP-ADVERSARY-COVERAGE-002
         §1) uses the generation's `sybil_pressure` signal to modulate the
         multiplier within the near-zero regime the §9 gate requires. This test
-        pins that the sybil score lands in the signal-driven range — above the
+        pins that the sybil score lands in the signal-driven range - above the
         flat floor (`_SYBIL_FLOOR_MULTIPLIER × base`) and below the no-signal
-        ceiling (`_SYBIL_GATE_SCALE × base`) — so a future regression to a flat
+        ceiling (`_SYBIL_GATE_SCALE × base`) - so a future regression to a flat
         constant is caught.
         """
         from tuning.simulation import (

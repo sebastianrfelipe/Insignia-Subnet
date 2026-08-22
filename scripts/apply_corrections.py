@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Apply corrected ground-truth to MCP state.
 
-#5 — Overwrite the two poisoned memory keys:
+#5 - Overwrite the two poisoned memory keys:
    - emulator_spec_execution_state  (cited hallucinated computeAgentScore + surrogate)
    - v14_r1_corrected_config        (add grounded_root_cause + known_false_leads)
 
-#10 — File a new corrected coder task that names SimulationHarness.run
+#10 - File a new corrected coder task that names SimulationHarness.run
       as the real target and tells the coder NOT to search for computeAgentScore.
 
 Re-runnable. Idempotent: memory upserts use {key: ...} filter; task insert
@@ -30,7 +30,7 @@ COLLECTION_TASKS = "tasks"
 NOW = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 # ---------------------------------------------------------------------------
-# #5a — Corrected emulator_spec_execution_state
+# #5a - Corrected emulator_spec_execution_state
 # ---------------------------------------------------------------------------
 
 EMULATOR_SPEC_EXECUTION_STATE = {
@@ -117,7 +117,7 @@ EMULATOR_SPEC_EXECUTION_STATE = {
 
 
 # ---------------------------------------------------------------------------
-# #10 — New corrected coder task
+# #10 - New corrected coder task
 # ---------------------------------------------------------------------------
 
 CODER_TASK_TITLE = (
@@ -273,7 +273,7 @@ def main() -> int:
     mcp_initialize()
     print(f"  initialized (session_id={_SESSION_ID or 'none'})\n")
 
-    # #5a — overwrite emulator_spec_execution_state
+    # #5a - overwrite emulator_spec_execution_state
     print("#5a: overwrite emulator_spec_execution_state")
     upsert_memory(
         "emulator_spec_execution_state",
@@ -283,7 +283,7 @@ def main() -> int:
     )
     print()
 
-    # #5b — augment v14_r1_corrected_config with grounded fields (preserve params)
+    # #5b - augment v14_r1_corrected_config with grounded fields (preserve params)
     print("#5b: augment v14_r1_corrected_config with grounded_root_cause + known_false_leads")
     try:
         res = mcp_call("mongodb_find", {
@@ -312,7 +312,7 @@ def main() -> int:
         print(f"    FAILED: {e}", file=sys.stderr)
     print()
 
-    # #10 — file the corrected coder task (guard against duplicate inserts)
+    # #10 - file the corrected coder task (guard against duplicate inserts)
     print("#10: file corrected coder task")
     if find_pending_task_by_title(CODER_TASK_TITLE):
         print(f"  SKIP: a task with this title already exists: {CODER_TASK_TITLE!r}")

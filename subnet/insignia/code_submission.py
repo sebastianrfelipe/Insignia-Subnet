@@ -1,5 +1,5 @@
 """
-Insignia Code Submission — Reproducible Researcher Submissions
+Insignia Code Submission - Reproducible Researcher Submissions
 
 Under the base researcher protocol a miner submits only a serialized model
 artifact (``ModelSubmission.model_artifact``). The validator deserializes it and
@@ -179,7 +179,7 @@ def build_code_bundle(
     Package ``{relative_path: contents}`` into a deterministic ``tar.gz`` bundle.
 
     The archive is byte-reproducible (sorted entries, fixed mtime/uid/gid) so the
-    same source always yields the same ``bundle_hash`` — a prerequisite for
+    same source always yields the same ``bundle_hash`` - a prerequisite for
     commit-reveal style signing and for cross-validator agreement.
     """
     cfg = config or CodeBundleConfig()
@@ -507,8 +507,8 @@ def _interpreter_site_paths() -> List[str]:
             pass
     except Exception:  # noqa: BLE001
         pass
-    # Only fall back to *package* dirs on sys.path — never the project/source
-    # tree — so the sandbox can import deps without importing validator code.
+    # Only fall back to *package* dirs on sys.path - never the project/source
+    # tree - so the sandbox can import deps without importing validator code.
     paths.extend(
         p for p in sys.path
         if p and ("site-packages" in p or "dist-packages" in p)

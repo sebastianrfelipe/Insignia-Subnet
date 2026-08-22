@@ -15,8 +15,8 @@ This module provides:
    (separation between honest and adversarial submissions) without
    regressing the honest baseline.
 
-2. **ExploitSignalCollector**: captures "scientific gaming" events — cases
-   where a miner optimized for a metric rather than the underlying objective —
+2. **ExploitSignalCollector**: captures "scientific gaming" events - cases
+   where a miner optimized for a metric rather than the underlying objective -
    and converts them into candidate scoring-function revisions. This is the
    hybrid exploit philosophy: economic attacks (sybil, collusion, timing) are
    still hard-gated, but metric-gaming is treated as a signal to revise the
@@ -112,7 +112,7 @@ class DiscriminationMetrics:
 @dataclass
 class ExploitSignal:
     """
-    A captured "scientific gaming" event — a miner optimizing for a metric
+    A captured "scientific gaming" event - a miner optimizing for a metric
     rather than the underlying objective. This is a signal to revise the
     scoring function, not merely an attack to kill.
     """

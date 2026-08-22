@@ -1,5 +1,5 @@
 """
-Model Validator — Researcher-side Model Evaluation
+Model Validator - Researcher-side Model Evaluation
 
 Template validator for the researcher (model) side of the Insignia subnet.
 Validators receive model submissions from researcher miners, run them against a
@@ -15,7 +15,7 @@ evaluator retained for the emulator and demos.
 PROPRIETARY BOUNDARY:
   The validator's benchmark dataset (enterprise tick-by-tick data) is the
   core competitive moat. It is NEVER exposed to miners. The scoring
-  framework itself is fully transparent — only the data and the proprietary
+  framework itself is fully transparent - only the data and the proprietary
   overfitting detector implementation are private.
 
   In this template, the ProprietaryBenchmark class demonstrates the
@@ -307,12 +307,12 @@ class CodeSubmissionValidator:
     Validates the code half of a researcher submission.
 
     Pipeline per submission:
-      1. **Structure + static safety** — ``CodeBundleVerifier`` confirms the
+      1. **Structure + static safety** - ``CodeBundleVerifier`` confirms the
          bundle hash, manifest, entrypoint, and that no source contains a
          sandbox-escaping pattern.
-      2. **Plagiarism** — ``CodeFingerprinter`` flags miners shipping verbatim
+      2. **Plagiarism** - ``CodeFingerprinter`` flags miners shipping verbatim
          or lightly-edited copies of another miner's source.
-      3. **Reproducibility** — ``ReproducibilityChecker`` re-runs the bundle's
+      3. **Reproducibility** - ``ReproducibilityChecker`` re-runs the bundle's
          entrypoint in an isolated sandbox over the validator's evaluation
          features and verifies the reproduced predictions match the artifact's.
 
@@ -337,7 +337,7 @@ class CodeSubmissionValidator:
         self.fingerprinter = fingerprinter or CodeFingerprinter()
         # By default, identical code is *reported* (so a validator can apply
         # reward-sharing like ``ModelFingerprinter`` does for correlated models)
-        # rather than hard-rejected — many honest miners legitimately start from
+        # rather than hard-rejected - many honest miners legitimately start from
         # the public reference pipeline. Set True to reject verbatim copies.
         self.reject_duplicates = reject_duplicates
 
@@ -536,7 +536,7 @@ class ModelValidator:
             if self.gate_on_reproducibility and not code_result.get("code_reproducible"):
                 self.rate_limiter.record(miner_uid)
                 logger.info(
-                    "Miner %s: code submission rejected (%s) — scored 0",
+                    "Miner %s: code submission rejected (%s) - scored 0",
                     miner_uid, code_result.get("code_rejection_reason", "unverified"),
                 )
                 return {
@@ -591,7 +591,7 @@ class ModelValidator:
         Set force=True to bypass rate limiting (useful for demos).
         """
         logger.info("=" * 50)
-        logger.info("Epoch %d — Processing %d submissions", self.current_epoch, len(submissions))
+        logger.info("Epoch %d - Processing %d submissions", self.current_epoch, len(submissions))
         logger.info("Regime: %s", self.evaluator.benchmark.get_regime_label(self.current_epoch))
 
         if force:
@@ -686,7 +686,7 @@ def demo():
     from neurons.researcher_miner import ResearcherMiner, ModelTrainer, generate_demo_data
 
     logger.info("=" * 60)
-    logger.info("Insignia Model Validator — Demo Mode")
+    logger.info("Insignia Model Validator - Demo Mode")
     logger.info("=" * 60)
 
     miners = {}

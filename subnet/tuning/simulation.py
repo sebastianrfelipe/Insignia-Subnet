@@ -3,7 +3,7 @@ Simulation Harness with AI Agent Miners
 
 Self-contained simulation that runs the full Insignia subnet pipeline
 with configurable bot miners. Each bot type simulates a different
-strategy — honest, adversarial, or degenerate — to test the robustness
+strategy - honest, adversarial, or degenerate - to test the robustness
 of a given parameter configuration.
 
 Agent Types:
@@ -73,9 +73,9 @@ DEFAULT_TRADING_PAIRS = [
 #
 # These constants set the per-adversary-type penalty multipliers applied in
 # `SimulationHarness.run`'s scoring loop. They are aggressive by design: the
-# §9 separation gate (>= 0.90) with the default 14-agent population — where
+# §9 separation gate (>= 0.90) with the default 14-agent population - where
 # `RandomMiner` (noise baseline, not adversarial per §5.1) drags the honest
-# mean down to ~0.90 — leaves no headroom for adversaries to score above
+# mean down to ~0.90 - leaves no headroom for adversaries to score above
 # ~0.001 while still clearing the gate.
 #
 # The SybilMiner penalty is signal-driven (uses the generation's
@@ -422,7 +422,7 @@ class SingleMetricGamer(MinerAgent):
 
 
 class RandomMiner(MinerAgent):
-    """Submits essentially random models — noise floor baseline."""
+    """Submits essentially random models - noise floor baseline."""
 
     agent_type = "random"
 
@@ -445,7 +445,7 @@ class RandomMiner(MinerAgent):
 
 class SybilMiner(MinerAgent):
     """
-    Part of a sybil cluster — multiple identities with correlated models.
+    Part of a sybil cluster - multiple identities with correlated models.
     Uses the same seed and data with tiny variations.
     """
 
@@ -1063,7 +1063,7 @@ class SimulationHarness:
                 #
                 # The SybilMiner penalty is signal-driven (uses `gen_sybil_pressure`
                 # computed above from the generation's trading-pair distribution).
-                # The other adversaries use static floor multipliers — signal-driven
+                # The other adversaries use static floor multipliers - signal-driven
                 # implementations for them require per-agent signals (IS/OOS gap,
                 # metric concentration, partner correlation) that are not yet
                 # computed in the harness scoring loop. The static floors are
@@ -1085,7 +1085,7 @@ class SimulationHarness:
                     # drags the honest mean to ~0.90), so the signal-driven
                     # multiplier is floored at `_SYBIL_FLOOR_MULTIPLIER`. The
                     # `gen_sybil_pressure` signal still modulates the final
-                    # score — higher pressure = lower score — so the penalty
+                    # score - higher pressure = lower score - so the penalty
                     # responds to the actual attack signal rather than being a
                     # flat constant.
                     _sybil_base = 1.0 - min(0.95, _SYBIL_DETECTION_SENSITIVITY * _SYBIL_CORRELATION_PENALTY)
@@ -1100,7 +1100,7 @@ class SimulationHarness:
                     # ScoreVector *is* the IS/OOS gap signal. High signal -> low
                     # multiplier (more penalty). The static floor is a hard
                     # backstop so the adversary can never outscore honest even
-                    # when the detector returns 0 (the metric itself is gamed —
+                    # when the detector returns 0 (the metric itself is gamed -
                     # the R&D loop is then expected to revise the detector).
                     _of_sig = _overfitting_signal(model_sv)
                     _of_signal_mult = 1.0 - _of_sig

@@ -1,9 +1,9 @@
 """
-Insignia Safe Model Loader — allowlisted deserialization of untrusted artifacts.
+Insignia Safe Model Loader - allowlisted deserialization of untrusted artifacts.
 
 Researcher miners ship their trained model as a serialized ``model_artifact``
 (``joblib.dump`` of an sklearn estimator/pipeline). Validators and trader miners
-must turn those bytes back into a live object to score / inference them — but the
+must turn those bytes back into a live object to score / inference them - but the
 bytes arrive over the network from an *untrusted* peer.
 
 ``joblib.load`` (like ``pickle.load``) executes whatever the ``__reduce__`` of
@@ -15,9 +15,9 @@ This module replaces the raw ``joblib.load`` with ``safe_load_model``, which
 drives joblib's own numpy-aware unpickler but overrides ``find_class`` to a
 strict **allowlist**: only inert container types and classes from the numerical
 / ML stack (numpy, scipy, sklearn, joblib) may be reconstructed. The dangerous
-gadget sources a pickle RCE needs — ``os``/``posix``/``nt``, ``subprocess``,
+gadget sources a pickle RCE needs - ``os``/``posix``/``nt``, ``subprocess``,
 ``sys``, ``builtins.eval``/``exec``/``getattr``/``__import__``, ``operator``,
-``functools`` — are never in the allowlist, so a ``REDUCE``/``STACK_GLOBAL`` that
+``functools`` - are never in the allowlist, so a ``REDUCE``/``STACK_GLOBAL`` that
 references them raises ``UnsafeArtifactError`` *before* any callable is invoked.
 
 The loader **fails closed**: anything it cannot load under the allowlist (an
@@ -26,7 +26,7 @@ rather than falling back to the unsafe path, so callers can reject the
 submission and score it zero.
 
 Caveat (documented, not a TODO): allowlisted unpickling narrows the attack
-surface to the numerical stack rather than eliminating it — a novel gadget built
+surface to the numerical stack rather than eliminating it - a novel gadget built
 purely from allowlisted numpy/sklearn classes is not categorically impossible.
 It is the standard pragmatic mitigation for "must accept a pickled sklearn
 model", and it composes with the reproducibility sandbox in
@@ -76,7 +76,7 @@ _ALLOWED_BUILTINS: frozenset[str] = frozenset({
 # Specific (module, name) pairs needed for generic object reconstruction.
 # ``copyreg._reconstructor`` / ``__newobj__`` receive the target class as a
 # *separate* global argument, which is itself routed through ``find_class`` and
-# therefore independently allowlisted — so permitting them does not widen the
+# therefore independently allowlisted - so permitting them does not widen the
 # surface. ``defaultdict``'s ``default_factory`` is likewise a separate global.
 _ALLOWED_EXPLICIT: frozenset[Tuple[str, str]] = frozenset({
     ("copyreg", "_reconstructor"),
@@ -105,7 +105,7 @@ def _restricted_numpy_unpickler_class():
 
     Subclassing joblib's unpickler (a ``pickle._Unpickler``, which honors a
     Python-level ``find_class`` override) preserves byte-for-byte compatibility
-    with ``joblib.dump`` output — including memmapped numpy arrays — while
+    with ``joblib.dump`` output - including memmapped numpy arrays - while
     gating every global through the allowlist.
     """
     from joblib.numpy_pickle import NumpyUnpickler  # lazy: joblib is runtime-only
@@ -178,7 +178,7 @@ def safe_load_model(artifact: bytes) -> Any:
 
     Returns the reconstructed estimator/pipeline. Raises ``UnsafeArtifactError``
     if the artifact references a disallowed global, is malformed, or cannot be
-    loaded safely — callers must reject such submissions (score 0), never fall
+    loaded safely - callers must reject such submissions (score 0), never fall
     back to ``joblib.load``.
     """
     if not isinstance(artifact, (bytes, bytearray, memoryview)):

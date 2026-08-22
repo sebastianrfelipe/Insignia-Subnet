@@ -2,8 +2,8 @@
 
 Run once per epoch (tempo). Emits `MonitorFinding`s consumed by risk/alerts.
 Covers: parameter drift (recompute schedules on UnlockRate/MaturityRate change),
-owner-hotkey change, unstaked LP alpha, subnet-king early warning — tracked
-even while the king transfer is disabled (SPEC §0.6) — and, post-Root-Reborn,
+owner-hotkey change, unstaked LP alpha, subnet-king early warning - tracked
+even while the king transfer is disabled (SPEC §0.6) - and, post-Root-Reborn,
 beta-basket escrow stake per root validator (SPEC §0.16; R15/R16). Native
 registration collateral (SPEC §0.17, docs/COLLATERAL.md): policy drift, missing
 visibility, floor shortfall, and deployment-bond starvation.
@@ -22,7 +22,7 @@ from lockmgr.schedules import LpLock, LockState
 # Defensive posture if subnet-king is enabled (SPEC §10.3): owner aggregate
 # ≥ KING_DEFENSE_RATIO × largest external hotkey AND external conviction below
 # KING_CONVICTION_THRESHOLD × SubnetAlphaOut. SubnetAlphaOut INCLUDES beta-basket
-# escrow (real stake, conviction-inert) — the denominator both sides fight over.
+# escrow (real stake, conviction-inert) - the denominator both sides fight over.
 KING_DEFENSE_RATIO = 2.0
 KING_CONVICTION_THRESHOLD = 0.10
 
@@ -40,7 +40,7 @@ class MonitorFinding:
 
 
 def param_drift(previous: ChainParams, current: ChainParams) -> list[MonitorFinding]:
-    """Any root-driven parameter change invalidates cached schedules — page on
+    """Any root-driven parameter change invalidates cached schedules - page on
     the lock rates, warn on everything else."""
     findings = []
     page_fields = {"unlock_rate_blocks", "conviction_maturity_blocks"}
@@ -68,13 +68,13 @@ def verify_lock_invariants(
         return findings
     if on_chain.hotkey != owner_hotkey:
         findings.append(MonitorFinding("page", "wrong_hotkey",
-                        f"{expected.lp_id}: locked to {on_chain.hotkey}, not owner hotkey — "
+                        f"{expected.lp_id}: locked to {on_chain.hotkey}, not owner hotkey - "
                         "forfeits instant conviction and weakens king defense"))
     should_be_perpetual = expected.state in (LockState.PERPETUAL, LockState.VESTING_COMPLETE)
     if should_be_perpetual and not on_chain.perpetual:
         findings.append(MonitorFinding("page", "decay_leak",
                         f"{expected.lp_id}: perpetual flag off before toggle day "
-                        f"{expected.effective_toggle_day():.0f} — mass is decaying early"))
+                        f"{expected.effective_toggle_day():.0f} - mass is decaying early"))
     expected_mass = expected.locked_mass_at(day, params)
     if expected_mass > 0 and abs(on_chain.locked_mass - expected_mass) / expected_mass > mass_tolerance:
         findings.append(MonitorFinding("warn", "mass_mismatch",
@@ -85,7 +85,7 @@ def verify_lock_invariants(
 
 def unstaked_lp_positions(staked_by_coldkey: dict[str, float],
                           locks: list[LpLock]) -> list[MonitorFinding]:
-    """Locked LP alpha must remain staked at all times — unstaked positions eat
+    """Locked LP alpha must remain staked at all times - unstaked positions eat
     the full dilution hurdle instead of recapturing issuance (SPEC §0.5)."""
     findings = []
     for lock in locks:
@@ -118,7 +118,7 @@ class KingWatch:
 class EscrowWatch:
     """One epoch's view of beta-basket escrow on our netuid (SPEC §0.16).
 
-    `subnet_alpha_out` must be the chain value, which already includes escrow —
+    `subnet_alpha_out` must be the chain value, which already includes escrow -
     basket positions are real stake entries. `previous_weights` is last epoch's
     per-validator weight toward our netuid, for rotation early-warning (R15).
     """
@@ -144,13 +144,13 @@ def escrow_findings(watch: EscrowWatch) -> list[MonitorFinding]:
     """Escrow stake, rotation, and overhang checks (R15/R16).
 
     Escrow is conviction-inert (the keyless escrow can never sign lock_stake),
-    so it never appears in king numerators — but it inflates SubnetAlphaOut for
+    so it never appears in king numerators - but it inflates SubnetAlphaOut for
     attacker and defender alike, and it is the claim-flow overhang.
     """
     findings: list[MonitorFinding] = []
     if not watch.baskets:
         findings.append(MonitorFinding("warn", "escrow_no_visibility",
-                        "no beta-basket state readable — treat as missing data, "
+                        "no beta-basket state readable - treat as missing data, "
                         "not as zero escrow (verify BetaBasketApi on this runtime)"))
         return findings
 
@@ -159,21 +159,21 @@ def escrow_findings(watch: EscrowWatch) -> list[MonitorFinding]:
                 b.escrow_alpha / watch.subnet_alpha_out >= ESCROW_CONSENSUS_WARN_SHARE:
             findings.append(MonitorFinding("warn", "escrow_consensus_weight",
                             f"validator {b.hotkey} escrow holds "
-                            f"{b.escrow_alpha / watch.subnet_alpha_out:.1%} of SubnetAlphaOut — "
+                            f"{b.escrow_alpha / watch.subnet_alpha_out:.1%} of SubnetAlphaOut - "
                             "material stake-weight in subnet consensus"))
         prev = watch.previous_weights.get(b.hotkey)
         now = b.weight_to(watch.netuid)
         if prev is not None and prev > 0 and (prev - now) / prev >= ROTATION_WARN_REL_DROP:
             findings.append(MonitorFinding("warn", "basket_rotation",
                             f"validator {b.hotkey} weight to netuid {watch.netuid} "
-                            f"fell {prev:.1%} → {now:.1%} — R15 rotation early-warning; "
+                            f"fell {prev:.1%} → {now:.1%} - R15 rotation early-warning; "
                             "expect the dividend bid to shrink next epoch"))
 
     if watch.trailing_claim_alpha_30d > 0 and watch.total_escrow > 0:
         annualized = watch.trailing_claim_alpha_30d * 12.0 / watch.total_escrow
         if annualized > 2.0:
             findings.append(MonitorFinding("page", "claim_cluster",
-                            f"escrow claims running {annualized:.1f}×/yr of the basket — "
+                            f"escrow claims running {annualized:.1f}×/yr of the basket - "
                             "R16 claim clustering; check reserve coverage vs overhang"))
     findings.append(MonitorFinding("info", "escrow_level",
                     f"beta-basket escrow {watch.total_escrow:,.0f} α "
@@ -191,7 +191,7 @@ def king_early_warning(watch: KingWatch) -> list[MonitorFinding]:
     if watch.external_share_of_alpha_out >= KING_CONVICTION_THRESHOLD:
         findings.append(MonitorFinding("page", "king_threshold",
                         f"external hotkey {watch.largest_external_hotkey} holds "
-                        f"{watch.external_share_of_alpha_out:.1%} of SubnetAlphaOut rolled conviction — "
+                        f"{watch.external_share_of_alpha_out:.1%} of SubnetAlphaOut rolled conviction - "
                         "above the king-transfer eligibility threshold"))
     return findings
 
@@ -207,7 +207,7 @@ class NativeCollateralWatch:
 
     Empty `positions` with an *enabled* policy is missing visibility (warn),
     never 'no collateral'. `deployment_bond_by_hotkey` is the alpha each
-    miner still needs to `transfer_stake` for a desk bond — native locks
+    miner still needs to `transfer_stake` for a desk bond - native locks
     cannot fund that transfer.
     """
 
@@ -238,7 +238,7 @@ def native_collateral_findings(watch: NativeCollateralWatch) -> list[MonitorFind
         findings.append(MonitorFinding(
             "warn", "native_collateral_no_visibility",
             "native collateral policy is enabled but no per-UID rows are "
-            "readable — treat as missing data, not as zero locks"))
+            "readable - treat as missing data, not as zero locks"))
         return findings
 
     required = watch.policy.required_min_alpha
@@ -247,7 +247,7 @@ def native_collateral_findings(watch: NativeCollateralWatch) -> list[MonitorFind
         findings.append(MonitorFinding(
             "warn", "native_collateral_floor",
             f"{len(short)} miner(s) below the published floor "
-            f"({required:,.0f} α) — validators must zero their weights"))
+            f"({required:,.0f} α) - validators must zero their weights"))
 
     for p in watch.positions:
         bond = watch.deployment_bond_by_hotkey.get(p.hotkey, 0.0)
@@ -255,7 +255,7 @@ def native_collateral_findings(watch: NativeCollateralWatch) -> list[MonitorFind
             findings.append(MonitorFinding(
                 "warn", "native_collateral_starves_bond",
                 f"hotkey {p.hotkey}: free {p.free_alpha:,.0f} α < deployment "
-                f"bond {bond:,.0f} α — registration lock is blocking desk escrow"))
+                f"bond {bond:,.0f} α - registration lock is blocking desk escrow"))
 
     locked = total_native_locked(watch.positions)
     findings.append(MonitorFinding(
