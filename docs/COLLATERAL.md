@@ -17,7 +17,7 @@ Native collateral splits that into two things:
 
 **Force them to collateralize performance, and you pull expected return further into the future.** If validators catch an exploit or a blow-up and set weights to zero, the miner stops earning, remaining collateral **freezes**, and a later re-registration credits the standing lock rather than unlocking it.
 
-Predecessor: the [Church of Rao EVM collateral contracts](https://github.com/bactensor/collateral-contracts) (ComputeHorde SN12). Those allowed validators to `slashCollateral()` but required H160 wallets, gas, per-validator contracts, and reclaim/deny flows. Native collateral is the same economic idea pulled into Subtensor so explorers and `btcli` can see it.
+Predecessor: the [Church of Rao EVM collateral contracts](https://github.com/bactensor/collateral-contracts).
 
 This is **exactly Insignia’s scoring surface** (Sharpe, Sortino, Omega, max drawdown, 7-day consistency). The native primitive is the missing cheap, universal, on-chain layer under the scoring suite. It is **not** a substitute for the deployment bond that slashes against live desk P&L.
 
