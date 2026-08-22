@@ -15,8 +15,6 @@ Native collateral splits that into two things:
 1. **The ticket** — the burned share of the registration price.
 2. **The bet on future mining** — alpha locked as a bond, recoverable **only by earning emission** on that subnet.
 
-The origin is trading subnets that score Sharpe / Sortino / PnL (the SN8 fights). A miner can martingale: lever up, go all-in one direction, look statistically brilliant until they blow up. Short-window scores pay them; the blow-up is someone else’s problem.
-
 **Force them to collateralize performance, and you pull expected return further into the future.** They have to keep mining — and keep not blowing up — long enough to unlock the bond. If validators catch an exploit or a blow-up and set weights to zero, the miner stops earning, remaining collateral **freezes**, and a later re-registration credits the standing lock rather than unlocking it.
 
 Predecessor: the [Church of Rao EVM collateral contracts](https://github.com/bactensor/collateral-contracts) (ComputeHorde SN12). Those allowed validators to `slashCollateral()` but required H160 wallets, gas, per-validator contracts, and reclaim/deny flows. Native collateral is the same economic idea pulled into Subtensor so explorers and `btcli` can see it.
